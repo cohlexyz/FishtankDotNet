@@ -20,7 +20,7 @@ public class KiwiFlare(string kfDomain, string? proxy = null, CancellationToken?
     private HttpClientHandler GetHttpClientHandler()
     {
         var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All };
-        if (proxy != null)
+        if (string.IsNullOrEmpty(proxy) == false)
         {
             handler.Proxy = new WebProxy(proxy);
             handler.UseProxy = true;
@@ -104,7 +104,7 @@ public class KiwiFlare(string kfDomain, string? proxy = null, CancellationToken?
                 Salt = challenge.Salt
             });
         }
-    }   
+    }
 
     public async Task<KiwiFlareChallengeSolutionModel> SolveChallenge(KiwiFlareChallengeModel challenge)
     {
@@ -173,7 +173,7 @@ public class KiwiFlare(string kfDomain, string? proxy = null, CancellationToken?
             new("salt", solution.Salt),
             new("nonce", solution.Nonce.ToString())
         });
-        
+
         var response = await client.PostAsync($"https://{kfDomain}/.ttrs/challenge", formData, _ctx);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(_ctx);
         var success = json.GetProperty("success").GetBoolean();

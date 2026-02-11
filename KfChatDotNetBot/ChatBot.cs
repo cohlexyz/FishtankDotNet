@@ -74,7 +74,6 @@ public class ChatBot
             Proxy = settings[BuiltIn.Keys.Proxy].Value,
             ReconnectTimeout = settings[BuiltIn.Keys.KiwiFarmsWsReconnectTimeout].ToType<int>()
         });
-        FishtankForwarder.Start(this);
 
         _logger.Debug("Creating bot command instance");
         _botCommands = new BotCommands(this, _cancellationToken);

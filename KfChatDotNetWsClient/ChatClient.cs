@@ -75,7 +75,7 @@ public class ChatClient
         var factory = new Func<ClientWebSocket>(() =>
         {
             var clientWs = new ClientWebSocket();
-            if (_config.Proxy != null)
+            if (string.IsNullOrEmpty(_config.Proxy) == false)
             {
                 clientWs.Options.Proxy = new WebProxy(_config.Proxy);
             }
@@ -194,7 +194,7 @@ public class ChatClient
             WsDeleteMessagesReceived(message);
             return;
         }
-        
+
         _logger.Info($"Received packet this was not handled: {message.Text}");
     }
 
@@ -204,7 +204,7 @@ public class ChatClient
         if (_wsClient == null) throw new WebSocketNotInitializedException();
         _wsClient.Send($"/join {roomId}");
     }
-    
+
     public void SendMessage(string message)
     {
         _logger.Debug($"Sending '{message}'");
@@ -232,10 +232,10 @@ public class ChatClient
         if (_wsClient == null) throw new WebSocketNotInitializedException();
         await _wsClient.SendInstant($"/delete {messageId}");
     }
-    
+
     public void EditMessage(int messageId, string newMessage)
     {
-        var payload = JsonSerializer.Serialize(new EditMessageJsonModel {Id = messageId, Message = newMessage});
+        var payload = JsonSerializer.Serialize(new EditMessageJsonModel { Id = messageId, Message = newMessage });
         _logger.Debug($"Editing {messageId} with '{newMessage}'");
         if (_wsClient == null) throw new WebSocketNotInitializedException();
         _wsClient.Send($"/edit {payload}");
@@ -249,7 +249,7 @@ public class ChatClient
         {
             Encoder = JavaScriptEncoder.Create(settings)
         };
-        var payload = JsonSerializer.Serialize(new EditMessageJsonModel {Id = messageId, Message = newMessage}, options);
+        var payload = JsonSerializer.Serialize(new EditMessageJsonModel { Id = messageId, Message = newMessage }, options);
         _logger.Debug($"Editing {messageId} with '{newMessage}'");
         if (_wsClient == null) throw new WebSocketNotInitializedException();
         var msg = $"/edit {payload}";
@@ -291,7 +291,7 @@ public class ChatClient
                 MessageRawHtmlDecoded = WebUtility.HtmlDecode(chatMessage.MessageRaw),
                 MessageDate = DateTimeOffset.FromUnixTimeSeconds(chatMessage.MessageDate)
             };
-            
+
             if (chatMessage.MessageEditDate == 0)
             {
                 model.MessageEditDate = null;
@@ -325,7 +325,7 @@ public class ChatClient
                 LastActivity = DateTimeOffset.FromUnixTimeSeconds(data.Users[user].LastActivity)
             });
         }
-        var usersJoined= data.Users.Select(user => int.Parse(user.Key)).ToList();
+        var usersJoined = data.Users.Select(user => int.Parse(user.Key)).ToList();
         _logger.Debug($"Following users have joined: {string.Join(',', usersJoined)}");
         OnUsersJoined?.Invoke(this, users, data);
     }

@@ -30,11 +30,11 @@ public class KfTokenService
             _cookies.Add(new Cookie(key, cachedCookies[key], "/", _kfDomain));
         }
     }
-    
+
     private HttpClientHandler GetHttpClientHandler()
     {
         var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All };
-        if (_proxy != null)
+        if (string.IsNullOrEmpty(_proxy) == false)
         {
             handler.Proxy = new WebProxy(_proxy);
             handler.UseProxy = true;
@@ -189,6 +189,6 @@ public class KfTokenService
         _logger.Info("Wiping out cookies");
         _cookies = new CookieContainer();
     }
-    
+
     public class KiwiFarmsLogonFailedException : Exception;
 }

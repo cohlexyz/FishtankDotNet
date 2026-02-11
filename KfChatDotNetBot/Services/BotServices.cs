@@ -20,7 +20,7 @@ public class BotServices
     private readonly ChatBot _chatBot;
     private readonly CancellationToken _cancellationToken;
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
-    
+
     internal KickWsClient.KickWsClient? KickClient;
     private TwitchGraphQl? _twitch;
     private Shuffle? _shuffle;
@@ -41,14 +41,14 @@ public class BotServices
     private ShuffleDotUs? _shuffleDotUs;
     private YouTubePubSub? _youTubePubSub;
     public KasinoRain? KasinoRain;
-    
+
     private Task? _websocketWatchdog;
     private Task? _howlggGetUserTimer;
-    
+
     private string? _bmjTwitchUsername;
     private bool _twitchDisabled;
     private Dictionary<string, SeenYeetBet> _yeetBets = new();
-    
+
     // lol
     internal bool TemporarilyBypassGambaSeshForDiscord;
     internal bool TemporarilySuppressGambaMessages = false;
@@ -60,7 +60,7 @@ public class BotServices
         _cancellationToken = ctx;
         TemporarilyBypassGambaSeshForDiscord =
             SettingsProvider.GetValueAsync(BuiltIn.Keys.DiscordTemporarilyBypassGambaSeshInitialValue).Result.ToBoolean();
-        
+
         _logger.Info("Bot services ready to initialize!");
     }
 
@@ -74,24 +74,25 @@ public class BotServices
         _logger.Info("Initializing services");
         Task[] tasks =
         [
-            BuildShuffle(),
-            BuildDiscord(),
-            BuildTwitchChat(),
-            BuildHowlgg(),
-            BuildJackpot(),
-            BuildChipsgg(),
-            BuildKick(),
-            BuildTwitch(),
-            BuildClashgg(),
-            BuildAlmanacShill(),
-            BuildBetBolt(),
-            BuildYeet(),
-            BuildRainbet(),
-            BuildParti(),
-            BuildDLiveStatusCheck(),
-            BuildPeerTubeLiveStatusCheck(),
-            BuildOwncastLiveStatusCheck(),
-            BuildShuffleDotUs(),
+            // BuildShuffle(),
+            // BuildDiscord(),
+            // BuildTwitchChat(),
+            // BuildHowlgg(),
+            // BuildJackpot(),
+            // BuildChipsgg(),
+            // BuildKick(),
+            // BuildTwitch(),
+            // BuildClashgg(),
+            // BuildAlmanacShill(),
+            // BuildBetBolt(),
+            // BuildYeet(),
+            // BuildRainbet(),
+            // BuildParti(),
+            // BuildDLiveStatusCheck(),
+            // BuildPeerTubeLiveStatusCheck(),
+            // BuildOwncastLiveStatusCheck(),
+            // BuildShuffleDotUs(),
+            BuildFishtankForwarder(),
             BuildYouTubePubSub(),
             BuildKasinoRain()
         ];
@@ -104,10 +105,16 @@ public class BotServices
             _logger.Error("A service failed, exception follows");
             _logger.Error(e);
         }
-        
+
         _logger.Info("Starting websocket watchdog and Howl.gg user stats timer");
         _websocketWatchdog = WebsocketWatchdog();
         _howlggGetUserTimer = HowlggGetUserTimer();
+    }
+
+    private async Task BuildFishtankForwarder()
+    {
+        _logger.Debug("Building the Fishtank Forwarder thingy");
+        _ = Task.Run(async () => FishtankForwarder.Start(_chatBot));
     }
 
     private async Task BuildKasinoRain()
@@ -115,7 +122,7 @@ public class BotServices
         _logger.Debug("Building the Kasino Rain thingy");
         KasinoRain = new KasinoRain(_chatBot, _cancellationToken);
     }
-    
+
     private async Task BuildShuffle()
     {
         _logger.Debug("Building Shuffle");
@@ -123,7 +130,7 @@ public class BotServices
         _shuffle.OnLatestBetUpdated += ShuffleOnLatestBetUpdated;
         await _shuffle.StartWsClient();
     }
-    
+
     private async Task BuildShuffleDotUs()
     {
         _logger.Debug("Building Shuffle.us");
@@ -131,7 +138,7 @@ public class BotServices
         _shuffleDotUs.OnLatestBetUpdated += ShuffleOnLatestBetUpdated;
         await _shuffleDotUs.StartWsClient();
     }
-    
+
     private async Task BuildYouTubePubSub()
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.YouTubePubSubEnabled]);
@@ -179,7 +186,7 @@ public class BotServices
         await _rainbet.StartWsClient();
         _logger.Info("Built Rainbet Websocket");
     }
-    
+
     private async Task BuildChipsgg()
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.Proxy, BuiltIn.Keys.ChipsggEnabled]);
@@ -193,7 +200,7 @@ public class BotServices
         await _chipsgg.StartWsClient();
         _logger.Info("Built Chips.gg Websocket connection");
     }
-    
+
     private async Task BuildJackpot()
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.Proxy, BuiltIn.Keys.JackpotEnabled]);
@@ -208,7 +215,7 @@ public class BotServices
         await _jackpot.StartWsClient();
         _logger.Info("Built Jackpot Websocket connection");
     }
-    
+
     private async Task BuildBetBolt()
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.Proxy, BuiltIn.Keys.BetBoltEnabled]);
@@ -223,7 +230,7 @@ public class BotServices
         await _betBolt.StartWsClient();
         _logger.Info("Built BetBolt Websocket connection");
     }
-    
+
     private async Task BuildYeet()
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.YeetProxy, BuiltIn.Keys.YeetEnabled]);
@@ -252,7 +259,7 @@ public class BotServices
         await _clashgg.StartWsClient();
         _logger.Info("Built Clash.gg Websocket connection");
     }
-    
+
     private async Task BuildTwitch()
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.TwitchBossmanJackUsername, BuiltIn.Keys.Proxy]);
@@ -294,13 +301,13 @@ public class BotServices
         ]);
         KickClient = new KickWsClient.KickWsClient(settings[BuiltIn.Keys.PusherEndpoint].Value!,
             settings[BuiltIn.Keys.Proxy].Value, settings[BuiltIn.Keys.PusherReconnectTimeout].ToType<int>());
-        
+
         KickClient.OnStreamerIsLive += OnStreamerIsLive;
         KickClient.OnChatMessage += OnKickChatMessage;
         KickClient.OnWsReconnect += OnPusherWsReconnected;
         KickClient.OnPusherSubscriptionSucceeded += OnPusherSubscriptionSucceeded;
         KickClient.OnStopStreamBroadcast += OnStopStreamBroadcast;
-        
+
         if (settings[BuiltIn.Keys.KickEnabled].ToBoolean())
         {
             await KickClient.StartWsClient();
@@ -330,7 +337,7 @@ public class BotServices
             }
         }
     }
-    
+
     private async Task BuildTwitchChat()
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.TwitchBossmanJackUsername, BuiltIn.Keys.Proxy]);
@@ -347,7 +354,7 @@ public class BotServices
         _twitchChat.OnMessageReceived += TwitchChatOnMessageReceived;
         await _twitchChat.StartWsClient();
     }
-    
+
     private async Task BuildAlmanacShill()
     {
         AlmanacShill = new AlmanacShill(_chatBot);
@@ -368,7 +375,7 @@ public class BotServices
         _logger.Info("Built the DLive livestream status check task");
         return Task.CompletedTask;
     }
-    
+
     private Task BuildPeerTubeLiveStatusCheck()
     {
         _peerTubeStatusCheck = new PeerTube(_chatBot);
@@ -376,7 +383,7 @@ public class BotServices
         _logger.Info("Built the PeerTube livestream status check task");
         return Task.CompletedTask;
     }
-    
+
     private Task BuildOwncastLiveStatusCheck()
     {
         _owncastStatusCheck = new Owncast(_chatBot);
@@ -384,7 +391,7 @@ public class BotServices
         _logger.Info("Built the Owncast livestream status check task");
         return Task.CompletedTask;
     }
-    
+
     private async Task BuildParti()
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.Proxy, BuiltIn.Keys.PartiEnabled]);
@@ -476,7 +483,7 @@ public class BotServices
                     KickClient = null!;
                     await BuildKick();
                 }
-                
+
                 if (settings[BuiltIn.Keys.ClashggEnabled].ToBoolean() && _clashgg != null && !_clashgg.IsConnected())
                 {
                     _logger.Error("Clash.gg died, recreating it");
@@ -484,7 +491,7 @@ public class BotServices
                     _clashgg = null!;
                     await BuildClashgg();
                 }
-                
+
                 if (settings[BuiltIn.Keys.BetBoltEnabled].ToBoolean() && _betBolt != null && !_betBolt.IsConnected())
                 {
                     _logger.Error("BetBolt died, recreating it");
@@ -492,7 +499,7 @@ public class BotServices
                     _betBolt = null!;
                     await BuildBetBolt();
                 }
-                
+
                 if (settings[BuiltIn.Keys.YeetEnabled].ToBoolean() && _yeet != null && !_yeet.IsConnected())
                 {
                     _logger.Error("Yeet died, recreating it");
@@ -500,7 +507,7 @@ public class BotServices
                     _yeet = null!;
                     await BuildYeet();
                 }
-                
+
                 if (settings[BuiltIn.Keys.RainbetEnabled].ToBoolean() && _rainbet != null && !_rainbet.IsConnected())
                 {
                     _logger.Error("Rainbet died, recreating it");
@@ -508,7 +515,7 @@ public class BotServices
                     _rainbet = null!;
                     await BuildRainbet();
                 }
-                
+
                 if (settings[BuiltIn.Keys.PartiEnabled].ToBoolean() && _parti != null && !_parti.IsConnected())
                 {
                     _logger.Error("Parti died, recreating it");
@@ -516,7 +523,7 @@ public class BotServices
                     _parti = null!;
                     await BuildParti();
                 }
-                
+
                 if (_shuffleDotUs != null && !_shuffleDotUs.IsConnected())
                 {
                     _logger.Error("Shuffle.us died, recreating it");
@@ -541,7 +548,7 @@ public class BotServices
             }
         }
     }
-    
+
     private async Task HowlggGetUserTimer()
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
@@ -552,7 +559,7 @@ public class BotServices
             _howlgg.GetUserInfo(bmjUserId.Value!);
         }
     }
-    
+
     private void OnRainbetBet(object sender, RainbetWsBetModel bet)
     {
         var settings = SettingsProvider
@@ -615,7 +622,7 @@ public class BotServices
         _chatBot.SendChatMessage($"🚨🚨 JACKPOT BETTING 🚨🚨 {bet.User} just bet {bet.Wager} {bet.Currency} which paid out " +
                                  $"[color={payoutColor}]{bet.Payout} {bet.Currency}[/color] ({bet.Multiplier}x) on {bet.GameName} 💰💰", true);
     }
-    
+
     private void OnClashggBet(object sender, ClashggBetModel bet, JsonElement jsonElement)
     {
         var settings = SettingsProvider
@@ -634,7 +641,7 @@ public class BotServices
             .Wait(_cancellationToken);
         if (CheckBmjIsLive().Result) return;
         var username = settings[BuiltIn.Keys.TwitchBossmanJackUsername].Value;
-        
+
         var payoutColor = settings[BuiltIn.Keys.KiwiFarmsGreenColor].Value;
         if (bet.Payout < bet.Bet) payoutColor = settings[BuiltIn.Keys.KiwiFarmsRedColor].Value;
         if (bet is { Game: ClashggGame.Mines, Multiplier: <= 1 })
@@ -655,7 +662,7 @@ public class BotServices
         _chatBot.SendChatMessage($"🚨🚨 CLASH.GG BETTING 🚨🚨 {username} just bet {bet.Bet / 100.0:N2} {bet.Currency.Humanize()} Money which paid out " +
                                  $"[color={payoutColor}]{bet.Payout / 100.0:N2} {bet.Currency.Humanize()} Money[/color] ({bet.Multiplier}x) on {bet.Game.Humanize()} 💰💰", true);
     }
-    
+
     private void OnBetBoltBet(object sender, BetBoltBetModel bet)
     {
         var settings = SettingsProvider
@@ -675,7 +682,7 @@ public class BotServices
         _chatBot.SendChatMessage($"🚨🚨 JEETBOLT BETTING 🚨🚨 {bet.Username} just bet {bet.BetAmountFiat:C} ({bet.BetAmountCrypto:N2} {bet.Crypto}) and won " +
                                  $"[color={payoutColor}]{bet.WinAmountFiat:C} ({bet.WinAmountCrypto:N2} {bet.Crypto})[/color] ({bet.Multiplier:N2}x) on {bet.GameName} 💩💩", true);
     }
-    
+
     private void OnYeetBet(object sender, YeetCasinoBetModel bet)
     {
         var settings = SettingsProvider
@@ -692,9 +699,9 @@ public class BotServices
         if (CheckBmjIsLive().Result) return;
         //if (bet.WinAmountFiat < 0) payoutColor = settings[BuiltIn.Keys.KiwiFarmsRedColor].Value;
         var msg = _chatBot.SendChatMessage($"🚨🚨 JEET BETTING 🚨🚨 {bet.Username} just bet {bet.BetAmount:C} worth of {bet.CurrencyCode} on {bet.GameName} 💩💩", true);
-        _yeetBets.Add(bet.BetIdentifier, new SeenYeetBet {Bet = bet, Message = msg});
+        _yeetBets.Add(bet.BetIdentifier, new SeenYeetBet { Bet = bet, Message = msg });
     }
-    
+
     private void OnYeetWin(object sender, YeetCasinoWinModel bet)
     {
         var settings = SettingsProvider
@@ -750,7 +757,7 @@ public class BotServices
 
         await _chatBot.KfClient.EditMessageAsync(oldMsg.ChatMessageId.Value, newMsg);
     }
-    
+
     private void OnHowlggBetHistory(object sender, HowlggBetHistoryResponseModel data)
     {
         _logger.Debug("Received bet history from Howl.gg");
@@ -786,7 +793,7 @@ public class BotServices
 
         db.SaveChanges();
     }
-    
+
     private void DiscordOnConversationSummaryUpdate(object sender, DiscordConversationSummaryUpdateModel summary, string guildId)
     {
         _logger.Info($"Received a conversation summary update for guild {guildId}");
@@ -807,7 +814,7 @@ public class BotServices
         }
         _chatBot.SendChatMessage($"[img]{discordIcon.Value}[/img] {summary.Topic}: {summary.SummaryShort} 🤖🤖", true);
     }
-    
+
     private void DiscordOnChannelDeleted(object sender, DiscordChannelDeletionModel channel)
     {
         _logger.Info($"Received channel deletion event of type {channel.Type} with name {channel.Name}");
@@ -829,7 +836,7 @@ public class BotServices
         _chatBot.SendChatMessage($"[img]{discordIcon.Value}[/img] New Discord {channel.Type.Humanize()} channel created: {channelName} 🚨🚨", true);
         UpdateBossmanLastSighting($"creating {channelName} on Discord").Wait(_cancellationToken);
     }
-    
+
     private void TwitchChatOnMessageReceived(object sender, string nick, string target, string message)
     {
         if (nick != _bmjTwitchUsername)
@@ -900,13 +907,13 @@ public class BotServices
             UpdateBossmanLastSighting("ending a stage on Discord").Wait(_cancellationToken);
             return;
         }
-        
+
         var result = $"[img]{settings[BuiltIn.Keys.DiscordIcon].Value}[/img] {message.Author.GlobalName ?? message.Author.Username}: {message.Content?.Replace("❤️", ":feels:")}";
         foreach (var attachment in message.Attachments ?? [])
         {
             result += $"[br]Attachment: {attachment.GetProperty("filename").GetString()} {attachment.GetProperty("url").GetString()}";
         }
-        
+
         _chatBot.SendChatMessage(result, TemporarilyBypassGambaSeshForDiscord);
         UpdateBossmanLastSighting("talking in Discord").Wait(_cancellationToken);
     }
@@ -1017,7 +1024,7 @@ public class BotServices
         _chatBot.SendChatMessage($"{settings[BuiltIn.Keys.TwitchBossmanJackUsername].Value} is no longer live! :lossmanjack:", true);
         UpdateBossmanLastSighting("ending stream on Twitch").Wait(_cancellationToken);
     }
-    
+
     private void OnChipsggRecentBet(object sender, ChipsggBetModel bet)
     {
         var settings = SettingsProvider
@@ -1034,9 +1041,18 @@ public class BotServices
         using var db = new ApplicationDbContext();
         db.ChipsggBets.Add(new ChipsggBetDbModel
         {
-            Created = bet.Created, Updated = bet.Updated, UserId = bet.UserId ?? "0", Username = bet.Username ?? "Unknown", Win = bet.Win,
-            Winnings = bet.Winnings, GameTitle = bet.GameTitle!, Amount = bet.Amount, Multiplier = bet.Multiplier,
-            Currency = bet.Currency!, CurrencyPrice = bet.CurrencyPrice, BetId = bet.BetId ?? "0"
+            Created = bet.Created,
+            Updated = bet.Updated,
+            UserId = bet.UserId ?? "0",
+            Username = bet.Username ?? "Unknown",
+            Win = bet.Win,
+            Winnings = bet.Winnings,
+            GameTitle = bet.GameTitle!,
+            Amount = bet.Amount,
+            Multiplier = bet.Multiplier,
+            Currency = bet.Currency!,
+            CurrencyPrice = bet.CurrencyPrice,
+            BetId = bet.BetId ?? "0"
         });
         db.SaveChanges();
         UpdateBossmanLastSighting($"betting {bet.Amount:N} {bet.Currency!.ToUpper()} on {bet.GameTitle} at Chips.gg")
@@ -1051,7 +1067,7 @@ public class BotServices
             $"({bet.Winnings * bet.CurrencyPrice:C})[/plain][/color] [plain]({bet.Multiplier:N}x) on {bet.GameTitle}[/plain] 💰💰",
             true);
     }
-    
+
     private void OnPusherWsReconnected(object sender, ReconnectionInfo reconnectionInfo)
     {
         _logger.Error($"Pusher reconnected due to {reconnectionInfo.Type}");
@@ -1086,20 +1102,20 @@ public class BotServices
     {
         _logger.Info($"Pusher indicates subscription to {e?.Channel} was successful");
     }
-    
+
     private void OnKickChatMessage(object sender, KickModels.ChatMessageEventModel? e)
     {
-        if (e == null) return; 
+        if (e == null) return;
         _logger.Debug($"BB Code Translation: {e.Content.TranslateKickEmotes()}");
 
         if (e.Sender.Slug != "bossmanjack") return;
         var kickIcon = SettingsProvider.GetValueAsync(BuiltIn.Keys.KickIcon).Result;
-        
+
         _logger.Debug("Message from BossmanJack");
         _chatBot.SendChatMessage($"[img]{kickIcon.Value}[/img] BossmanJack: {e.Content.TranslateKickEmotes()}");
         UpdateBossmanLastSighting("talking in Kick chat").Wait(_cancellationToken);
     }
-    
+
     private void OnStreamerIsLive(object sender, KickModels.StreamerIsLiveEventModel? e)
     {
         if (e == null) return;
@@ -1132,7 +1148,7 @@ public class BotServices
             }
 
             if (meta.ChannelId != e.Livestream.ChannelId) continue;
-            
+
             channel = ch;
             break;
         }
@@ -1158,7 +1174,7 @@ public class BotServices
             _ = new StreamCapture(channel.StreamUrl, StreamCaptureMethods.YtDlp, meta?.CaptureOverrides, _cancellationToken).CaptureAsync();
         }
     }
-    
+
     private void OnPartiChannelLiveNotification(object sender, PartiChannelLiveNotificationModel data)
     {
         var settings = SettingsProvider
@@ -1196,7 +1212,7 @@ public class BotServices
                 _logger.Error(e);
             }
         }
-        
+
         _chatBot.SendChatMessage($"{identity} is live! {data.EventTitle} {url}", true);
         if (channel.AutoCapture && settings[BuiltIn.Keys.CaptureEnabled].ToBoolean())
         {
@@ -1234,7 +1250,7 @@ public class BotServices
             }
 
             if (meta.ChannelId != e.Livestream.Id) continue;
-            
+
             channel = ch;
             break;
         }
@@ -1278,7 +1294,7 @@ public class BotServices
         };
         await SettingsProvider.SetValueAsJsonObjectAsync(BuiltIn.Keys.BossmanLastSighting, sighting);
     }
-    
+
     private void YouTubePubSubOnNewVideo(object sender, YouTubePubSubNotificationModel data)
     {
         var video = YouTubeApi.GetVideoDetails(data.Id).Result;
