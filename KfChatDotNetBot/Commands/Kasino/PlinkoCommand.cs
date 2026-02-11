@@ -14,10 +14,8 @@ namespace KfChatDotNetBot.Commands.Kasino;
 public class PlinkoCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^plinko (?<amount>\d+\.\d+) (?<number>\d+)$", RegexOptions.IgnoreCase),
-        new Regex(@"^plinko (?<amount>\d+) (?<number>\d+)$", RegexOptions.IgnoreCase),
-        new Regex(@"^plinko (?<amount>\d+)$", RegexOptions.IgnoreCase),
-        new Regex(@"^plinko (?<amount>\d+\.\d+)$", RegexOptions.IgnoreCase),
+        new Regex(@"^plinko (?<amount>\d+(?:\.\d+)?) (?<number>\d+)$", RegexOptions.IgnoreCase),
+        new Regex(@"^plinko (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
         new Regex("^plinko")
     ];
     public string? HelpText => "!plinko <bet amount> <optional number of balls 1 - 10, default 1 if nothing entered>";
@@ -39,7 +37,8 @@ public class PlinkoCommand : ICommand
     private const string BIGWINSPACE = "💲";
     
     private const int DIFFICULTY = 8;//maybe plan to allow user to change difficulty of plinko in future updates, would need to change the payout logic though
-    private static readonly double VACUUM = 0.27;
+    private static double VACUUM = 0.25;
+    private decimal HOUSE_EDGE = (decimal)0.98;
     
     private static Dictionary<decimal, string> PAYOUTSTOSTRING = new Dictionary<decimal, string>()
     {
@@ -69,7 +68,7 @@ public class PlinkoCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
-        
+        VACUUM += 1 - (double)HOUSE_EDGE;
         validPositions = new List<(int row, int col)>() { (0, DIFFICULTY-1) };
         validColumnsForRow = new Dictionary<int, List<int>>(){{0, new List<int>(){DIFFICULTY-1}}};
         
@@ -151,6 +150,14 @@ public class PlinkoCommand : ICommand
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
                 true, autoDeleteAfter: cleanupDelay);
+            return;
+        }
+        
+        if (wager == 0)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, you have to wager more than {await wager.FormatKasinoCurrencyAsync()}", true,
+                autoDeleteAfter: cleanupDelay);
             return;
         }
         

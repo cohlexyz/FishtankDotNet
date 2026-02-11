@@ -36,7 +36,7 @@ public class ChatBot
     private DateTime _lastReconnectAttempt = DateTime.UtcNow;
     private List<ScheduledAutoDeleteModel> _scheduledDeletions = [];
     private Task _scheduledAutoDeleteTask;
-    
+
     public ChatBot()
     {
         _logger.Info("Bot starting!");
@@ -44,7 +44,7 @@ public class ChatBot
         _logger.Debug("Starting services");
         BotServices = new BotServices(this, _cancellationToken);
         BotServices.InitializeServices();
-        
+
         _kfDeadBotDetection = KfDeadBotDetectionTask();
         var settings = SettingsProvider.GetMultipleValuesAsync([
             BuiltIn.Keys.KiwiFarmsWsEndpoint, BuiltIn.Keys.KiwiFarmsDomain,
@@ -52,19 +52,8 @@ public class ChatBot
 
         _kfTokenService = new KfTokenService(settings[BuiltIn.Keys.KiwiFarmsDomain].Value!,
             settings[BuiltIn.Keys.Proxy].Value, _cancellationToken);
-        
-        KfClient = new ChatClient(new ChatClientConfigModel
-        {
-            WsUri = new Uri(settings[BuiltIn.Keys.KiwiFarmsWsEndpoint].Value ?? throw new InvalidOperationException($"{BuiltIn.Keys.KiwiFarmsWsEndpoint} cannot be null")),
-            XfSessionToken = _kfTokenService.GetXfSessionCookie(),
-            CookieDomain = settings[BuiltIn.Keys.KiwiFarmsDomain].Value ?? throw new InvalidOperationException($"{BuiltIn.Keys.KiwiFarmsDomain} cannot be null"),
-            Proxy = settings[BuiltIn.Keys.Proxy].Value,
-            ReconnectTimeout = settings[BuiltIn.Keys.KiwiFarmsWsReconnectTimeout].ToType<int>()
-        });
 
-        FishtankForwarder.Start(this);
-        
-        if (_kfTokenService.GetXfSessionCookie() == null)
+        if (_kfTokenService.GetCookies().Count == 0)
         {
             try
             {
@@ -76,7 +65,17 @@ public class ChatBot
                 _logger.Error(e);
             }
         }
-  
+
+        KfClient = new ChatClient(new ChatClientConfigModel
+        {
+            WsUri = new Uri(settings[BuiltIn.Keys.KiwiFarmsWsEndpoint].Value ?? throw new InvalidOperationException($"{BuiltIn.Keys.KiwiFarmsWsEndpoint} cannot be null")),
+            Cookies = _kfTokenService.GetCookies(),
+            CookieDomain = settings[BuiltIn.Keys.KiwiFarmsDomain].Value ?? throw new InvalidOperationException($"{BuiltIn.Keys.KiwiFarmsDomain} cannot be null"),
+            Proxy = settings[BuiltIn.Keys.Proxy].Value,
+            ReconnectTimeout = settings[BuiltIn.Keys.KiwiFarmsWsReconnectTimeout].ToType<int>()
+        });
+        FishtankForwarder.Start(this);
+
         _logger.Debug("Creating bot command instance");
         _botCommands = new BotCommands(this, _cancellationToken);
 
@@ -86,14 +85,14 @@ public class ChatBot
         KfClient.OnWsDisconnection += OnKfWsDisconnected;
         KfClient.OnWsReconnect += OnKfWsReconnected;
         KfClient.OnFailedToJoinRoom += OnFailedToJoinRoom;
-        
+
         KfClient.StartWsClient().Wait(_cancellationToken);
 
         _logger.Debug("Creating ping task");
         _kfChatPing = KfPingTask();
         _logger.Debug("Creating scheduled auto deletion task");
         _scheduledAutoDeleteTask = ScheduledDeletionTask();
-        
+
         _logger.Debug("Blocking the main thread");
         var exitEvent = new ManualResetEvent(false);
         exitEvent.WaitOne();
@@ -120,10 +119,6 @@ public class ChatBot
             _logger.Error("Caught an exception while trying to refresh the XF token");
             _logger.Error(e);
         }
-        _kfTokenService.SaveCookies().Wait(_cancellationToken);
-        // Shouldn't be null if we've just refreshed the token
-        // It's only null if a logon has never been attempted since the cookie DB entry was created
-        KfClient.UpdateToken(_kfTokenService.GetXfSessionCookie()!);
         _logger.Info("Retrieved fresh token. Reconnecting.");
         KfClient.Disconnect();
         KfClient.StartWsClient().Wait(_cancellationToken);
@@ -158,7 +153,7 @@ public class ChatBot
             }
         }
     }
-    
+
     private async Task KfDeadBotDetectionTask()
     {
         var interval = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.BotDeadBotDetectionInterval)).ToType<int>();
@@ -177,6 +172,9 @@ public class ChatBot
                 _logger.Error($"inactivityTime -> {inactivityTime:g}");
                 _logger.Error($"deadTime -> {deadTime:g}");
                 if (shouldExit) Environment.Exit(1);
+                _logger.Error("Since we didn't exit, let's try forcing a connection");
+                await KfClient.DisconnectAsync();
+                await KfClient.StartWsClient();
             }
         }
     }
@@ -236,6 +234,9 @@ public class ChatBot
             if (await _kfTokenService.IsLoggedIn())
             {
                 _logger.Info("We were already logged in and should have a fresh cookie for chat now");
+                _logger.Info("Updating cookies");
+                await _kfTokenService.SaveCookies();
+                KfClient.UpdateCookies(_kfTokenService.GetCookies());
                 // Only seems to happen if the bot thinks it's already logged in
                 return;
             }
@@ -261,6 +262,9 @@ public class ChatBot
         }
 
         _logger.Info("Successfully logged in");
+        _logger.Info("Updating cookies");
+        await _kfTokenService.SaveCookies();
+        KfClient.UpdateCookies(_kfTokenService.GetCookies());
     }
 
     private void OnKfChatMessage(object sender, List<MessageModel> messages, MessagesJsonModel jsonPayload)
@@ -281,7 +285,7 @@ public class ChatBot
             replayMsg.Status = SentMessageTrackerStatus.WaitingForResponse;
             replayMsg.SentAt = DateTimeOffset.UtcNow;
         }
-        foreach(var lostMsg in SentMessages.Where(msg => msg.Status == SentMessageTrackerStatus.ChatDisconnected))
+        foreach (var lostMsg in SentMessages.Where(msg => msg.Status == SentMessageTrackerStatus.ChatDisconnected))
         {
             lostMsg.Status = SentMessageTrackerStatus.Lost;
         }
@@ -373,7 +377,7 @@ public class ChatBot
             }
             else
             {
-                _seenMessages.Add(new SeenMessageMetadataModel {MessageId = message.MessageId, LastEdited = message.MessageEditDate});
+                _seenMessages.Add(new SeenMessageMetadataModel { MessageId = message.MessageId, LastEdited = message.MessageEditDate });
             }
             UpdateUserLastActivityAsync(message.Author.Id, WhoWasActivityType.Message).Wait(_cancellationToken);
             // Strip weird control characters and just allow basic punctuation + whitespace
@@ -383,13 +387,13 @@ public class ChatBot
                 message.Author.Username != settings[BuiltIn.Keys.KiwiFarmsUsername].Value &&
                 settings[BuiltIn.Keys.BotRespondToDiscordImpersonation].ToBoolean() &&
                 (kindaSanitized.Contains("discord16.png") ||
-                 kindaSanitized.Contains("mBossmanJack:", StringComparison.CurrentCultureIgnoreCase) || 
+                 kindaSanitized.Contains("mBossmanJack:", StringComparison.CurrentCultureIgnoreCase) ||
                  kindaSanitized.Contains("by @KenoGPT at", StringComparison.CurrentCultureIgnoreCase)))
             {
                 SendChatMessage($"☝️ {message.Author.Username} is a nigger faggot", true);
             }
         }
-        
+
         if (InitialStartCooldown) InitialStartCooldown = false;
     }
 
@@ -440,7 +444,7 @@ public class ChatBot
             SentMessages.Add(messageTracker);
             return messageTracker;
         }
-        
+
         if (messageTracker.Message.Utf8LengthBytes() > lengthLimit && lengthLimitBehavior != LengthLimitBehavior.DoNothing)
         {
             if (lengthLimitBehavior == LengthLimitBehavior.RefuseToSend)
@@ -462,7 +466,7 @@ public class ChatBot
                 messageTracker.Message = messageTracker.Message.TruncateBytes(lengthLimit).TrimEnd();
             }
         }
-        
+
         messageTracker.Status = SentMessageTrackerStatus.WaitingForResponse;
         messageTracker.SentAt = DateTimeOffset.UtcNow;
         _logger.Debug($"Message is {messageTracker.Message.Utf8LengthBytes()} bytes");
@@ -531,8 +535,33 @@ public class ChatBot
         return message;
     }
 
+    /// <summary>
+    /// Wait for a chat message to be successfully delivered or not
+    /// </summary>
+    /// <param name="message">Reference to the message you're waiting for</param>
+    /// <param name="patience">How long to wait</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>True if the message was echoed, false otherwise</returns>
+    public async Task<bool> WaitForChatMessageAsync(SentMessageTrackerModel message, TimeSpan? patience = null, CancellationToken ct = default)
+    {
+        if (patience == null)
+        {
+            patience = TimeSpan.FromSeconds(60);
+        }
+
+        var patienceEnds = DateTimeOffset.UtcNow.Add(patience.Value);
+        while (message.ChatMessageId == null)
+        {
+            if (DateTimeOffset.UtcNow > patienceEnds) return false;
+            if (message.Status is SentMessageTrackerStatus.Lost or SentMessageTrackerStatus.NotSending) return false;
+            await Task.Delay(100, ct);
+        }
+
+        return true;
+    }
+
     public class SentMessageNotFoundException : Exception;
-    
+
     private void OnUsersJoined(object sender, List<UserModel> users, UsersJsonModel jsonPayload)
     {
         var settings = SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.GambaSeshUserId, BuiltIn.Keys.GambaSeshDetectEnabled, BuiltIn.Keys.BotKeesSeen])
@@ -627,8 +656,13 @@ public class ChatBot
         _logger.Error($"Sneedchat disconnected due to {disconnectionInfo.Type}");
         _logger.Error($"Close Status => {disconnectionInfo.CloseStatus}; Close Status Description => {disconnectionInfo.CloseStatusDescription}");
         _logger.Error(disconnectionInfo.Exception);
+        if (disconnectionInfo.Exception!.Message.Contains("status code '203'"))
+        {
+            _logger.Info("Chat 203'd, getting a new token");
+            RefreshXfToken().Wait(_cancellationToken);
+        }
     }
-    
+
     private void OnKfWsReconnected(object sender, ReconnectionInfo reconnectionInfo)
     {
         _lastReconnectAttempt = DateTime.UtcNow;

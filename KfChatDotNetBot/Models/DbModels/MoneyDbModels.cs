@@ -274,7 +274,11 @@ public enum TransactionSourceEventType
     /// <summary>
     /// A specific form of 24 hour time-based reload that has no wager requirement
     /// </summary>
-    DailyDollar
+    DailyDollar,
+    ///<summary>
+    ///A form of juicer where the value is split among a number of participants
+    /// </summary>
+    Rain
 }
 
 public enum WagerGame
@@ -298,7 +302,9 @@ public enum WagerGame
     Slots,
     Blackjack,
     [Description("Plinko")]
-    Plinko
+    Plinko,
+    [Description("Roulette but live")]
+    Roulette
 }
 
 public enum GamblerState

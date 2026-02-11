@@ -76,34 +76,11 @@ public class TempExcludeCommand : ICommand
     }
 }
 
-internal record KasinoGameSetting(WagerGame Game, string SettingKey, string Alias);
-
-internal static class KasinoGameSettingMap
-{
-    internal static readonly IReadOnlyList<KasinoGameSetting> All = new List<KasinoGameSetting>
-    {
-        new(WagerGame.GuessWhatNumber, BuiltIn.Keys.KasinoGuessWhatNumberEnabled, "guesswhatnumber"),
-        new(WagerGame.Dice, BuiltIn.Keys.KasinoDiceEnabled, "dice"),
-        new(WagerGame.Limbo, BuiltIn.Keys.KasinoLimboEnabled, "limbo"),
-        new(WagerGame.Mines, BuiltIn.Keys.KasinoMinesEnabled, "mines"),
-        new(WagerGame.Wheel, BuiltIn.Keys.KasinoWheelEnabled, "wheel"),
-        new(WagerGame.Blackjack, BuiltIn.Keys.KasinoBlackjackEnabled, "blackjack"),
-        new(WagerGame.Planes, BuiltIn.Keys.KasinoPlanesEnabled, "planes"),
-        new(WagerGame.LambChop, BuiltIn.Keys.KasinoLambchopEnabled, "lambchop"),
-        new(WagerGame.Keno, BuiltIn.Keys.KasinoKenoEnabled, "keno"),
-        new(WagerGame.CoinFlip, BuiltIn.Keys.KasinoCoinflipEnabled, "coinflip"),
-        new(WagerGame.Slots, BuiltIn.Keys.KasinoSlotsEnabled, "slots"),
-        new(WagerGame.Plinko, BuiltIn.Keys.KasinoPlinkoEnabled, "plinko")
-    };
-    
-    internal static KasinoGameSetting? FindByAlias(string alias) =>
-        All.FirstOrDefault(g =>
-            g.Alias.Equals(alias, StringComparison.OrdinalIgnoreCase));
-}
 public class KasinoGameToggleCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^admin kasino (?<game>\w+) (?<action>enable|disable)$", RegexOptions.IgnoreCase)
+        new Regex(@"^admin kasino (?<game>\w+) (?<action>enable|disable)$", RegexOptions.IgnoreCase),
+        new Regex("^kasino (?<action>open|close)$", RegexOptions.IgnoreCase)
     ];
     
     public string? HelpText => "Enable or disable a Kasino game (use 'all' to toggle all games)";
@@ -114,36 +91,56 @@ public class KasinoGameToggleCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
-        if (!arguments.TryGetValue("game", out var gameArg) || !arguments.TryGetValue("action", out var actionArg))
+        if (!arguments.TryGetValue("action", out var actionArg))
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, usage: !admin kasino <game|all> enable|disable", true);
             return;
         }
+
+        string gameName;
+
+        if (!arguments.TryGetValue("game", out var gameArg))
+        {
+            gameName = "all";
+        }
+        else
+        {
+            gameName = gameArg.Value;
+        }
         
-        var gameName = gameArg.Value.ToLower();
         var action = actionArg.Value.ToLower();
-        var shouldEnable = action == "enable";
-        
+        var shouldEnable = action is "enable" or "open";
         var status = shouldEnable ? "enabled" : "disabled";
         
+        await using var db = new ApplicationDbContext();
+        var gameSettingPattern = new Regex(@"^Kasino\.(?<game>\w+)\.Enabled$", RegexOptions.IgnoreCase);
+
+        var allGameSettings = await db.Settings
+            .Where(s => s.Key.StartsWith("Kasino.") && s.Key.EndsWith(".Enabled") && !s.Key.Contains("DailyDollar"))
+            .ToListAsync(ctx);
+        
         // Handle "all" games
-        if (gameName == "all")
+        if (gameName.Equals("all", StringComparison.OrdinalIgnoreCase))
         {
-            foreach (var gameInfo in KasinoGameSettingMap.All)
+            foreach (var setting in allGameSettings)
             {
-                await SettingsProvider.SetValueAsBooleanAsync(gameInfo.SettingKey, shouldEnable);
+                await SettingsProvider.SetValueAsBooleanAsync(setting.Key, shouldEnable);
             }
             
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, all {KasinoGameSettingMap.All.Count} Kasino games have been {status}.", true);
+                $"{user.FormatUsername()}, all {allGameSettings.Count} Kasino games have been {status}.", true);
             return;
         }
         
-        // Handle individual game
-        var gameInfoMap = KasinoGameSettingMap.FindByAlias(gameName);
+        // Handle individual game - find matching setting key
+        var matchedSetting = allGameSettings.FirstOrDefault(s =>
+        {
+            var match = gameSettingPattern.Match(s.Key);
+            return match.Success && match.Groups["game"].Value.Equals(gameName, StringComparison.OrdinalIgnoreCase);
+        });
         
-        if (gameInfoMap is null)
+        if (matchedSetting is null)
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, unknown game '{gameName}'. Use '!admin kasino games' to see available games, or use 'all' to toggle all games.",
@@ -151,9 +148,10 @@ public class KasinoGameToggleCommand : ICommand
             return;
         }
         
-        await SettingsProvider.SetValueAsBooleanAsync(gameInfoMap.SettingKey, shouldEnable);
+        await SettingsProvider.SetValueAsBooleanAsync(matchedSetting.Key, shouldEnable);
         
-        var gameDisplayName = gameInfoMap.Game.Humanize();
+        var match = gameSettingPattern.Match(matchedSetting.Key);
+        var gameDisplayName = match.Groups["game"].Value.Humanize();
         
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, {gameDisplayName} has been {status}.", true);
@@ -175,25 +173,37 @@ public class KasinoGameListCommand : ICommand
         CancellationToken ctx)
     {
         var response = $"{user.FormatUsername()}, Kasino games:[br]";
-        var colors =
-            await SettingsProvider.GetMultipleValuesAsync([
-                BuiltIn.Keys.KiwiFarmsGreenColor, BuiltIn.Keys.KiwiFarmsRedColor
-            ]);
+        var colors = await SettingsProvider.GetMultipleValuesAsync([
+            BuiltIn.Keys.KiwiFarmsGreenColor, 
+            BuiltIn.Keys.KiwiFarmsRedColor
+        ]);
 
-        foreach (var game in KasinoGameSettingMap.All
-                     .OrderBy(g => g.Game.ToString()))
+        await using var db = new ApplicationDbContext();
+        var gameSettingPattern = new Regex(@"^Kasino\.(?<game>\w+)\.Enabled$", RegexOptions.IgnoreCase);
+        
+        var allGameSettings = await db.Settings
+            .Where(s => s.Key.StartsWith("Kasino.") && s.Key.EndsWith(".Enabled"))
+            .ToListAsync(ctx);
+
+        var orderedSettings = allGameSettings.OrderBy(s =>
         {
-            var isEnabled = (await SettingsProvider
-                    .GetValueAsync(game.SettingKey))
-                .ToBoolean();
+            var match = gameSettingPattern.Match(s.Key);
+            return match.Groups["game"].Value;
+        });
+
+        foreach (var setting in orderedSettings)
+        {
+            var isEnabled = setting.Value?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false;
+            var match = gameSettingPattern.Match(setting.Key);
+            var gameName = match.Groups["game"].Value.Humanize();
 
             var status = isEnabled
                 ? $"[B][COLOR={colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value}]ENABLED[/COLOR][/B]"
                 : $"[B][COLOR={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]DISABLED[/COLOR][/B]";
 
-            response += $"{game.Game.Humanize()}: {status}[br]";
+            response += $"{gameName}: {status}[br]";
         }
 
-        await botInstance.SendChatMessageAsync(response,true);
+        await botInstance.SendChatMessageAsync(response, true);
     }
 }

@@ -15,12 +15,8 @@ namespace KfChatDotNetBot.Commands.Kasino;
 public class LimboCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^limbo (?<amount>\d+) (?<number>\d+\.\d+)$", RegexOptions.IgnoreCase),
-        new Regex(@"^limbo (?<amount>\d+\.\d+) (?<number>\d+\.\d+)$", RegexOptions.IgnoreCase),
-        new Regex(@"^limbo (?<amount>\d+\.\d+) (?<number>\d+)$", RegexOptions.IgnoreCase),
-        new Regex(@"^limbo (?<amount>\d+) (?<number>\d+)$", RegexOptions.IgnoreCase),
-        new Regex(@"^limbo (?<amount>\d+)$", RegexOptions.IgnoreCase),
-        new Regex(@"^limbo (?<amount>\d+\.\d+)$", RegexOptions.IgnoreCase),
+        new Regex(@"^limbo (?<amount>\d+(?:\.\d+)?) (?<number>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
+        new Regex(@"^limbo (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
         new Regex("^limbo")
     ];
     public string? HelpText => "!limbo <bet amount> <optional number, default 2>";
@@ -34,6 +30,7 @@ public class LimboCommand : ICommand
 
     private const double Min = 1;
     private const double Max = 10000;
+    private decimal HOUSE_EDGE = (decimal)0.98;
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
@@ -73,6 +70,14 @@ public class LimboCommand : ICommand
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
                 true, autoDeleteAfter: cleanupDelay);
+            return;
+        }
+        
+        if (wager == 0)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, you have to wager more than {await wager.FormatKasinoCurrencyAsync()}", true,
+                autoDeleteAfter: cleanupDelay);
             return;
         }
 
@@ -119,10 +124,10 @@ public class LimboCommand : ICommand
     
     //returns a distribution with a 1/multi chance of getting a number below or above sqr(min * max) (so max should basically be multi^2). basically gives you a 1/x fair chance to win
     //then scales the number using the number scaling function
-    private static decimal[] Get1XWeightedRandomNumber(double minValue, double maxValue, decimal multi)
+    private decimal[] Get1XWeightedRandomNumber(double minValue, double maxValue, decimal multi)
     {
         var random = RandomShim.Create(StandardRng.Create());
-        var skew = 1.0 / (double)(multi * (decimal)1.01);
+        var skew = 1.0 / (double)(multi);
         var gamma = Math.Log(0.5) / Math.Log(skew);
         var r = random.NextDouble();
         var rP = 1 - Math.Pow(1 - r, gamma);
@@ -130,7 +135,7 @@ public class LimboCommand : ICommand
         var lnMax = Math.Log(maxValue);
         var exponent = lnMin + rP * (lnMax - lnMin);
         var result = new decimal[2];
-        result[0] = (decimal)Math.Exp(exponent);
+        result[0] = (decimal)Math.Exp(exponent) * HOUSE_EDGE;
         result[1] = GetScaledNumber(lnMin, lnMax, exponent, result[0], multi);
         return result;
     }

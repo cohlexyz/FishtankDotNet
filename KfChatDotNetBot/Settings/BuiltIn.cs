@@ -414,9 +414,11 @@ public static class BuiltIn
         public static string KasinoGuessWhatNumberCleanupDelay = "Kasino.GuessWhatNumber.CleanupDelay";
         [BuiltInSetting("Delay in milliseconds before cleaning up the Keno board", SettingValueType.Text, "30000", WholeNumberRegex)]
         public static string KasinoKenoCleanupDelay = "Kasino.Keno.CleanupDelay";
-        [BuiltInSetting("Delay in milliseconds before cleaning up the Planes board and result", SettingValueType.Text, "60000", WholeNumberRegex)]
+        [BuiltInSetting("Delay in milliseconds before cleaning up the Mines board and result", SettingValueType.Text, "60000", WholeNumberRegex)]
+        public static string KasinoMinesCleanupDelay = "Kasino.Mines.CleanupDelay";
+        [BuiltInSetting("Delay in milliseconds before cleaning up the Planes command messages", SettingValueType.Text, "60000", WholeNumberRegex)]
         public static string KasinoPlanesCleanupDelay = "Kasino.Planes.CleanupDelay";
-        [BuiltInSetting("Delay in milliseconds between each check to see whether tehre's messages to be deleted", SettingValueType.Text, "1000", WholeNumberRegex)]
+        [BuiltInSetting("Delay in milliseconds between each check to see whether there's messages to be deleted", SettingValueType.Text, "1000", WholeNumberRegex)]
         public static string BotScheduledDeletionInterval = "Bot.ScheduledDeletionInterval";
         [BuiltInSetting("Disable the conversation summaries feature", SettingValueType.Boolean, "false", BooleanRegex)]
         public static string DiscordDisableConversationSummaries = "Discord.DisableConversationSummaries";
@@ -502,8 +504,19 @@ public static class BuiltIn
         public static string KasinoSlotsEnabled = "Kasino.Slots.Enabled";
         [BuiltInSetting("Whether plinko is enabled", SettingValueType.Boolean, "true", BooleanRegex)]
         public static string KasinoPlinkoEnabled = "Kasino.Plinko.Enabled";
+        [BuiltInSetting("Enable/disable roulette game", SettingValueType.Boolean, "true")]
+        public static string KasinoRouletteEnabled = "Kasino.Roulette.Enabled";
+        [BuiltInSetting("Roulette countdown duration in seconds", SettingValueType.Text, "120", WholeNumberRegex)]
+        public static string KasinoRouletteCountdownDuration = "Kasino.Roulette.CountdownDuration";
         [BuiltInSetting("Whether Xeet posting is enabled", SettingValueType.Boolean, "true", BooleanRegex)]
         public static string XeetEnabled = "Xeet.Enabled";
+        [BuiltInSetting("Connection string for bot's Redis", SettingValueType.Text)]
+        public static string BotRedisConnectionString = "Bot.RedisConnectionString";
+        [BuiltInSetting("Whether to automatically rehost images when they're added", SettingValueType.Boolean, "true",
+            BooleanRegex)]
+        public static string BotImageRehostEnabled = "Bot.Image.RehostEnabled";
+        [BuiltInSetting("Domain to look for when determining whether to rehost", SettingValueType.Text, "i.ddos.lgbt")]
+        public static string BotImageRehostDomain = "Bot.Image.RehostDomain";
     }
 }
 
