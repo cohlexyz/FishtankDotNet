@@ -61,6 +61,8 @@ public class ChatBot
             Proxy = settings[BuiltIn.Keys.Proxy].Value,
             ReconnectTimeout = settings[BuiltIn.Keys.KiwiFarmsWsReconnectTimeout].ToType<int>()
         });
+
+        FishtankForwarder.Start(this);
         
         if (_kfTokenService.GetXfSessionCookie() == null)
         {
