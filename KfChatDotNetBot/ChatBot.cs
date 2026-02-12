@@ -119,8 +119,7 @@ public class ChatBot
             _logger.Error(e);
         }
         _logger.Info("Retrieved fresh token. Reconnecting.");
-        KfClient.Disconnect();
-        KfClient.StartWsClient().Wait(_cancellationToken);
+        KfClient.ReconnectAsync().Wait(_cancellationToken);
         _logger.Info("Client should be reconnecting now");
     }
 
@@ -147,8 +146,7 @@ public class ChatBot
                 // Yeah, super dodgy
                 KfClient.LastPacketReceived = DateTime.UtcNow;
                 _logger.Error("Forcing disconnect and restart as bot is completely dead");
-                await KfClient.DisconnectAsync();
-                await KfClient.StartWsClient();
+                await KfClient.ReconnectAsync();
             }
         }
     }
@@ -171,9 +169,8 @@ public class ChatBot
                 _logger.Error($"inactivityTime -> {inactivityTime:g}");
                 _logger.Error($"deadTime -> {deadTime:g}");
                 if (shouldExit) Environment.Exit(1);
-                _logger.Error("Since we didn't exit, let's try forcing a connection");
-                await KfClient.DisconnectAsync();
-                await KfClient.StartWsClient();
+                _logger.Error("Since we didn't exit, let's try forcing a reconnect");
+                await KfClient.ReconnectAsync();
             }
         }
     }
@@ -655,10 +652,12 @@ public class ChatBot
         _logger.Error($"Sneedchat disconnected due to {disconnectionInfo.Type}");
         _logger.Error($"Close Status => {disconnectionInfo.CloseStatus}; Close Status Description => {disconnectionInfo.CloseStatusDescription}");
         _logger.Error(disconnectionInfo.Exception);
-        if (disconnectionInfo.Exception!.Message.Contains("status code '203'"))
+        if (disconnectionInfo.Exception != null && disconnectionInfo.Exception.Message.Contains("status code '203'"))
         {
             _logger.Info("Chat 203'd, getting a new token");
             RefreshXfToken().Wait(_cancellationToken);
+            _logger.Info("Reconnecting");
+            KfClient.ReconnectAsync().Wait(_cancellationToken);
         }
     }
 
