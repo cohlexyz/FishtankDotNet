@@ -205,7 +205,7 @@ public static class Money
             WagerRequirement = nextTier
         };
     }
-    
+
     /// <summary>
     /// Retrieve a gambler entity for a given user
     /// Returns null if createIfNoneExists is false and no gambler exists
@@ -259,7 +259,7 @@ public static class Money
         _logger.Info($"New gambler entity created for {user.KfUsername} with ID {newEntity.Id}");
         return newEntity;
     }
-        
+
     /// <summary>
     /// Simple check to see whether a user has been permanently banned from the kasino
     /// </summary>
@@ -272,7 +272,7 @@ public static class Money
         return await db.Gamblers.AnyAsync(u => u.User.Id == userId && u.State == GamblerState.PermanentlyBanned,
             cancellationToken: ct);
     }
-    
+
     /// <summary>
     /// Modify a gambler's balance by a given +/- amount
     /// </summary>
@@ -291,7 +291,11 @@ public static class Money
         var gambler = await db.Gamblers.FirstOrDefaultAsync(x => x.Id == gamblerId, cancellationToken: ct);
         if (gambler == null)
         {
-            throw new Exception($"Could not find gambler entity with given ID {gamblerId}");
+            gambler = await GetGamblerEntityAsync(gamblerId, createIfNoneExists: true, ct);
+            if (gambler == null)
+            {
+                throw new Exception($"Tried to modify balance for gambler with ID {gamblerId} who does not exist, and failed to create a new entity for them");
+            }
         }
         _logger.Info($"Updating balance for {gambler.Id} with effect {effect:N}. Balance is currently {gambler.Balance:N}");
         gambler.Balance += effect;
@@ -311,7 +315,7 @@ public static class Money
         await db.SaveChangesAsync(ct);
         return gambler.Balance;
     }
-    
+
     /// <summary>
     /// Add a wager to the database
     /// Will also issue a balance update unless you explicitly disable autoModifyBalance
@@ -399,7 +403,7 @@ public static class Money
         _logger.Info($"Added transaction with ID {txn.Entity.Id}");
         return gambler.Balance;
     }
-    
+
     /// <summary>
     /// Get an active exclusion, returns null if there's no active exclusion
     /// If there's somehow multiple exclusions, will just grab the most recent one
@@ -413,7 +417,7 @@ public static class Money
         return (await db.Exclusions.Where(g => g.Gambler.Id == gamblerId).ToListAsync(ct))
             .LastOrDefault(e => e.Expires >= DateTimeOffset.UtcNow);
     }
-    
+
     /// <summary>
     /// Get random number using the gambler's seed and a given number of iterations
     /// </summary>
@@ -442,7 +446,7 @@ public static class Money
         }
         return result;
     }
-    
+
     /// <summary>
     /// Get random number double [0, 1]
     /// </summary>
@@ -464,7 +468,7 @@ public static class Money
         }
         return result;
     }
-    
+
     /// <summary>
     /// Get the user's current VIP level
     /// </summary>
@@ -483,7 +487,7 @@ public static class Money
         }
         return perk;
     }
-    
+
     /// <summary>
     /// Upgrade to the given VIP level. Grants a bonus as part of the level up.
     /// </summary>
@@ -526,7 +530,7 @@ public static class Money
             $"VIP Level '{nextVipLevel.VipLevel.Icon} {nextVipLevel.VipLevel.Name}' Tier {nextVipLevel.Tier} level up bonus", ct: ct);
         return payout;
     }
-    
+
     /// <summary>
     /// Generate a short random string based on the first 4 bytes of a GUID for event IDs
     /// </summary>

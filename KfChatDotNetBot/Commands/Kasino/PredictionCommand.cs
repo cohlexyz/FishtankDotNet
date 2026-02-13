@@ -131,7 +131,7 @@ public class PredictionStartCommand : ICommand
 
         // Parse quoted strings from the message content
         var messageText = message.Message;
-        var startMatch = Regex.Match(messageText, @"^(?:prediction|pred)\s+start\s+(.+)$", RegexOptions.IgnoreCase);
+        var startMatch = Regex.Match(messageText, @"^.(?:prediction|pred)\s+start\s+(.+)$", RegexOptions.IgnoreCase);
         if (!startMatch.Success)
         {
             await botInstance.SendChatMessageAsync(
@@ -141,6 +141,9 @@ public class PredictionStartCommand : ICommand
         }
 
         var argsText = startMatch.Groups[1].Value;
+        // unescape escaped "&quot; and other HTML entities that might be in the input
+        argsText = System.Net.WebUtility.HtmlDecode(argsText);
+
         var quotedStrings = new List<string>();
         var regex = new Regex(@"""([^""]*)""");
         var matches = regex.Matches(argsText);
@@ -222,7 +225,7 @@ public class PredictionBetCommand : ICommand
         new Regex(@"^bet (.+)$", RegexOptions.IgnoreCase)
     ];
 
-    public string? HelpText => "!bet [\"prediction name\"] <amount> <option> - Bet on a prediction outcome";
+    public string? HelpText => "!bet [\"prediction name\"] <amount> <option_name> - Bet on a prediction outcome (supports fuzzy matching)";
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(5);
     public RateLimitOptionsModel? RateLimitOptions => new()
@@ -251,11 +254,11 @@ public class PredictionBetCommand : ICommand
         var redisDb = redis.GetDatabase();
 
         // Parse the bet command - supports:
-        // !bet <amount> <option> (when 0-1 predictions active)
-        // !bet "prediction name" <amount> <option> (when multiple active)
-        // !bet prediction name <amount> <option> (partial name without quotes)
+        // !bet <amount> <option_name> (when 0-1 predictions active)
+        // !bet "prediction name" <amount> <option_name> (when multiple active)
+        // !bet prediction name <amount> <option_name> (partial name without quotes)
         var messageText = message.Message;
-        var betMatch = Regex.Match(messageText, @"^bet\s+(.+)$", RegexOptions.IgnoreCase);
+        var betMatch = Regex.Match(messageText, @"^.bet\s+(.+)$", RegexOptions.IgnoreCase);
         if (!betMatch.Success)
         {
             await botInstance.SendChatMessageAsync(
@@ -265,6 +268,7 @@ public class PredictionBetCommand : ICommand
         }
 
         var argsText = betMatch.Groups[1].Value.Trim();
+        argsText = System.Net.WebUtility.HtmlDecode(argsText);
         var activePredictions = await redisDb.SetMembersAsync("predictions:active");
 
         if (activePredictions.Length == 0)
@@ -280,14 +284,14 @@ public class PredictionBetCommand : ICommand
         decimal amount;
         int optionIndex;
 
-        // Try to parse as: "prediction name" amount option OR amount option
-        var quotedMatch = Regex.Match(argsText, @"^""([^""]+)""\s+(\d+(?:\.\d+)?)\s+(\d+)$");
+        // Try to parse as: "prediction name" amount option_name OR amount option_name
+        var quotedMatch = Regex.Match(argsText, @"^""([^""]+)""\s+(\d+(?:\.\d+)?)\s+(.+)$");
         if (quotedMatch.Success)
         {
             // Has quoted prediction name
             var searchTerm = quotedMatch.Groups[1].Value;
             amount = Convert.ToDecimal(quotedMatch.Groups[2].Value);
-            optionIndex = int.Parse(quotedMatch.Groups[3].Value);
+            var optionNamePart = quotedMatch.Groups[3].Value.Trim();
 
             (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
 
@@ -298,37 +302,65 @@ public class PredictionBetCommand : ICommand
                     true, autoDeleteAfter: TimeSpan.FromSeconds(10));
                 return;
             }
+
+            // Find option by name using fuzzy matching
+            var optionSearchLower = optionNamePart.ToLower();
+            var matchingOptions = prediction.Options
+                .Where(o => o.Text.ToLower().Contains(optionSearchLower))
+                .ToList();
+
+            if (matchingOptions.Count == 0)
+            {
+                var optionsText = string.Join(", ", prediction.Options.Select(o => $"{o.Index}. {o.Text}"));
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, couldn't find option matching '{optionNamePart}'. Options: {optionsText}",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
+            }
+
+            if (matchingOptions.Count > 1)
+            {
+                var optionsText = string.Join(", ", matchingOptions.Select(o => $"{o.Index}. {o.Text}"));
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, multiple options match '{optionNamePart}': {optionsText}. Please be more specific.",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
+            }
+
+            optionIndex = matchingOptions[0].Index;
         }
         else
         {
-            // Try simple format: amount option
-            var simpleMatch = Regex.Match(argsText, @"^(\d+(?:\.\d+)?)\s+(\d+)$");
-            if (simpleMatch.Success && activePredictions.Length == 1)
+            // Try: unquoted prediction name amount option_name
+            // Find the first number as the amount
+            var amountMatch = Regex.Match(argsText, @"\d+(?:\.\d+)?");
+            if (amountMatch.Success)
             {
-                // Simple format works only with one prediction
-                amount = Convert.ToDecimal(simpleMatch.Groups[1].Value);
-                optionIndex = int.Parse(simpleMatch.Groups[2].Value);
-                predictionId = activePredictions[0].ToString();
-                var json = await redisDb.StringGetAsync($"prediction:{predictionId}");
-                prediction = json.IsNullOrEmpty ? null : JsonSerializer.Deserialize<PredictionData>(json!.ToString());
-            }
-            else
-            {
-                // Try: unquoted prediction name amount option
-                // Extract last two numbers as amount and option
-                var numbers = Regex.Matches(argsText, @"\d+(?:\.\d+)?");
-                if (numbers.Count >= 2)
+                var predictionNamePart = argsText.Substring(0, amountMatch.Index).Trim();
+                amount = Convert.ToDecimal(amountMatch.Value);
+                var optionNamePart = argsText.Substring(amountMatch.Index + amountMatch.Length).Trim();
+
+                if (string.IsNullOrWhiteSpace(optionNamePart))
                 {
-                    var lastTwoStart = numbers[numbers.Count - 2].Index;
-                    var searchTerm = argsText.Substring(0, lastTwoStart).Trim();
-                    amount = Convert.ToDecimal(numbers[numbers.Count - 2].Value);
-                    optionIndex = int.Parse(numbers[numbers.Count - 1].Value);
+                    // No option name provided
+                    await botInstance.SendChatMessageAsync(
+                        $"{user.FormatUsername()}, invalid bet format. Use: !bet [\"prediction name\"] <amount> <option_name>",
+                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    return;
+                }
 
-                    (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
-
-                    if (predictionId == null || prediction == null)
+                // Find prediction (or use the only active one if no name given)
+                if (string.IsNullOrWhiteSpace(predictionNamePart))
+                {
+                    if (activePredictions.Length == 1)
                     {
-                        // Show list of active predictions
+                        predictionId = activePredictions[0].ToString();
+                        var json = await redisDb.StringGetAsync($"prediction:{predictionId}");
+                        prediction = json.IsNullOrEmpty ? null : JsonSerializer.Deserialize<PredictionData>(json!.ToString());
+                    }
+                    else
+                    {
+                        // Multiple predictions but no name specified
                         var activeList = await PredictionHelper.ListActivePredictions(redisDb);
                         var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
                         await botInstance.SendChatMessageAsync(
@@ -339,11 +371,60 @@ public class PredictionBetCommand : ICommand
                 }
                 else
                 {
+                    (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, predictionNamePart, activePredictions);
+
+                    if (predictionId == null || prediction == null)
+                    {
+                        // Show list of active predictions
+                        var activeList = await PredictionHelper.ListActivePredictions(redisDb);
+                        var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
+                        await botInstance.SendChatMessageAsync(
+                            $"{user.FormatUsername()}, couldn't find prediction matching '{predictionNamePart}'. Active predictions:[br]{listText}",
+                            true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+                        return;
+                    }
+                }
+
+                // Find option by name using fuzzy matching
+                if (prediction == null)
+                {
                     await botInstance.SendChatMessageAsync(
-                        $"{user.FormatUsername()}, invalid bet format. Use: !bet [\"prediction name\"] <amount> <option>",
+                        $"{user.FormatUsername()}, prediction data is invalid",
                         true, autoDeleteAfter: TimeSpan.FromSeconds(10));
                     return;
                 }
+
+                var optionSearchLower = optionNamePart.ToLower();
+                var matchingOptions = prediction.Options
+                    .Where(o => o.Text.ToLower().Contains(optionSearchLower))
+                    .ToList();
+
+                if (matchingOptions.Count == 0)
+                {
+                    var optionsText = string.Join(", ", prediction.Options.Select(o => $"{o.Index}. {o.Text}"));
+                    await botInstance.SendChatMessageAsync(
+                        $"{user.FormatUsername()}, couldn't find option matching '{optionNamePart}'. Options: {optionsText}",
+                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    return;
+                }
+
+                if (matchingOptions.Count > 1)
+                {
+                    var optionsText = string.Join(", ", matchingOptions.Select(o => $"{o.Index}. {o.Text}"));
+                    await botInstance.SendChatMessageAsync(
+                        $"{user.FormatUsername()}, multiple options match '{optionNamePart}': {optionsText}. Please be more specific.",
+                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    return;
+                }
+
+                optionIndex = matchingOptions[0].Index;
+            }
+            else
+            {
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, invalid bet format. Use: !bet [\"prediction name\"] <amount> <option_name>",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
             }
         }
 
@@ -446,7 +527,7 @@ public class PredictionEndCommand : ICommand
         new Regex(@"^pred end (.+)$", RegexOptions.IgnoreCase)
     ];
 
-    public string? HelpText => "!prediction end [\"prediction name\"] <winning_option> - End a prediction and pay winners";
+    public string? HelpText => "!prediction end [\"prediction name\"] <winning_option_name> - End a prediction and pay winners (supports fuzzy matching)";
     public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
@@ -470,9 +551,9 @@ public class PredictionEndCommand : ICommand
         var redis = await ConnectionMultiplexer.ConnectAsync(settings[BuiltIn.Keys.BotRedisConnectionString].Value!);
         var redisDb = redis.GetDatabase();
 
-        // Parse: "prediction name" winning_option OR winning_option OR name winning_option
+        // Parse: "prediction name" winning_option_name OR winning_option_name OR name winning_option_name
         var messageText = message.Message;
-        var endMatch = Regex.Match(messageText, @"^(?:prediction|pred)\s+end\s+(.+)$", RegexOptions.IgnoreCase);
+        var endMatch = Regex.Match(messageText, @"^.(?:prediction|pred)\s+end\s+(.+)$", RegexOptions.IgnoreCase);
         if (!endMatch.Success)
         {
             await botInstance.SendChatMessageAsync(
@@ -482,6 +563,7 @@ public class PredictionEndCommand : ICommand
         }
 
         var argsText = endMatch.Groups[1].Value.Trim();
+        argsText = System.Net.WebUtility.HtmlDecode(argsText);
         var activePredictions = await redisDb.SetMembersAsync("predictions:active");
 
         if (activePredictions.Length == 0)
@@ -496,37 +578,163 @@ public class PredictionEndCommand : ICommand
         PredictionData? prediction = null;
         int winningOptionIndex;
 
-        // Try quoted format: "prediction name" winning_option
-        var quotedMatch = Regex.Match(argsText, @"^""([^""]+)""\s+(\d+)$");
+        // Try quoted format: "prediction name" winning_option_name
+        var quotedMatch = Regex.Match(argsText, @"^""([^""]+)""\s+(.+)$");
         if (quotedMatch.Success)
         {
             var searchTerm = quotedMatch.Groups[1].Value;
-            winningOptionIndex = int.Parse(quotedMatch.Groups[2].Value);
+            var optionNamePart = quotedMatch.Groups[2].Value.Trim();
             (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
+
+            if (predictionId == null || prediction == null)
+            {
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, couldn't find prediction matching '{searchTerm}'",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
+            }
+
+            // Find option by name using fuzzy matching
+            var optionSearchLower = optionNamePart.ToLower();
+            var matchingOptions = prediction.Options
+                .Where(o => o.Text.ToLower().Contains(optionSearchLower))
+                .ToList();
+
+            if (matchingOptions.Count == 0)
+            {
+                var optionsText = string.Join(", ", prediction.Options.Select(o => $"{o.Index}. {o.Text}"));
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, couldn't find option matching '{optionNamePart}'. Options: {optionsText}",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
+            }
+
+            if (matchingOptions.Count > 1)
+            {
+                var optionsText = string.Join(", ", matchingOptions.Select(o => $"{o.Index}. {o.Text}"));
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, multiple options match '{optionNamePart}': {optionsText}. Please be more specific.",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
+            }
+
+            winningOptionIndex = matchingOptions[0].Index;
         }
-        else if (Regex.IsMatch(argsText, @"^\d+$") && activePredictions.Length == 1)
+        else if (activePredictions.Length == 1)
         {
-            // Just a number and only one prediction
-            winningOptionIndex = int.Parse(argsText);
+            // Only one prediction - entire argsText is the option name
             predictionId = activePredictions[0].ToString();
             var json = await redisDb.StringGetAsync($"prediction:{predictionId}");
             prediction = json.IsNullOrEmpty ? null : JsonSerializer.Deserialize<PredictionData>(json!.ToString());
+
+            if (prediction == null)
+            {
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, prediction data is invalid",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
+            }
+
+            // Find option by name using fuzzy matching
+            var optionSearchLower = argsText.ToLower();
+            var matchingOptions = prediction.Options
+                .Where(o => o.Text.ToLower().Contains(optionSearchLower))
+                .ToList();
+
+            if (matchingOptions.Count == 0)
+            {
+                var optionsText = string.Join(", ", prediction.Options.Select(o => $"{o.Index}. {o.Text}"));
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, couldn't find option matching '{argsText}'. Options: {optionsText}",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
+            }
+
+            if (matchingOptions.Count > 1)
+            {
+                var optionsText = string.Join(", ", matchingOptions.Select(o => $"{o.Index}. {o.Text}"));
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, multiple options match '{argsText}': {optionsText}. Please be more specific.",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
+            }
+
+            winningOptionIndex = matchingOptions[0].Index;
         }
         else
         {
-            // Try: unquoted name winning_option
-            var lastNumber = Regex.Match(argsText, @"(\d+)$");
-            if (lastNumber.Success)
+            // Multiple predictions - try to split prediction name and option name
+            // We need to find where the prediction name ends and option name begins
+            // Strategy: try to find a prediction that matches a prefix of argsText
+            var allActivePredictions = new List<(string id, PredictionData data)>();
+            foreach (var id in activePredictions)
             {
-                winningOptionIndex = int.Parse(lastNumber.Groups[1].Value);
-                var searchTerm = argsText.Substring(0, lastNumber.Index).Trim();
-                (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
+                var json = await redisDb.StringGetAsync($"prediction:{id}");
+                if (!json.IsNullOrEmpty)
+                {
+                    var pred = JsonSerializer.Deserialize<PredictionData>(json!.ToString());
+                    if (pred != null && pred.State == PredictionState.Active)
+                    {
+                        allActivePredictions.Add((id.ToString()!, pred));
+                    }
+                }
+            }
+
+            // Try to find the longest prediction name match at the start of argsText
+            var bestPredictionMatch = allActivePredictions
+                .Where(p => argsText.ToLower().StartsWith(p.data.Description.ToLower()))
+                .OrderByDescending(p => p.data.Description.Length)
+                .FirstOrDefault();
+
+            if (bestPredictionMatch != default)
+            {
+                // Found a prediction name at the start
+                predictionId = bestPredictionMatch.id;
+                prediction = bestPredictionMatch.data;
+                var optionNamePart = argsText.Substring(bestPredictionMatch.data.Description.Length).Trim();
+
+                if (string.IsNullOrWhiteSpace(optionNamePart))
+                {
+                    await botInstance.SendChatMessageAsync(
+                        $"{user.FormatUsername()}, please specify the winning option. Use: !prediction end \"{prediction.Description}\" <option_name>",
+                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    return;
+                }
+
+                // Find option by name using fuzzy matching
+                var optionSearchLower = optionNamePart.ToLower();
+                var matchingOptions = prediction.Options
+                    .Where(o => o.Text.ToLower().Contains(optionSearchLower))
+                    .ToList();
+
+                if (matchingOptions.Count == 0)
+                {
+                    var optionsText = string.Join(", ", prediction.Options.Select(o => $"{o.Index}. {o.Text}"));
+                    await botInstance.SendChatMessageAsync(
+                        $"{user.FormatUsername()}, couldn't find option matching '{optionNamePart}'. Options: {optionsText}",
+                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    return;
+                }
+
+                if (matchingOptions.Count > 1)
+                {
+                    var optionsText = string.Join(", ", matchingOptions.Select(o => $"{o.Index}. {o.Text}"));
+                    await botInstance.SendChatMessageAsync(
+                        $"{user.FormatUsername()}, multiple options match '{optionNamePart}': {optionsText}. Please be more specific.",
+                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    return;
+                }
+
+                winningOptionIndex = matchingOptions[0].Index;
             }
             else
             {
+                // Couldn't determine prediction - show list
+                var activeList = await PredictionHelper.ListActivePredictions(redisDb);
+                var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
                 await botInstance.SendChatMessageAsync(
-                    $"{user.FormatUsername()}, invalid format. Use: !prediction end [\"name\"] <winning_option>",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    $"{user.FormatUsername()}, couldn't parse command. Multiple predictions active:[br]{listText}[br]Use: !prediction end \"<name>\" <option_name>",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(15));
                 return;
             }
         }
@@ -581,8 +789,16 @@ public class PredictionEndCommand : ICommand
 
             _logger.Info($"User {bet.Username} won {winShare:N} (profit: {profit:N}) from bet of {bet.Amount:N}");
 
+            // Get the gambler entity to update their balance
+            var gambler = await Money.GetGamblerEntityAsync(bet.UserId, ct: ctx);
+            if (gambler == null)
+            {
+                _logger.Error($"Could not find gambler for user ID {bet.UserId} ({bet.Username}) when paying out prediction");
+                continue;
+            }
+
             // Update balance with the complete wager
-            var newBalance = await Money.ModifyBalanceAsync(bet.UserId, winShare,
+            var newBalance = await Money.ModifyBalanceAsync(gambler.Id, winShare,
                 TransactionSourceEventType.Gambling,
                 $"Prediction win: {prediction.Description}", ct: ctx);
 
@@ -663,7 +879,7 @@ public class PredictionStatusCommand : ICommand
 
         // Check if user specified a prediction name
         var messageText = message.Message;
-        var statusMatch = Regex.Match(messageText, @"^(?:prediction|pred)(?:\s+status)?(?:\s+(.+))?$", RegexOptions.IgnoreCase);
+        var statusMatch = Regex.Match(messageText, @"^.(?:prediction|pred)(?:\s+status)?(?:\s+(.+))?$", RegexOptions.IgnoreCase);
 
         string? predictionId = null;
         PredictionData? prediction = null;
@@ -671,7 +887,10 @@ public class PredictionStatusCommand : ICommand
         if (statusMatch.Success && statusMatch.Groups.Count > 1 && !string.IsNullOrWhiteSpace(statusMatch.Groups[1].Value))
         {
             // User specified a name
-            var searchTerm = statusMatch.Groups[1].Value.Trim().Trim('"');
+            var searchTerm = statusMatch.Groups[1].Value.Trim();
+            searchTerm = System.Net.WebUtility.HtmlDecode(searchTerm);
+            searchTerm = searchTerm.Trim('"');
+
             if (searchTerm.ToLower() != "status") // Ignore if they just typed "prediction status"
             {
                 (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
@@ -796,7 +1015,7 @@ public class PredictionCloseBetsCommand : ICommand
 
         // Parse: "prediction name" OR name OR nothing (if only one)
         var messageText = message.Message;
-        var closeMatch = Regex.Match(messageText, @"^(?:prediction|pred)\s+close(?:\s+(.+))?$", RegexOptions.IgnoreCase);
+        var closeMatch = Regex.Match(messageText, @"^.(?:prediction|pred)\s+close(?:\s+(.+))?$", RegexOptions.IgnoreCase);
 
         string? predictionId = null;
         PredictionData? prediction = null;
@@ -804,7 +1023,10 @@ public class PredictionCloseBetsCommand : ICommand
         if (closeMatch.Success && closeMatch.Groups.Count > 1 && !string.IsNullOrWhiteSpace(closeMatch.Groups[1].Value))
         {
             // User specified a name
-            var searchTerm = closeMatch.Groups[1].Value.Trim().Trim('"');
+            var searchTerm = closeMatch.Groups[1].Value.Trim();
+            searchTerm = System.Net.WebUtility.HtmlDecode(searchTerm);
+            searchTerm = searchTerm.Trim('"');
+
             (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
 
             if (predictionId == null)
@@ -917,7 +1139,7 @@ public class PredictionCancelCommand : ICommand
 
         // Parse: "prediction name" OR name OR nothing (if only one)
         var messageText = message.Message;
-        var cancelMatch = Regex.Match(messageText, @"^(?:prediction|pred)\s+cancel(?:\s+(.+))?$", RegexOptions.IgnoreCase);
+        var cancelMatch = Regex.Match(messageText, @"^.(?:prediction|pred)\s+cancel(?:\s+(.+))?$", RegexOptions.IgnoreCase);
 
         string? predictionId = null;
         PredictionData? prediction = null;
@@ -982,7 +1204,15 @@ public class PredictionCancelCommand : ICommand
         {
             if (bet == null) continue;
 
-            await Money.ModifyBalanceAsync(bet.UserId, bet.Amount,
+            // Get the gambler entity to refund their balance
+            var gambler = await Money.GetGamblerEntityAsync(bet.UserId, ct: ctx);
+            if (gambler == null)
+            {
+                _logger.Error($"Could not find gambler for user ID {bet.UserId} ({bet.Username}) when refunding prediction");
+                continue;
+            }
+
+            await Money.ModifyBalanceAsync(gambler.Id, bet.Amount,
                 TransactionSourceEventType.Gambling,
                 $"Prediction cancelled: {prediction.Description}", ct: ctx);
 
