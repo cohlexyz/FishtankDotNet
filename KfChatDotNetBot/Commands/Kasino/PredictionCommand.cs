@@ -12,6 +12,88 @@ using StackExchange.Redis;
 namespace KfChatDotNetBot.Commands.Kasino;
 
 /// <summary>
+/// Helper class for prediction name matching
+/// </summary>
+public static class PredictionHelper
+{
+    /// <summary>
+    /// Find a prediction by fuzzy matching on the description
+    /// </summary>
+    public static async Task<(string? predictionId, PredictionData? prediction)> FindPredictionByName(
+        IDatabase redisDb, string searchTerm, RedisValue[] activePredictionIds)
+    {
+        if (activePredictionIds.Length == 0)
+            return (null, null);
+
+        // If only one active prediction, return it
+        if (activePredictionIds.Length == 1)
+        {
+            var singleId = activePredictionIds[0].ToString();
+            var json = await redisDb.StringGetAsync($"prediction:{singleId}");
+            if (json.IsNullOrEmpty) return (null, null);
+            var pred = JsonSerializer.Deserialize<PredictionData>(json!.ToString());
+            return (singleId, pred);
+        }
+
+        // Load all active predictions
+        var predictions = new List<(string id, PredictionData data)>();
+        foreach (var id in activePredictionIds)
+        {
+            var json = await redisDb.StringGetAsync($"prediction:{id}");
+            if (!json.IsNullOrEmpty)
+            {
+                var pred = JsonSerializer.Deserialize<PredictionData>(json!.ToString());
+                if (pred != null && pred.State == PredictionState.Active)
+                {
+                    predictions.Add((id.ToString()!, pred));
+                }
+            }
+        }
+
+        if (predictions.Count == 0)
+            return (null, null);
+
+        // Fuzzy match - case insensitive partial match
+        var searchLower = searchTerm.ToLower();
+        var matches = predictions.Where(p => p.data.Description.ToLower().Contains(searchLower)).ToList();
+
+        if (matches.Count == 0)
+            return (null, null);
+
+        if (matches.Count == 1)
+            return (matches[0].id, matches[0].data);
+
+        // Multiple matches - return the best match (shortest description containing the search term)
+        var bestMatch = matches.OrderBy(m => m.data.Description.Length).First();
+        return (bestMatch.id, bestMatch.data);
+    }
+
+    /// <summary>
+    /// List all active predictions with their IDs and descriptions
+    /// </summary>
+    public static async Task<List<(string id, string description)>> ListActivePredictions(IDatabase redisDb)
+    {
+        var activePredictionIds = await redisDb.SetMembersAsync("predictions:active");
+        var result = new List<(string id, string description)>();
+
+        foreach (var id in activePredictionIds)
+        {
+            var json = await redisDb.StringGetAsync($"prediction:{id}");
+            if (!json.IsNullOrEmpty)
+            {
+                var pred = JsonSerializer.Deserialize<PredictionData>(json!.ToString());
+                if (pred != null && pred.State == PredictionState.Active)
+                {
+                    result.Add((id.ToString()!, pred.Description));
+                }
+            }
+        }
+
+        return result;
+    }
+}
+
+/// <summary>
 /// Command to start a new prediction
 /// </summary>
 [KasinoCommand]
@@ -46,16 +128,6 @@ public class PredictionStartCommand : ICommand
 
         var redis = await ConnectionMultiplexer.ConnectAsync(settings[BuiltIn.Keys.BotRedisConnectionString].Value!);
         var redisDb = redis.GetDatabase();
-
-        // Check if there's already an active prediction
-        var activePredictions = await redisDb.SetMembersAsync("predictions:active");
-        if (activePredictions.Length > 0)
-        {
-            await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, there is already an active prediction. End it first with !prediction end",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(15));
-            return;
-        }
 
         // Parse quoted strings from the message content
         var messageText = message.Message;
@@ -125,8 +197,15 @@ public class PredictionStartCommand : ICommand
 
         // Build response message
         var optionsText = string.Join("[br]", prediction.Options.Select(o => $"  {o.Index}. {o.Text}"));
+
+        // Check how many active predictions there are now
+        var allActive = await redisDb.SetMembersAsync("predictions:active");
+        var betInstructions = allActive.Length > 1
+            ? $"Use !bet \"<prediction name>\" <amount> <option> to bet (partial names work!)"
+            : $"Use !bet <amount> <option> to bet";
+
         await botInstance.SendChatMessageAsync(
-            $":!: NEW PREDICTION :!:[br]{description}[br][br]Options:[br]{optionsText}[br][br]Use !bet {predictionId} <amount> <option> to place your bet!",
+            $":!: NEW PREDICTION [{predictionId}] :!:[br]{description}[br][br]Options:[br]{optionsText}[br][br]{betInstructions}",
             true);
     }
 }
@@ -140,11 +219,10 @@ public class PredictionBetCommand : ICommand
 {
     public List<Regex> Patterns =>
     [
-        new Regex(@"^bet (?<predictionId>\w+) (?<amount>\d+(?:\.\d+)?) (?<option>\d+)$", RegexOptions.IgnoreCase),
-        new Regex(@"^bet (?<amount>\d+(?:\.\d+)?) (?<option>\d+)$", RegexOptions.IgnoreCase)
+        new Regex(@"^bet (.+)$", RegexOptions.IgnoreCase)
     ];
 
-    public string? HelpText => "!bet <prediction_id> <amount> <option> - Bet on a prediction outcome";
+    public string? HelpText => "!bet [\"prediction name\"] <amount> <option> - Bet on a prediction outcome";
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(5);
     public RateLimitOptionsModel? RateLimitOptions => new()
@@ -172,37 +250,103 @@ public class PredictionBetCommand : ICommand
         var redis = await ConnectionMultiplexer.ConnectAsync(settings[BuiltIn.Keys.BotRedisConnectionString].Value!);
         var redisDb = redis.GetDatabase();
 
-        // Get prediction ID - either from argument or from active predictions
-        string? predictionId = null;
-        if (arguments.TryGetValue("predictionId", out var predIdGroup))
-        {
-            predictionId = predIdGroup.Value;
-        }
-        else
-        {
-            // If no prediction ID provided, use the only active prediction
-            var activePredictions = await redisDb.SetMembersAsync("predictions:active");
-            if (activePredictions.Length == 0)
-            {
-                await botInstance.SendChatMessageAsync(
-                    $"{user.FormatUsername()}, there are no active predictions",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
-                return;
-            }
-            predictionId = activePredictions[0].ToString();
-        }
-
-        // Load prediction
-        var predictionJson = await redisDb.StringGetAsync($"prediction:{predictionId}");
-        if (predictionJson.IsNullOrEmpty)
+        // Parse the bet command - supports:
+        // !bet <amount> <option> (when 0-1 predictions active)
+        // !bet "prediction name" <amount> <option> (when multiple active)
+        // !bet prediction name <amount> <option> (partial name without quotes)
+        var messageText = message.Message;
+        var betMatch = Regex.Match(messageText, @"^bet\s+(.+)$", RegexOptions.IgnoreCase);
+        if (!betMatch.Success)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, prediction not found",
+                $"{user.FormatUsername()}, invalid bet syntax",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
 
-        var prediction = JsonSerializer.Deserialize<PredictionData>(predictionJson!.ToString());
+        var argsText = betMatch.Groups[1].Value.Trim();
+        var activePredictions = await redisDb.SetMembersAsync("predictions:active");
+
+        if (activePredictions.Length == 0)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, there are no active predictions",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
+        string? predictionId = null;
+        PredictionData? prediction = null;
+        decimal amount;
+        int optionIndex;
+
+        // Try to parse as: "prediction name" amount option OR amount option
+        var quotedMatch = Regex.Match(argsText, @"^""([^""]+)""\s+(\d+(?:\.\d+)?)\s+(\d+)$");
+        if (quotedMatch.Success)
+        {
+            // Has quoted prediction name
+            var searchTerm = quotedMatch.Groups[1].Value;
+            amount = Convert.ToDecimal(quotedMatch.Groups[2].Value);
+            optionIndex = int.Parse(quotedMatch.Groups[3].Value);
+
+            (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
+
+            if (predictionId == null || prediction == null)
+            {
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, couldn't find prediction matching '{searchTerm}'",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
+            }
+        }
+        else
+        {
+            // Try simple format: amount option
+            var simpleMatch = Regex.Match(argsText, @"^(\d+(?:\.\d+)?)\s+(\d+)$");
+            if (simpleMatch.Success && activePredictions.Length == 1)
+            {
+                // Simple format works only with one prediction
+                amount = Convert.ToDecimal(simpleMatch.Groups[1].Value);
+                optionIndex = int.Parse(simpleMatch.Groups[2].Value);
+                predictionId = activePredictions[0].ToString();
+                var json = await redisDb.StringGetAsync($"prediction:{predictionId}");
+                prediction = json.IsNullOrEmpty ? null : JsonSerializer.Deserialize<PredictionData>(json!.ToString());
+            }
+            else
+            {
+                // Try: unquoted prediction name amount option
+                // Extract last two numbers as amount and option
+                var numbers = Regex.Matches(argsText, @"\d+(?:\.\d+)?");
+                if (numbers.Count >= 2)
+                {
+                    var lastTwoStart = numbers[numbers.Count - 2].Index;
+                    var searchTerm = argsText.Substring(0, lastTwoStart).Trim();
+                    amount = Convert.ToDecimal(numbers[numbers.Count - 2].Value);
+                    optionIndex = int.Parse(numbers[numbers.Count - 1].Value);
+
+                    (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
+
+                    if (predictionId == null || prediction == null)
+                    {
+                        // Show list of active predictions
+                        var activeList = await PredictionHelper.ListActivePredictions(redisDb);
+                        var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
+                        await botInstance.SendChatMessageAsync(
+                            $"{user.FormatUsername()}, multiple predictions active. Specify which one:[br]{listText}[br]Use: !bet \"<name>\" <amount> <option>",
+                            true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+                        return;
+                    }
+                }
+                else
+                {
+                    await botInstance.SendChatMessageAsync(
+                        $"{user.FormatUsername()}, invalid bet format. Use: !bet [\"prediction name\"] <amount> <option>",
+                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    return;
+                }
+            }
+        }
+
         if (prediction == null || prediction.State != PredictionState.Active)
         {
             await botInstance.SendChatMessageAsync(
@@ -210,9 +354,6 @@ public class PredictionBetCommand : ICommand
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
-
-        var amount = Convert.ToDecimal(arguments["amount"].Value);
-        var optionIndex = int.Parse(arguments["option"].Value);
 
         // Validate option
         var option = prediction.Options.FirstOrDefault(o => o.Index == optionIndex);
@@ -292,13 +433,11 @@ public class PredictionEndCommand : ICommand
 {
     public List<Regex> Patterns =>
     [
-        new Regex(@"^prediction end (?<predictionId>\w+) (?<winningOption>\d+)$", RegexOptions.IgnoreCase),
-        new Regex(@"^pred end (?<predictionId>\w+) (?<winningOption>\d+)$", RegexOptions.IgnoreCase),
-        new Regex(@"^prediction end (?<winningOption>\d+)$", RegexOptions.IgnoreCase),
-        new Regex(@"^pred end (?<winningOption>\d+)$", RegexOptions.IgnoreCase)
+        new Regex(@"^prediction end (.+)$", RegexOptions.IgnoreCase),
+        new Regex(@"^pred end (.+)$", RegexOptions.IgnoreCase)
     ];
 
-    public string? HelpText => "!prediction end <prediction_id> <winning_option> - End a prediction and pay winners";
+    public string? HelpText => "!prediction end [\"prediction name\"] <winning_option> - End a prediction and pay winners";
     public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
@@ -322,41 +461,74 @@ public class PredictionEndCommand : ICommand
         var redis = await ConnectionMultiplexer.ConnectAsync(settings[BuiltIn.Keys.BotRedisConnectionString].Value!);
         var redisDb = redis.GetDatabase();
 
-        // Get prediction ID
-        string? predictionId = null;
-        if (arguments.TryGetValue("predictionId", out var predIdGroup))
-        {
-            predictionId = predIdGroup.Value;
-        }
-        else
-        {
-            var activePredictions = await redisDb.SetMembersAsync("predictions:active");
-            if (activePredictions.Length == 0)
-            {
-                await botInstance.SendChatMessageAsync(
-                    $"{user.FormatUsername()}, there are no active predictions",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
-                return;
-            }
-            predictionId = activePredictions[0].ToString();
-        }
-
-        // Load prediction
-        var predictionJson = await redisDb.StringGetAsync($"prediction:{predictionId}");
-        if (predictionJson.IsNullOrEmpty)
+        // Parse: "prediction name" winning_option OR winning_option OR name winning_option
+        var messageText = message.Message;
+        var endMatch = Regex.Match(messageText, @"^(?:prediction|pred)\s+end\s+(.+)$", RegexOptions.IgnoreCase);
+        if (!endMatch.Success)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, prediction not found",
+                $"{user.FormatUsername()}, invalid syntax",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
 
-        var prediction = JsonSerializer.Deserialize<PredictionData>(predictionJson!.ToString());
-        if (prediction == null)
+        var argsText = endMatch.Groups[1].Value.Trim();
+        var activePredictions = await redisDb.SetMembersAsync("predictions:active");
+
+        if (activePredictions.Length == 0)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, prediction data is invalid",
+                $"{user.FormatUsername()}, there are no active predictions",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
+        string? predictionId = null;
+        PredictionData? prediction = null;
+        int winningOptionIndex;
+
+        // Try quoted format: "prediction name" winning_option
+        var quotedMatch = Regex.Match(argsText, @"^""([^""]+)""\s+(\d+)$");
+        if (quotedMatch.Success)
+        {
+            var searchTerm = quotedMatch.Groups[1].Value;
+            winningOptionIndex = int.Parse(quotedMatch.Groups[2].Value);
+            (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
+        }
+        else if (Regex.IsMatch(argsText, @"^\d+$") && activePredictions.Length == 1)
+        {
+            // Just a number and only one prediction
+            winningOptionIndex = int.Parse(argsText);
+            predictionId = activePredictions[0].ToString();
+            var json = await redisDb.StringGetAsync($"prediction:{predictionId}");
+            prediction = json.IsNullOrEmpty ? null : JsonSerializer.Deserialize<PredictionData>(json!.ToString());
+        }
+        else
+        {
+            // Try: unquoted name winning_option
+            var lastNumber = Regex.Match(argsText, @"(\d+)$");
+            if (lastNumber.Success)
+            {
+                winningOptionIndex = int.Parse(lastNumber.Groups[1].Value);
+                var searchTerm = argsText.Substring(0, lastNumber.Index).Trim();
+                (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
+            }
+            else
+            {
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, invalid format. Use: !prediction end [\"name\"] <winning_option>",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
+            }
+        }
+
+        if (predictionId == null || prediction == null)
+        {
+            var activeList = await PredictionHelper.ListActivePredictions(redisDb);
+            var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, couldn't find that prediction. Active predictions:[br]{listText}",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(15));
             return;
         }
 
@@ -367,8 +539,6 @@ public class PredictionEndCommand : ICommand
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
-
-        var winningOptionIndex = int.Parse(arguments["winningOption"].Value);
         var winningOption = prediction.Options.FirstOrDefault(o => o.Index == winningOptionIndex);
         if (winningOption == null)
         {
@@ -442,13 +612,13 @@ public class PredictionStatusCommand : ICommand
 {
     public List<Regex> Patterns =>
     [
-        new Regex(@"^prediction status(?:\s+(?<predictionId>\w+))?$", RegexOptions.IgnoreCase),
-        new Regex(@"^pred status(?:\s+(?<predictionId>\w+))?$", RegexOptions.IgnoreCase),
+        new Regex(@"^prediction status(?:\s+(.+))?$", RegexOptions.IgnoreCase),
+        new Regex(@"^pred status(?:\s+(.+))?$", RegexOptions.IgnoreCase),
         new Regex(@"^prediction$", RegexOptions.IgnoreCase),
         new Regex(@"^pred$", RegexOptions.IgnoreCase)
     ];
 
-    public string? HelpText => "!prediction status [prediction_id] - Check current prediction status";
+    public string? HelpText => "!prediction status [\"prediction name\"] - Check current prediction status";
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(5);
     public RateLimitOptionsModel? RateLimitOptions => null;
@@ -472,36 +642,63 @@ public class PredictionStatusCommand : ICommand
         var redis = await ConnectionMultiplexer.ConnectAsync(settings[BuiltIn.Keys.BotRedisConnectionString].Value!);
         var redisDb = redis.GetDatabase();
 
-        // Get prediction ID
-        string? predictionId = null;
-        if (arguments.TryGetValue("predictionId", out var predIdGroup))
-        {
-            predictionId = predIdGroup.Value;
-        }
-        else
-        {
-            var activePredictions = await redisDb.SetMembersAsync("predictions:active");
-            if (activePredictions.Length == 0)
-            {
-                await botInstance.SendChatMessageAsync(
-                    $"{user.FormatUsername()}, there are no active predictions",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
-                return;
-            }
-            predictionId = activePredictions[0].ToString();
-        }
+        var activePredictions = await redisDb.SetMembersAsync("predictions:active");
 
-        // Load prediction
-        var predictionJson = await redisDb.StringGetAsync($"prediction:{predictionId}");
-        if (predictionJson.IsNullOrEmpty)
+        if (activePredictions.Length == 0)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, prediction not found",
+                $"{user.FormatUsername()}, there are no active predictions",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
 
-        var prediction = JsonSerializer.Deserialize<PredictionData>(predictionJson!.ToString());
+        // Check if user specified a prediction name
+        var messageText = message.Message;
+        var statusMatch = Regex.Match(messageText, @"^(?:prediction|pred)(?:\s+status)?(?:\s+(.+))?$", RegexOptions.IgnoreCase);
+
+        string? predictionId = null;
+        PredictionData? prediction = null;
+
+        if (statusMatch.Success && statusMatch.Groups.Count > 1 && !string.IsNullOrWhiteSpace(statusMatch.Groups[1].Value))
+        {
+            // User specified a name
+            var searchTerm = statusMatch.Groups[1].Value.Trim().Trim('"');
+            if (searchTerm.ToLower() != "status") // Ignore if they just typed "prediction status"
+            {
+                (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
+
+                if (predictionId == null)
+                {
+                    await botInstance.SendChatMessageAsync(
+                        $"{user.FormatUsername()}, couldn't find prediction matching '{searchTerm}'",
+                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    return;
+                }
+            }
+        }
+
+        // If no specific prediction or just "!prediction", handle based on count
+        if (predictionId == null)
+        {
+            if (activePredictions.Length == 1)
+            {
+                // Show the only prediction
+                predictionId = activePredictions[0].ToString();
+                var json = await redisDb.StringGetAsync($"prediction:{predictionId}");
+                prediction = json.IsNullOrEmpty ? null : JsonSerializer.Deserialize<PredictionData>(json!.ToString());
+            }
+            else
+            {
+                // List all predictions
+                var activeList = await PredictionHelper.ListActivePredictions(redisDb);
+                var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, {activePredictions.Length} active predictions:[br]{listText}[br]Use !prediction status \"<name>\" for details",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(20));
+                return;
+            }
+        }
+
         if (prediction == null)
         {
             await botInstance.SendChatMessageAsync(
@@ -531,7 +728,8 @@ public class PredictionStatusCommand : ICommand
             $"{user.FormatUsername()}, Prediction [{predictionId}]: {prediction.Description}[br][br]" +
             $"Options:[br]{optionsText}[br][br]" +
             $"Total pot: {await totalPot.FormatKasinoCurrencyAsync()}[br]" +
-            $"Total bets: {bets.Count}",
+            $"Total bets: {bets.Count}[br]" +
+            $"use !bet {(activePredictions.Length > 1 ? $"\"{prediction.Description}\" " : "")}<amount> <option>",
             true);
     }
 }
@@ -544,11 +742,11 @@ public class PredictionCancelCommand : ICommand
 {
     public List<Regex> Patterns =>
     [
-        new Regex(@"^prediction cancel(?:\s+(?<predictionId>\w+))?$", RegexOptions.IgnoreCase),
-        new Regex(@"^pred cancel(?:\s+(?<predictionId>\w+))?$", RegexOptions.IgnoreCase)
+        new Regex(@"^prediction cancel(?:\s+(.+))?$", RegexOptions.IgnoreCase),
+        new Regex(@"^pred cancel(?:\s+(.+))?$", RegexOptions.IgnoreCase)
     ];
 
-    public string? HelpText => "!prediction cancel [prediction_id] - Cancel a prediction and refund all bets";
+    public string? HelpText => "!prediction cancel [\"prediction name\"] - Cancel a prediction and refund all bets";
     public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
@@ -572,36 +770,55 @@ public class PredictionCancelCommand : ICommand
         var redis = await ConnectionMultiplexer.ConnectAsync(settings[BuiltIn.Keys.BotRedisConnectionString].Value!);
         var redisDb = redis.GetDatabase();
 
-        // Get prediction ID
-        string? predictionId = null;
-        if (arguments.TryGetValue("predictionId", out var predIdGroup))
-        {
-            predictionId = predIdGroup.Value;
-        }
-        else
-        {
-            var activePredictions = await redisDb.SetMembersAsync("predictions:active");
-            if (activePredictions.Length == 0)
-            {
-                await botInstance.SendChatMessageAsync(
-                    $"{user.FormatUsername()}, there are no active predictions",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
-                return;
-            }
-            predictionId = activePredictions[0].ToString();
-        }
+        var activePredictions = await redisDb.SetMembersAsync("predictions:active");
 
-        // Load prediction
-        var predictionJson = await redisDb.StringGetAsync($"prediction:{predictionId}");
-        if (predictionJson.IsNullOrEmpty)
+        if (activePredictions.Length == 0)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, prediction not found",
+                $"{user.FormatUsername()}, there are no active predictions",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
 
-        var prediction = JsonSerializer.Deserialize<PredictionData>(predictionJson!.ToString());
+        // Parse: "prediction name" OR name OR nothing (if only one)
+        var messageText = message.Message;
+        var cancelMatch = Regex.Match(messageText, @"^(?:prediction|pred)\s+cancel(?:\s+(.+))?$", RegexOptions.IgnoreCase);
+
+        string? predictionId = null;
+        PredictionData? prediction = null;
+
+        if (cancelMatch.Success && cancelMatch.Groups.Count > 1 && !string.IsNullOrWhiteSpace(cancelMatch.Groups[1].Value))
+        {
+            // User specified a name
+            var searchTerm = cancelMatch.Groups[1].Value.Trim().Trim('"');
+            (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
+
+            if (predictionId == null)
+            {
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, couldn't find prediction matching '{searchTerm}'",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
+            }
+        }
+        else if (activePredictions.Length == 1)
+        {
+            // Only one prediction, use it
+            predictionId = activePredictions[0].ToString();
+            var json = await redisDb.StringGetAsync($"prediction:{predictionId}");
+            prediction = json.IsNullOrEmpty ? null : JsonSerializer.Deserialize<PredictionData>(json!.ToString());
+        }
+        else
+        {
+            // Multiple predictions, need to specify
+            var activeList = await PredictionHelper.ListActivePredictions(redisDb);
+            var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, multiple predictions active. Specify which one:[br]{listText}",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+            return;
+        }
+
         if (prediction == null)
         {
             await botInstance.SendChatMessageAsync(
