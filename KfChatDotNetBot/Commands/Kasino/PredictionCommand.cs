@@ -355,6 +355,15 @@ public class PredictionBetCommand : ICommand
             return;
         }
 
+        // Check if betting is closed
+        if (prediction.BettingClosed)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, betting is closed for this prediction",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
         // Validate option
         var option = prediction.Options.FirstOrDefault(o => o.Index == optionIndex);
         if (option == null)
@@ -724,12 +733,138 @@ public class PredictionStatusCommand : ICommand
             $"  {o.Index}. {o.Text}: {o.TotalBet.FormatKasinoCurrencyAsync().Result} " +
             $"({(totalPot > 0 ? (o.TotalBet / totalPot * 100).ToString("F1") : "0")}%)"));
 
+        var bettingStatus = prediction.BettingClosed ? "[COLOR=#ff0000]BETTING CLOSED[/COLOR]" : "[COLOR=#00ff00]Betting Open[/COLOR]";
+        var betInstructions = prediction.BettingClosed
+            ? ""
+            : $"[br]use !bet {(activePredictions.Length > 1 ? $"\"{prediction.Description}\" " : "")}<amount> <option>";
+
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, Prediction [{predictionId}]: {prediction.Description}[br][br]" +
+            $"Status: {bettingStatus}[br][br]" +
             $"Options:[br]{optionsText}[br][br]" +
             $"Total pot: {await totalPot.FormatKasinoCurrencyAsync()}[br]" +
-            $"Total bets: {bets.Count}[br]" +
-            $"use !bet {(activePredictions.Length > 1 ? $"\"{prediction.Description}\" " : "")}<amount> <option>",
+            $"Total bets: {bets.Count}{betInstructions}",
+            true);
+    }
+}
+
+/// <summary>
+/// Command to close betting on a prediction
+/// </summary>
+[KasinoCommand]
+public class PredictionCloseBetsCommand : ICommand
+{
+    public List<Regex> Patterns =>
+    [
+        new Regex(@"^prediction close(?:\s+(.+))?$", RegexOptions.IgnoreCase),
+        new Regex(@"^pred close(?:\s+(.+))?$", RegexOptions.IgnoreCase)
+    ];
+
+    public string? HelpText => "!prediction close [\"prediction name\"] - Close betting on a prediction (no new bets accepted)";
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+
+    private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
+
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+        CancellationToken ctx)
+    {
+        var settings = await SettingsProvider.GetMultipleValuesAsync([
+            BuiltIn.Keys.BotRedisConnectionString
+        ]);
+
+        if (string.IsNullOrEmpty(settings[BuiltIn.Keys.BotRedisConnectionString].Value))
+        {
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, predictions are not available at this time", true,
+                autoDeleteAfter: TimeSpan.FromSeconds(15));
+            return;
+        }
+
+        var redis = await ConnectionMultiplexer.ConnectAsync(settings[BuiltIn.Keys.BotRedisConnectionString].Value!);
+        var redisDb = redis.GetDatabase();
+
+        var activePredictions = await redisDb.SetMembersAsync("predictions:active");
+
+        if (activePredictions.Length == 0)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, there are no active predictions",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
+        // Parse: "prediction name" OR name OR nothing (if only one)
+        var messageText = message.Message;
+        var closeMatch = Regex.Match(messageText, @"^(?:prediction|pred)\s+close(?:\s+(.+))?$", RegexOptions.IgnoreCase);
+
+        string? predictionId = null;
+        PredictionData? prediction = null;
+
+        if (closeMatch.Success && closeMatch.Groups.Count > 1 && !string.IsNullOrWhiteSpace(closeMatch.Groups[1].Value))
+        {
+            // User specified a name
+            var searchTerm = closeMatch.Groups[1].Value.Trim().Trim('"');
+            (predictionId, prediction) = await PredictionHelper.FindPredictionByName(redisDb, searchTerm, activePredictions);
+
+            if (predictionId == null)
+            {
+                await botInstance.SendChatMessageAsync(
+                    $"{user.FormatUsername()}, couldn't find prediction matching '{searchTerm}'",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                return;
+            }
+        }
+        else if (activePredictions.Length == 1)
+        {
+            // Only one prediction, use it
+            predictionId = activePredictions[0].ToString();
+            var json = await redisDb.StringGetAsync($"prediction:{predictionId}");
+            prediction = json.IsNullOrEmpty ? null : JsonSerializer.Deserialize<PredictionData>(json!.ToString());
+        }
+        else
+        {
+            // Multiple predictions, need to specify
+            var activeList = await PredictionHelper.ListActivePredictions(redisDb);
+            var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, multiple predictions active. Specify which one:[br]{listText}",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+            return;
+        }
+
+        if (prediction == null)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, prediction data is invalid",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
+        if (prediction.State != PredictionState.Active)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, this prediction is not active",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
+        if (prediction.BettingClosed)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, betting is already closed on this prediction",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
+        // Close betting
+        prediction.BettingClosed = true;
+        await redisDb.StringSetAsync($"prediction:{predictionId}", JsonSerializer.Serialize(prediction));
+
+        _logger.Info($"Betting closed on prediction {predictionId} by {user.KfUsername}");
+
+        await botInstance.SendChatMessageAsync(
+            $"{user.FormatUsername()}, betting is now closed for prediction '{prediction.Description}'. No new bets will be accepted.",
             true);
     }
 }
@@ -889,6 +1024,7 @@ public class PredictionData
     public DateTimeOffset? CompletedAt { get; set; }
     public PredictionState State { get; set; }
     public int? WinningOptionIndex { get; set; }
+    public bool BettingClosed { get; set; } = false;
 }
 
 public class PredictionOption
