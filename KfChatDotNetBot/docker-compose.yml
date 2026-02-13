@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  wireguard:
+    image: lscr.io/linuxserver/wireguard:latest
+    container_name: wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    ports:
+      - '8087:8087/udp'
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    volumes:
+      - ./wg-config:/config
+      - /lib/modules:/lib/modules
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    restart: unless-stopped
+  redis:
+    image: redis:7
+    container_name: redis
+    network_mode: 'service:wireguard'
+    depends_on:
+      - wireguard
+    restart: unless-stopped
+  kfchatbot:
+    depends_on:
+      - redis
+      - wireguard
+    image: mcr.microsoft.com/dotnet/runtime:10.0
+    container_name: kfchatdotnetbot
+    working_dir: /app
+    command: ['./KfChatDotNetBot']
+    volumes:
+      - ./KfChatDotNetBot/bin/Debug/net10.0:/app
+    network_mode: 'service:wireguard'
+    restart: unless-stopped
