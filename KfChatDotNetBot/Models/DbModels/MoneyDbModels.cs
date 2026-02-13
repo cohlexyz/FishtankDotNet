@@ -304,7 +304,11 @@ public enum WagerGame
     [Description("Plinko")]
     Plinko,
     [Description("Roulette but live")]
-    Roulette
+    Roulette,
+    /// <summary>
+    /// User predictions with multiple outcomes where winners share the pot
+    /// </summary>
+    Prediction
 }
 
 public enum GamblerState
