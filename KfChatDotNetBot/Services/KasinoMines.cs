@@ -87,8 +87,8 @@ public class KasinoMines
             {
                 await ResetMessage(msg);
             }
-            int frames = mineLocation.c;
-            if (Size - mineLocation.c > frames) frames = Size - mineLocation.c;
+
+            int frames = 16;
             string str;
             bool revealedSpace;
             int yellowWave = 1;
@@ -145,6 +145,10 @@ public class KasinoMines
                     str += "[br]";
                 }
 
+                yellowWave++;
+                orangeWave++;
+                redWave++;
+                whiteWave++;
                 await Task.Delay(100);
                 await _kfChatBot.KfClient.EditMessageAsync(LastMessageId, $"{str}[br]{Creator.User.FormatUsername()}");
             }
@@ -309,8 +313,27 @@ public class KasinoMines
         {
             payout *= ((size2 - i) / (gems-i));
         }
+        //edit the message with the board to show all the mine locations if you won 💣💎⬜
+        string str = "";
+        for (int r = 0; r < game.Size; r++)
+        {
+            for (int c = 0; c < game.Size; c++)
+            {
+                bool revealedSpace = false;
+                foreach (var bet in game.BetsPlaced)
+                {
+                    if (bet.r == r && bet.c == c) revealedSpace = true;
+                }
+                if (game.MinesBoard[r][ c] == 'M') str += "💣";
+                else if (revealedSpace) str += "💎";
+                else str += "⬜";
+                
+            }
+        }
+        await _kfChatBot.KfClient.EditMessageAsync(game.LastMessageId, str);
         var net = payout - game.Wager;
         var newBalance = await Money.NewWagerAsync(game.Creator.Id, game.Wager, net, WagerGame.Mines);
+        
         await _kfChatBot.SendChatMessageAsync(
             $"{game.Creator.User.FormatUsername()}, you won {await payout.FormatKasinoCurrencyAsync()} from your {await game.Wager.FormatKasinoCurrencyAsync()} bet on mines, collecting {game.BetsPlaced.Count} gems while avoiding {game.Mines} mines. Net: {await net.FormatKasinoCurrencyAsync()}. Balance: {await newBalance.FormatKasinoCurrencyAsync()}", true, autoDeleteAfter: TimeSpan.FromSeconds(15));
         await Task.Delay(TimeSpan.FromSeconds(15));
