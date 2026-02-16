@@ -172,14 +172,6 @@ public class ChatBot
                 _logger.Error("Since we didn't exit, let's try forcing a reconnect");
                 await KfClient.ReconnectAsync();
             }
-            // basically the token sometimes expires, which is detected in the Keno Kasino chat
-            // because without a valid token it won't even get messages, but in the fish tank chat
-            // this doesn't happen as without a valid token messages still come in since the room isn't member only
-            // so we just join the Keno Kasino room and wait a bit as that should give us the notifcation that
-            // we don't have a valid token
-            await KfClient.SendMessageInstantAsync("/join 15");
-            await Task.Delay(TimeSpan.FromSeconds(4), _cancellationToken);
-            await KfClient.SendMessageInstantAsync("/join 16");
         }
     }
 
@@ -619,6 +611,12 @@ public class ChatBot
         {
             _logger.Info("GambaSesh is no longer present");
             GambaSeshPresent = false;
+        }
+        if (userIds.Contains(205609))
+        {
+            _logger.Info("We got kicked?");
+            _kfTokenService.WipeCookies();
+            KfClient.ReconnectAsync().Wait(_cancellationToken);
         }
 
         foreach (var user in userIds)
