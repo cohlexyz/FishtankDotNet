@@ -138,7 +138,7 @@ public class ChatClient
             return;
         }
 
-        if (message.Text.StartsWith("You cannot join this room"))
+        if (message.Text.StartsWith("You cannot join this room") || message.Text.StartsWith("You cannot send messages"))
         {
             _logger.Debug("Got a message saying we failed to join the room");
             OnFailedToJoinRoom?.Invoke(this, message.Text);
