@@ -289,7 +289,7 @@ public class XeetEmbedCommand : ICommand
 
         // Build header - main tweet author and timestamp (always goes first)
         var created = DateTimeOffset.FromUnixTimeSeconds(tweet.CreatedTimestamp);
-        headerBuilder.Append($"[b][plain]{tweet.Author.Name}[/b] [plain](@{tweet.Author.ScreenName}) - {created.Humanize(DateTimeOffset.UtcNow)}[br]");
+        headerBuilder.Append($"[b]{tweet.Author.Name}[/b] (@{tweet.Author.ScreenName}) - {created.Humanize(DateTimeOffset.UtcNow)}[br]");
 
         // Handle reply chain (if this tweet is a reply)
         if (!string.IsNullOrEmpty(tweet.ReplyingToStatus))
@@ -302,7 +302,7 @@ public class XeetEmbedCommand : ICommand
                     var replyTweet = replyData.Tweet;
                     var replyCreated = DateTimeOffset.FromUnixTimeSeconds(replyTweet.CreatedTimestamp);
                     bodyBuilder.Append($"[i]↩️  Replying to:[/i][br]");
-                    bodyBuilder.Append($"[b][plain]{replyTweet.Author.Name}[/b] [plain](@{replyTweet.Author.ScreenName}) - {replyCreated.Humanize(DateTimeOffset.UtcNow)}[br]");
+                    bodyBuilder.Append($"[b]{replyTweet.Author.Name}[/b] (@{replyTweet.Author.ScreenName}) - {replyCreated.Humanize(DateTimeOffset.UtcNow)}[br]");
 
                     var replyText = replyTweet.Text;
                     const int replyTextLimit = 250;
@@ -310,7 +310,7 @@ public class XeetEmbedCommand : ICommand
                     {
                         replyText = replyText.TruncateBytes(replyTextLimit).TrimEnd() + "…";
                     }
-                    bodyBuilder.Append($"[plain]{replyText}[br][br]");
+                    bodyBuilder.Append($"{replyText}[br][br]");
                 }
             }
             catch (Exception ex)
@@ -321,7 +321,7 @@ public class XeetEmbedCommand : ICommand
 
         // Main tweet text
         var mainText = tweet.Text;
-        bodyBuilder.Append($"[plain]{mainText}[br]");
+        bodyBuilder.Append($"{mainText}[br]");
 
         if (mediaUrls.Count > 0)
         {
@@ -338,7 +338,7 @@ public class XeetEmbedCommand : ICommand
             var quoteTweet = tweet.Quote;
             var quoteCreated = DateTimeOffset.FromUnixTimeSeconds(quoteTweet.CreatedTimestamp);
             bodyBuilder.Append($"[i]💬 Quoting:[/i][br]");
-            bodyBuilder.Append($"[b][plain]{quoteTweet.Author.Name}[/b] [plain](@{quoteTweet.Author.ScreenName}) - {quoteCreated.Humanize(DateTimeOffset.UtcNow)}[br]");
+            bodyBuilder.Append($"[b]{quoteTweet.Author.Name}[/b] (@{quoteTweet.Author.ScreenName}) - {quoteCreated.Humanize(DateTimeOffset.UtcNow)}[br]");
 
             var quoteText = quoteTweet.Text;
             const int quoteTextLimit = 250;
@@ -346,7 +346,7 @@ public class XeetEmbedCommand : ICommand
             {
                 quoteText = quoteText.TruncateBytes(quoteTextLimit).TrimEnd() + "…";
             }
-            bodyBuilder.Append($"[plain]{quoteText}[br]");
+            bodyBuilder.Append($"{quoteText}[br]");
         }
 
         // Build footer (stats + links) - this will always be on the last message
