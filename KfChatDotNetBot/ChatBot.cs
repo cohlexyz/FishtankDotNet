@@ -560,7 +560,7 @@ public class ChatBot
 
     private void OnUsersJoined(object sender, List<UserModel> users, UsersJsonModel jsonPayload)
     {
-        var settings = SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.GambaSeshUserId, BuiltIn.Keys.GambaSeshDetectEnabled, BuiltIn.Keys.BotKeesSeen])
+        var settings = SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.GambaSeshUserId, BuiltIn.Keys.GambaSeshDetectEnabled, BuiltIn.Keys.BotKeesSeen, BuiltIn.Keys.KiwiFarmsUsername])
             .Result;
         _logger.Debug($"Received {users.Count} user join events");
         using var db = new ApplicationDbContext();
