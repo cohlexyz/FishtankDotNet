@@ -1,4 +1,4 @@
-version: "3.9"
+version: '3.9'
 
 services:
   wireguard:
@@ -8,7 +8,7 @@ services:
       - NET_ADMIN
       - SYS_MODULE
     ports:
-      - "8087:8087/udp" 
+      - '8087:8087/udp'
     environment:
       - PUID=1000
       - PGID=1000
@@ -22,7 +22,7 @@ services:
   redis:
     image: redis:7
     container_name: redis
-    network_mode: "service:wireguard"
+    network_mode: 'service:wireguard'
     depends_on:
       - wireguard
     restart: unless-stopped
@@ -30,11 +30,13 @@ services:
     depends_on:
       - redis
       - wireguard
-    image: mcr.microsoft.com/dotnet/runtime:10.0
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: kfchatdotnetbot
     working_dir: /app
-    command: ["./KfChatDotNetBot"]
+    command: ['./KfChatDotNetBot']
     volumes:
       - ./KfChatDotNetBot/bin/Debug/net10.0:/app
-    network_mode: "service:wireguard"
+    network_mode: 'service:wireguard'
     restart: unless-stopped
