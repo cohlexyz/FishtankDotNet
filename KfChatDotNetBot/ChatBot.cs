@@ -580,6 +580,15 @@ public class ChatBot
             }
             _logger.Info($"{user.Username} joined!");
 
+            if (user.Username == "Guest")
+            {
+                // this is us and we don't have a valid chat token/cookie => we have to refresh it
+                _logger.Info("Joined as Guest, likely due to invalid/missing cookies. Refreshing XF token and reconnecting.");
+                RefreshXfToken().Wait(_cancellationToken);
+                KfClient.ReconnectAsync().Wait(_cancellationToken);
+                return;
+            }
+
             var userDb = db.Users.FirstOrDefault(u => u.KfId == user.Id);
             if (userDb == null)
             {
