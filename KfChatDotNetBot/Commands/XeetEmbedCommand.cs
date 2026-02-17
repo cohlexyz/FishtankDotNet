@@ -83,10 +83,26 @@ public class XeetEmbedCommand : ICommand
                 await botInstance.KfClient.DeleteMessageAsync(loadingMessage.ChatMessageId.Value);
             }
 
+            if (messages.Count == 0)
+            {
+                return;
+            }
+
+            if (messages.Count > 4)
+            {
+                // bail, we don't want to spam the chat with giant threads of messages if something goes wrong with the splitting logic
+                Logger.Warn($"Aborting sending Xeet embed - message count {messages.Count} exceeds threshold");
+                return;
+            }
+
             foreach (var msg in messages)
             {
                 await botInstance.SendChatMessageAsync(msg, true);
             }
+            // send archive link message
+            var url = $"https://nitter.net/{tweet.Author.ScreenName}/status/{xeetId}";
+            await botInstance.SendChatMessageAsync(
+                $"[url=https://archive.is/submit/?url={url}]Archive Xeet on archive.is[/url]", true);
         }
         catch
         {
