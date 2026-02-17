@@ -36,7 +36,7 @@ public class ChatBot
     private DateTime _lastReconnectAttempt = DateTime.UtcNow;
     private List<ScheduledAutoDeleteModel> _scheduledDeletions = [];
     private Task _scheduledAutoDeleteTask;
-
+    private bool _receivedJoinMessage = false;
     public ChatBot()
     {
         _logger.Info("Bot starting!");
@@ -580,7 +580,12 @@ public class ChatBot
             }
             _logger.Info($"{user.Username} joined!");
 
-            if (user.Username == "Guest")
+            var botUserName = settings[BuiltIn.Keys.KiwiFarmsUsername].Value;
+            if (user.Username == botUserName)
+            {
+                _receivedJoinMessage = true;
+            }
+            else if (user.Username == "Guest" && !_receivedJoinMessage)
             {
                 // this is us and we don't have a valid chat token/cookie => we have to refresh it
                 _logger.Info("Joined as Guest, likely due to invalid/missing cookies. Refreshing XF token and reconnecting.");
@@ -664,6 +669,7 @@ public class ChatBot
 
     private void OnKfWsDisconnected(object sender, DisconnectionInfo disconnectionInfo)
     {
+        _receivedJoinMessage = false;
         _logger.Error($"Sneedchat disconnected due to {disconnectionInfo.Type}");
         _logger.Error($"Close Status => {disconnectionInfo.CloseStatus}; Close Status Description => {disconnectionInfo.CloseStatusDescription}");
         _logger.Error(disconnectionInfo.Exception);
