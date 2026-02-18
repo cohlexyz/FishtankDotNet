@@ -67,6 +67,39 @@ public class GetVersionCommand : ICommand
     }
 }
 
+public class SourceCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex("^source$"),
+    ];
+
+    public string? HelpText => "Get bot source code url";
+    public UserRight RequiredRight => UserRight.Loser;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        await botInstance.SendChatMessageAsync("Source: https://github.com/cohlexyz/KfChatDotNet");
+    }
+}
+
+public class ShareXClippingCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex("^sharex$"),
+        new Regex("^clipping$")
+    ];
+
+    public string? HelpText => "Get instructions on how to clip using ShareX";
+    public UserRight RequiredRight => UserRight.Loser;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        await botInstance.SendChatMessageAsync("Clipping with ShareX: https://kiwifarms.st/threads/189850");
+    }
+}
+
 public class GetLastActivity : ICommand
 {
     public List<Regex> Patterns => [
