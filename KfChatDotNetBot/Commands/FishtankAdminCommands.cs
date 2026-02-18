@@ -41,9 +41,19 @@ public class AddFishtankWhitelistCommand : ICommand
         }
         catch (KeyNotFoundException)
         {
-            // Setting doesn't exist, create initial whitelist
+            // Setting doesn't exist, create it manually
+            await using var db = new ApplicationDbContext();
             var whitelist = new List<string> { username };
-            await SettingsProvider.SetValueAsJsonObjectAsync("fishtank_whitelist", whitelist);
+            db.Settings.Add(new SettingDbModel
+            {
+                Key = "fishtank_whitelist",
+                Value = JsonSerializer.Serialize(whitelist),
+                Regex = @".+",
+                Description = "Fishtank chat forwarding whitelist",
+                Default = "[]",
+                CacheDuration = 60
+            });
+            await db.SaveChangesAsync(ctx);
             await botInstance.SendChatMessageAsync($"@{message.Author.Username}, created whitelist and added '{username}'", true);
         }
     }

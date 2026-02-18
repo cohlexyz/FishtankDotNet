@@ -274,11 +274,25 @@ public class ChatMessage : UDPMessage
         await _emojiLock.WaitAsync();
         try
         {
-            await Settings.SettingsProvider.SetValueAsJsonObjectAsync("fishtank_emoji_cache", EmojiDatabase);
-        }
-        catch (KeyNotFoundException)
-        {
-            // Setting doesn't exist, will be created
+            try
+            {
+                await Settings.SettingsProvider.SetValueAsJsonObjectAsync("fishtank_emoji_cache", EmojiDatabase);
+            }
+            catch (KeyNotFoundException)
+            {
+                // Setting doesn't exist, create it manually
+                await using var db = new ApplicationDbContext();
+                db.Settings.Add(new DbModels.SettingDbModel
+                {
+                    Key = "fishtank_emoji_cache",
+                    Value = JsonSerializer.Serialize(EmojiDatabase),
+                    Regex = @".+",
+                    Description = "Fishtank emoji URL cache",
+                    Default = "{}",
+                    CacheDuration = 3600
+                });
+                await db.SaveChangesAsync();
+            }
         }
         finally
         {
