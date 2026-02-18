@@ -79,7 +79,7 @@ public class SourceCommand : ICommand
     public RateLimitOptionsModel? RateLimitOptions => null;
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
-        await botInstance.SendChatMessageAsync("Source: https://github.com/cohlexyz/KfChatDotNet");
+        await botInstance.SendChatMessageAsync("Source: https://github.com/cohlexyz/FishtankDotNet");
     }
 }
 
