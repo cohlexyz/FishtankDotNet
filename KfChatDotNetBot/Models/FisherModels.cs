@@ -233,15 +233,67 @@ public class ChatMessage : UDPMessage
     }
 
     internal static Dictionary<string, EmojiData> EmojiDatabase { get; set; } = new Dictionary<string, EmojiData>();
+    private static bool _emojiDatabaseLoaded = false;
+    private static readonly SemaphoreSlim _emojiLock = new SemaphoreSlim(1, 1);
 
-
-    internal static void SaveEmojiURLs()
+    internal static async Task LoadEmojiDatabaseAsync()
     {
-        EmojiDatabase = EmojiDatabase;
+        await _emojiLock.WaitAsync();
+        try
+        {
+            if (_emojiDatabaseLoaded)
+                return;
+
+            try
+            {
+                var setting = await Settings.SettingsProvider.GetValueAsync("fishtank_emoji_cache");
+                if (!string.IsNullOrEmpty(setting.Value))
+                {
+                    var loaded = JsonSerializer.Deserialize<Dictionary<string, EmojiData>>(setting.Value);
+                    if (loaded != null)
+                    {
+                        EmojiDatabase = loaded;
+                    }
+                }
+            }
+            catch (KeyNotFoundException)
+            {
+                // Setting doesn't exist yet, will be created on first save
+            }
+
+            _emojiDatabaseLoaded = true;
+        }
+        finally
+        {
+            _emojiLock.Release();
+        }
+    }
+
+    internal static async Task SaveEmojiURLsAsync()
+    {
+        await _emojiLock.WaitAsync();
+        try
+        {
+            await Settings.SettingsProvider.SetValueAsJsonObjectAsync("fishtank_emoji_cache", EmojiDatabase);
+        }
+        catch (KeyNotFoundException)
+        {
+            // Setting doesn't exist, will be created
+        }
+        finally
+        {
+            _emojiLock.Release();
+        }
     }
 
     internal async Task<string> ReplaceEmojis(string message)
     {
+        // Ensure emoji database is loaded
+        if (!_emojiDatabaseLoaded)
+        {
+            await LoadEmojiDatabaseAsync();
+        }
+
         // Replace *emoji* with [img]https://example.com/emojis/emoji.png[/img]
         const string emojiPattern = @"\*(\w+)\*";
         var matches = System.Text.RegularExpressions.Regex.Matches(message, emojiPattern);
@@ -256,8 +308,7 @@ public class ChatMessage : UDPMessage
             result.Append(message, lastIndex, match.Index - lastIndex);
             string emojiName = match.Groups[1].Value;
             string replacement;
-            // litterbox uploads only last 24hours
-            if (EmojiDatabase.TryGetValue(emojiName, out EmojiData? emoji) && emoji.UploadTime.AddHours(24) < DateTime.Now)
+            if (EmojiDatabase.TryGetValue(emojiName, out EmojiData? emoji))
             {
                 if (emoji.URL.StartsWith("http://") || emoji.URL.StartsWith("https://"))
                 {
@@ -287,7 +338,7 @@ public class ChatMessage : UDPMessage
                         };
                         EmojiDatabase[emojiName] = emojiData;
                         replacement = $"[img]{url}[/img]";
-                        SaveEmojiURLs();
+                        _ = SaveEmojiURLsAsync(); // Fire and forget to avoid blocking
                     }
                     else
                     {
@@ -298,7 +349,7 @@ public class ChatMessage : UDPMessage
                         };
                         replacement = match.Value;
                         EmojiDatabase[emojiName] = emojiData; // Store the original if download fails, so we don't try again
-                        SaveEmojiURLs();
+                        _ = SaveEmojiURLsAsync(); // Fire and forget to avoid blocking
                     }
                 }
                 catch (HttpRequestException)
@@ -310,7 +361,7 @@ public class ChatMessage : UDPMessage
                     };
                     replacement = match.Value;
                     EmojiDatabase[emojiName] = emojiData; // Store the original if download fails, so we don't try again
-                    SaveEmojiURLs();
+                    _ = SaveEmojiURLsAsync(); // Fire and forget to avoid blocking
                 }
             }
 
