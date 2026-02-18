@@ -16,6 +16,6 @@ public class TimeCommand : ICommand
     {
         var bmt = new DateTimeOffset(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
             TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")), TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time").BaseUtcOffset);
-        await botInstance.SendChatMessageAsync($"It's currently {bmt:dddd h:mm:ss tt} BMT");
+        await botInstance.SendChatMessageAsync($"It's currently {bmt:dddd h:mm:ss tt} FTT");
     }
 }
