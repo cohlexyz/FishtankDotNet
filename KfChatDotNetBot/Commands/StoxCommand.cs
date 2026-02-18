@@ -96,7 +96,5 @@ public class StoxCommand : ICommand
         LastStocksValues = stoxData.Stocks;
 
         await botInstance.SendChatMessageAsync(msg, autoDeleteAfter: TimeSpan.FromSeconds(90));
-
-        await Task.Delay(TimeSpan.FromMinutes(1), ctx);
     }
 }
