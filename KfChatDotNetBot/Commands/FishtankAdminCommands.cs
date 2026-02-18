@@ -14,7 +14,7 @@ public class AddFishtankWhitelistCommand : ICommand
     ];
 
     public string? HelpText => "Add a user to the Fishtank chat forwarding whitelist";
-    public UserRight RequiredRight => UserRight.Admin;
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
@@ -66,7 +66,7 @@ public class RemoveFishtankWhitelistCommand : ICommand
     ];
 
     public string? HelpText => "Remove a user from the Fishtank chat forwarding whitelist";
-    public UserRight RequiredRight => UserRight.Admin;
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
@@ -106,7 +106,7 @@ public class ListFishtankWhitelistCommand : ICommand
     ];
 
     public string? HelpText => "List all users in the Fishtank chat forwarding whitelist";
-    public UserRight RequiredRight => UserRight.Admin;
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
