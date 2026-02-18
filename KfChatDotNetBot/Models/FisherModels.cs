@@ -322,13 +322,32 @@ public class ChatMessage : UDPMessage
         return result.ToString();
     }
 
+    internal static async Task<bool> IsWhitelistedUserAsync(string username)
+    {
+        try
+        {
+            var setting = await Settings.SettingsProvider.GetValueAsync("fishtank_whitelist");
+            if (string.IsNullOrEmpty(setting.Value))
+                return false;
+
+            var whitelist = JsonSerializer.Deserialize<List<string>>(setting.Value);
+            if (whitelist == null)
+                return false;
+
+            return whitelist.Any(u => u.Equals(username, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (KeyNotFoundException)
+        {
+            return false;
+        }
+    }
+
     internal override async Task HandleMessage(ChatBot chat)
     {
         if (string.IsNullOrEmpty(Message) || string.IsNullOrEmpty(User))
             return;
 
-
-        if (true)//!ModCommands.IsWhitelistedUser(User)) // TODO: re-add this
+        if (!await IsWhitelistedUserAsync(User))
         {
             return;
         }
