@@ -676,6 +676,7 @@ public class ChatBot
         if ((disconnectionInfo.Exception != null && disconnectionInfo.Exception.Message.Contains("status code '203'")) || disconnectionInfo.Type == DisconnectionType.Lost)
         {
             _logger.Info("Chat 203'd, getting a new token");
+            _kfTokenService.WipeCookies();
             RefreshXfToken().Wait(_cancellationToken);
             _logger.Info("Reconnecting");
             KfClient.ReconnectAsync().Wait(_cancellationToken);
