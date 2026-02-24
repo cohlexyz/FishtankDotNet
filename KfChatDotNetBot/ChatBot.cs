@@ -223,6 +223,30 @@ public class ChatBot
         }
     }
 
+    private async Task FuckShitUpBigTime()
+    {
+        _kfTokenService.WipeCookies();
+        var settings =
+            await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.KiwiFarmsUsername, BuiltIn.Keys.KiwiFarmsPassword]);
+        try
+        {
+            await _kfTokenService.PerformLogin(settings[BuiltIn.Keys.KiwiFarmsUsername].Value!,
+                settings[BuiltIn.Keys.KiwiFarmsPassword].Value!);
+        }
+        catch (Exception e)
+        {
+            _logger.Error("Caught an error when trying to login");
+            _logger.Error(e);
+            return;
+        }
+
+        _logger.Info("Successfully logged in");
+        _logger.Info("Updating cookies");
+        await _kfTokenService.SaveCookies();
+        KfClient.UpdateCookies(_kfTokenService.GetCookies());
+
+    }
+
     private async Task RefreshXfToken()
     {
         try
@@ -589,7 +613,7 @@ public class ChatBot
             {
                 // this is us and we don't have a valid chat token/cookie => we have to refresh it
                 _logger.Info("Joined as Guest, likely due to invalid/missing cookies. Refreshing XF token and reconnecting.");
-                RefreshXfToken().Wait(_cancellationToken);
+                FuckShitUpBigTime().Wait(_cancellationToken);
                 KfClient.ReconnectAsync().Wait(_cancellationToken);
                 return;
             }
@@ -629,7 +653,7 @@ public class ChatBot
         if (userIds.Contains(205609))
         {
             _logger.Info("We got kicked?");
-            _kfTokenService.WipeCookies();
+            FuckShitUpBigTime().Wait(_cancellationToken);
             KfClient.ReconnectAsync().Wait(_cancellationToken);
         }
 
@@ -676,8 +700,7 @@ public class ChatBot
         if ((disconnectionInfo.Exception != null && disconnectionInfo.Exception.Message.Contains("status code '203'")) || disconnectionInfo.Type == DisconnectionType.Lost)
         {
             _logger.Info("Chat 203'd, getting a new token");
-            _kfTokenService.WipeCookies();
-            RefreshXfToken().Wait(_cancellationToken);
+            FuckShitUpBigTime().Wait(_cancellationToken);
             _logger.Info("Reconnecting");
             KfClient.ReconnectAsync().Wait(_cancellationToken);
         }
