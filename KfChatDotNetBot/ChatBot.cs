@@ -36,7 +36,9 @@ public class ChatBot
     private DateTime _lastReconnectAttempt = DateTime.UtcNow;
     private List<ScheduledAutoDeleteModel> _scheduledDeletions = [];
     private Task _scheduledAutoDeleteTask;
+
     private bool _receivedJoinMessage = false;
+
     public ChatBot()
     {
         _logger.Info("Bot starting!");
@@ -223,52 +225,12 @@ public class ChatBot
         }
     }
 
-    private async Task FuckShitUpBigTime()
-    {
-        _kfTokenService.WipeCookies();
-        var settings =
-            await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.KiwiFarmsUsername, BuiltIn.Keys.KiwiFarmsPassword]);
-        try
-        {
-            await _kfTokenService.PerformLogin(settings[BuiltIn.Keys.KiwiFarmsUsername].Value!,
-                settings[BuiltIn.Keys.KiwiFarmsPassword].Value!);
-        }
-        catch (Exception e)
-        {
-            _logger.Error("Caught an error when trying to login");
-            _logger.Error(e);
-            return;
-        }
-
-        _logger.Info("Successfully logged in");
-        _logger.Info("Updating cookies");
-        await _kfTokenService.SaveCookies();
-        KfClient.UpdateCookies(_kfTokenService.GetCookies());
-
-    }
-
     private async Task RefreshXfToken()
     {
-        try
-        {
-            if (await _kfTokenService.IsLoggedIn())
-            {
-                _logger.Info("We were already logged in and should have a fresh cookie for chat now");
-                _logger.Info("Updating cookies");
-                await _kfTokenService.SaveCookies();
-                KfClient.UpdateCookies(_kfTokenService.GetCookies());
-                // Only seems to happen if the bot thinks it's already logged in
-                return;
-            }
-        }
-        catch (Exception e)
-        {
-            _logger.Error("Caught an error when trying to retrieve a fresh cookie");
-            _logger.Error(e);
-            return;
-        }
+
         var settings =
             await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.KiwiFarmsUsername, BuiltIn.Keys.KiwiFarmsPassword]);
+        _kfTokenService.WipeCookies();
         try
         {
             await _kfTokenService.PerformLogin(settings[BuiltIn.Keys.KiwiFarmsUsername].Value!,
@@ -584,7 +546,7 @@ public class ChatBot
 
     private void OnUsersJoined(object sender, List<UserModel> users, UsersJsonModel jsonPayload)
     {
-        var settings = SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.GambaSeshUserId, BuiltIn.Keys.GambaSeshDetectEnabled, BuiltIn.Keys.BotKeesSeen, BuiltIn.Keys.KiwiFarmsUsername])
+        var settings = SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.GambaSeshUserId, BuiltIn.Keys.GambaSeshDetectEnabled, BuiltIn.Keys.BotKeesSeen])
             .Result;
         _logger.Debug($"Received {users.Count} user join events");
         using var db = new ApplicationDbContext();
@@ -603,20 +565,6 @@ public class ChatBot
                 SettingsProvider.SetValueAsBooleanAsync(BuiltIn.Keys.BotKeesSeen, true).Wait(_cancellationToken);
             }
             _logger.Info($"{user.Username} joined!");
-
-            var botUserName = settings[BuiltIn.Keys.KiwiFarmsUsername].Value;
-            if (user.Username == botUserName)
-            {
-                _receivedJoinMessage = true;
-            }
-            else if (user.Username == "Guest" && !_receivedJoinMessage)
-            {
-                // this is us and we don't have a valid chat token/cookie => we have to refresh it
-                _logger.Info("Joined as Guest, likely due to invalid/missing cookies. Refreshing XF token and reconnecting.");
-                FuckShitUpBigTime().Wait(_cancellationToken);
-                KfClient.ReconnectAsync().Wait(_cancellationToken);
-                return;
-            }
 
             var userDb = db.Users.FirstOrDefault(u => u.KfId == user.Id);
             if (userDb == null)
@@ -650,10 +598,12 @@ public class ChatBot
             _logger.Info("GambaSesh is no longer present");
             GambaSeshPresent = false;
         }
+
         if (userIds.Contains(205609))
         {
             _logger.Info("We got kicked?");
-            FuckShitUpBigTime().Wait(_cancellationToken);
+            _kfTokenService.WipeCookies();
+            RefreshXfToken().Wait(_cancellationToken);
             KfClient.ReconnectAsync().Wait(_cancellationToken);
         }
 
@@ -693,14 +643,14 @@ public class ChatBot
 
     private void OnKfWsDisconnected(object sender, DisconnectionInfo disconnectionInfo)
     {
-        _receivedJoinMessage = false;
         _logger.Error($"Sneedchat disconnected due to {disconnectionInfo.Type}");
         _logger.Error($"Close Status => {disconnectionInfo.CloseStatus}; Close Status Description => {disconnectionInfo.CloseStatusDescription}");
         _logger.Error(disconnectionInfo.Exception);
+
         if ((disconnectionInfo.Exception != null && disconnectionInfo.Exception.Message.Contains("status code '203'")) || disconnectionInfo.Type == DisconnectionType.Lost)
         {
             _logger.Info("Chat 203'd, getting a new token");
-            FuckShitUpBigTime().Wait(_cancellationToken);
+            RefreshXfToken().Wait(_cancellationToken);
             _logger.Info("Reconnecting");
             KfClient.ReconnectAsync().Wait(_cancellationToken);
         }
