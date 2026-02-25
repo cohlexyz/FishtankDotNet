@@ -177,7 +177,7 @@ public class ChatBot
                 await KfClient.ReconnectAsync();
             }
 
-            if (!_usersInChat.Contains(205609))
+            if (!_usersInChat.Contains(205609) && _usersInChat.Count != 0)
             {
                 _logger.Error("Bot no longer in user list, token is probably invalid. Forcing reconnect to hopefully fix it");
                 await KfClient.DisconnectAsync();
@@ -665,6 +665,7 @@ public class ChatBot
         _logger.Error($"Close Status => {disconnectionInfo.CloseStatus}; Close Status Description => {disconnectionInfo.CloseStatusDescription}");
         _logger.Error(disconnectionInfo.Exception);
         _receivedJoinMessage = false;
+        _usersInChat.Clear();
 
         if ((disconnectionInfo.Exception != null && disconnectionInfo.Exception.Message.Contains("status code '203'")) || disconnectionInfo.Type == DisconnectionType.Lost)
         {
