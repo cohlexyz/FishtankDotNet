@@ -37,6 +37,8 @@ public class ChatBot
     private List<ScheduledAutoDeleteModel> _scheduledDeletions = [];
     private Task _scheduledAutoDeleteTask;
 
+    private List<int> _usersInChat = [];
+
     private bool _receivedJoinMessage = false;
 
     public ChatBot()
@@ -172,6 +174,14 @@ public class ChatBot
                 _logger.Error($"deadTime -> {deadTime:g}");
                 if (shouldExit) Environment.Exit(1);
                 _logger.Error("Since we didn't exit, let's try forcing a reconnect");
+                await KfClient.ReconnectAsync();
+            }
+
+            if (!_usersInChat.Contains(205609))
+            {
+                _logger.Error("Bot no longer in user list, token is probably invalid. Forcing reconnect to hopefully fix it");
+                await KfClient.DisconnectAsync();
+                RefreshXfToken().Wait(_cancellationToken);
                 await KfClient.ReconnectAsync();
             }
         }
@@ -550,6 +560,13 @@ public class ChatBot
             .Result;
         _logger.Debug($"Received {users.Count} user join events");
         using var db = new ApplicationDbContext();
+        _usersInChat.AddRange(users.Select(u => u.Id));
+        if (users.Any(u => u.Id == 205609))
+        {
+            _logger.Info("Bot has joined the chat!");
+            _receivedJoinMessage = true;
+        }
+
         foreach (var user in users)
         {
             if (user.Id == settings[BuiltIn.Keys.GambaSeshUserId].ToType<int>() && settings[BuiltIn.Keys.GambaSeshDetectEnabled].ToBoolean())
@@ -591,6 +608,7 @@ public class ChatBot
 
     private void OnUsersParted(object sender, List<int> userIds)
     {
+        _usersInChat.RemoveAll(id => userIds.Contains(id));
         var settings = SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.GambaSeshUserId, BuiltIn.Keys.GambaSeshDetectEnabled])
             .Result;
         if (userIds.Contains(settings[BuiltIn.Keys.GambaSeshUserId].ToType<int>()) && settings[BuiltIn.Keys.GambaSeshDetectEnabled].ToBoolean())
@@ -646,6 +664,7 @@ public class ChatBot
         _logger.Error($"Sneedchat disconnected due to {disconnectionInfo.Type}");
         _logger.Error($"Close Status => {disconnectionInfo.CloseStatus}; Close Status Description => {disconnectionInfo.CloseStatusDescription}");
         _logger.Error(disconnectionInfo.Exception);
+        _receivedJoinMessage = false;
 
         if ((disconnectionInfo.Exception != null && disconnectionInfo.Exception.Message.Contains("status code '203'")) || disconnectionInfo.Type == DisconnectionType.Lost)
         {
@@ -658,6 +677,7 @@ public class ChatBot
 
     private void OnKfWsReconnected(object sender, ReconnectionInfo reconnectionInfo)
     {
+        _receivedJoinMessage = false;
         _lastReconnectAttempt = DateTime.UtcNow;
         var roomId = SettingsProvider.GetValueAsync(BuiltIn.Keys.KiwiFarmsRoomId).Result.ToType<int>();
         _logger.Error($"Sneedchat reconnected due to {reconnectionInfo.Type}");
