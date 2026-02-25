@@ -24,7 +24,7 @@ public class CastCommand : ICommand
 public class NiggaCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^Nigga$"),
+        new Regex(@"^nigga$"),
     ];
     public string? HelpText => "The fuck is he doing?";
     public UserRight RequiredRight => UserRight.Loser;
