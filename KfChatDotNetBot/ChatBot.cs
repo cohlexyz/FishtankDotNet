@@ -147,10 +147,7 @@ public class ChatBot
             var inactivityTimeout = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.KiwiFarmsInactivityTimeout)).ToType<int>();
             if (inactivityTime.TotalSeconds > inactivityTimeout)
             {
-                // Yeah, super dodgy
-                KfClient.LastPacketReceived = DateTime.UtcNow;
-                _logger.Error("Forcing disconnect and restart as bot is completely dead");
-                await KfClient.ReconnectAsync();
+                System.Environment.Exit(1);
             }
         }
     }
@@ -172,9 +169,7 @@ public class ChatBot
                 _logger.Error($"IsConnected() -> {KfClient.IsConnected()}");
                 _logger.Error($"inactivityTime -> {inactivityTime:g}");
                 _logger.Error($"deadTime -> {deadTime:g}");
-                if (shouldExit) Environment.Exit(1);
-                _logger.Error("Since we didn't exit, let's try forcing a reconnect");
-                await KfClient.ReconnectAsync();
+                Environment.Exit(1);
             }
 
             if (!_usersInChat.Contains(205609) && _usersInChat.Count != 0)
