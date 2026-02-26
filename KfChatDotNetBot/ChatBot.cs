@@ -175,9 +175,7 @@ public class ChatBot
             if (!_usersInChat.Contains(205609) && _usersInChat.Count != 0)
             {
                 _logger.Error("Bot no longer in user list, token is probably invalid. Forcing reconnect to hopefully fix it");
-                await KfClient.DisconnectAsync();
-                RefreshXfToken().Wait(_cancellationToken);
-                await KfClient.ReconnectAsync();
+                System.Environment.Exit(1);
             }
         }
     }
