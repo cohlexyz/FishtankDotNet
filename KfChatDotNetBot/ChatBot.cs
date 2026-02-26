@@ -662,7 +662,13 @@ public class ChatBot
         _receivedJoinMessage = false;
         _usersInChat.Clear();
 
-        if ((disconnectionInfo.Exception != null && disconnectionInfo.Exception.Message.Contains("status code '203'")) || disconnectionInfo.Type == DisconnectionType.Lost)
+        if (disconnectionInfo.Type == DisconnectionType.Lost)
+        {
+            _logger.Error("Shit's fucked, killing my elf");
+            System.Environment.Exit(-1);
+        }
+
+        if (disconnectionInfo.Exception != null && disconnectionInfo.Exception.Message.Contains("status code '203'"))
         {
             _logger.Info("Chat 203'd, getting a new token");
             RefreshXfToken().Wait(_cancellationToken);
