@@ -148,6 +148,7 @@ public class ChatBot
             if (inactivityTime.TotalSeconds > inactivityTimeout)
             {
                 _kfTokenService.WipeCookies();
+                _kfTokenService.SaveCookies().Wait(_cancellationToken);
                 System.Environment.Exit(1);
             }
         }
@@ -171,6 +172,7 @@ public class ChatBot
                 _logger.Error($"inactivityTime -> {inactivityTime:g}");
                 _logger.Error($"deadTime -> {deadTime:g}");
                 _kfTokenService.WipeCookies();
+                _kfTokenService.SaveCookies().Wait(_cancellationToken);
                 Environment.Exit(1);
             }
 
@@ -178,6 +180,7 @@ public class ChatBot
             {
                 _logger.Error("Bot no longer in user list, token is probably invalid. Forcing reconnect to hopefully fix it");
                 _kfTokenService.WipeCookies();
+                _kfTokenService.SaveCookies().Wait(_cancellationToken);
                 System.Environment.Exit(1);
             }
         }
@@ -667,12 +670,14 @@ public class ChatBot
         {
             _logger.Error("Shit's fucked, killing my elf");
             _kfTokenService.WipeCookies();
+            _kfTokenService.SaveCookies().Wait(_cancellationToken);
             System.Environment.Exit(-1);
         }
 
         if (disconnectionInfo.Exception != null && disconnectionInfo.Exception.Message.Contains("status code '203'"))
         {
             _logger.Info("Chat 203'd, getting a new token");
+            _kfTokenService.WipeCookies();
             RefreshXfToken().Wait(_cancellationToken);
             _logger.Info("Reconnecting");
             KfClient.ReconnectAsync().Wait(_cancellationToken);
