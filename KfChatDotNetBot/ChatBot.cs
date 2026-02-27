@@ -147,6 +147,7 @@ public class ChatBot
             var inactivityTimeout = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.KiwiFarmsInactivityTimeout)).ToType<int>();
             if (inactivityTime.TotalSeconds > inactivityTimeout)
             {
+                _kfTokenService.WipeCookies();
                 System.Environment.Exit(1);
             }
         }
@@ -169,12 +170,14 @@ public class ChatBot
                 _logger.Error($"IsConnected() -> {KfClient.IsConnected()}");
                 _logger.Error($"inactivityTime -> {inactivityTime:g}");
                 _logger.Error($"deadTime -> {deadTime:g}");
+                _kfTokenService.WipeCookies();
                 Environment.Exit(1);
             }
 
             if (!_usersInChat.Contains(205609) && _usersInChat.Count != 0)
             {
                 _logger.Error("Bot no longer in user list, token is probably invalid. Forcing reconnect to hopefully fix it");
+                _kfTokenService.WipeCookies();
                 System.Environment.Exit(1);
             }
         }
@@ -663,6 +666,7 @@ public class ChatBot
         if (disconnectionInfo.Type == DisconnectionType.Lost)
         {
             _logger.Error("Shit's fucked, killing my elf");
+            _kfTokenService.WipeCookies();
             System.Environment.Exit(-1);
         }
 
