@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Text.Json;
+using Humanizer;
 using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
@@ -88,6 +89,7 @@ public class ChatBot
         KfClient.OnWsDisconnection += OnKfWsDisconnected;
         KfClient.OnWsReconnect += OnKfWsReconnected;
         KfClient.OnFailedToJoinRoom += OnFailedToJoinRoom;
+        KfClient.OnPermissions += OnPermissionsReceived;
 
         KfClient.StartWsClient().Wait(_cancellationToken);
 
@@ -99,6 +101,17 @@ public class ChatBot
         _logger.Debug("Blocking the main thread");
         var exitEvent = new ManualResetEvent(false);
         exitEvent.WaitOne();
+    }
+
+    private void OnPermissionsReceived(object sender, PermissionsJsonModel permissions)
+    {
+        if (!permissions.CanSend)
+        {
+            _logger.Error("Received permissions update indicating we can't send messages. This likely means the account got banned or shadowbanned. Killing the bot to avoid confusion");
+            _kfTokenService.WipeCookies();
+            RefreshXfToken().Wait(_cancellationToken);
+            KfClient.ReconnectAsync().Wait(_cancellationToken);
+        }
     }
 
     private void OnFailedToJoinRoom(object sender, string message)
@@ -368,7 +381,7 @@ public class ChatBot
             }
             else
             {
-                _seenMessages.Add(new SeenMessageMetadataModel {MessageUuid = message.MessageUuid, LastEdited = message.MessageEditDate});
+                _seenMessages.Add(new SeenMessageMetadataModel { MessageUuid = message.MessageUuid, LastEdited = message.MessageEditDate });
             }
             UpdateUserLastActivityAsync(message.Author.Id, WhoWasActivityType.Message).Wait(_cancellationToken);
             // Strip weird control characters and just allow basic punctuation + whitespace
