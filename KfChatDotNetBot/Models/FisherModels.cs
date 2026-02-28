@@ -169,7 +169,7 @@ public class UpdatePollMessage : UDPMessage
             var totalVotes = (double)Options.Sum(x => x.Score);
             if (totalVotes <= 0) return;
             var options = string.Join("\n", Options.OrderByDescending(opt => opt.Option).Select((x, i) => $" - {i + 1}. {x.Option} ({x.Score} / {Math.Round(x.Score / totalVotes * 1000f) / 10f}%)"));
-            await chat.KfClient.EditMessageAsync(NewPollMessage.LastPollMessage!.ChatMessageId!.Value, $"[img]https://i.postimg.cc/yYkxDzwB/ft-0.png[/img] 🗳️ [b]{Question}[/b]\n" + options);
+            await chat.KfClient.EditMessageAsync(NewPollMessage.LastPollMessage!.ChatMessageUuid!, $"[img]https://i.postimg.cc/yYkxDzwB/ft-0.png[/img] 🗳️ [b]{Question}[/b]\n" + options);
         }
         finally
         {

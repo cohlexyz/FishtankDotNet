@@ -78,9 +78,9 @@ public class XeetEmbedCommand : ICommand
 
             var messages = await BuildTweetMessagesAsync(tweet, xeetId, mediaUrls, ctx);
 
-            if (loadingMessage.ChatMessageId.HasValue)
+            if (loadingMessage.ChatMessageUuid != null)
             {
-                await botInstance.KfClient.DeleteMessageAsync(loadingMessage.ChatMessageId.Value);
+                await botInstance.KfClient.DeleteMessageAsync(loadingMessage.ChatMessageUuid!);
             }
 
             if (messages.Count == 0)
@@ -107,9 +107,9 @@ public class XeetEmbedCommand : ICommand
         catch
         {
             // Delete loading message on error
-            if (loadingMessage.ChatMessageId.HasValue)
+            if (loadingMessage.ChatMessageUuid != null)
             {
-                await botInstance.KfClient.DeleteMessageAsync(loadingMessage.ChatMessageId.Value);
+                await botInstance.KfClient.DeleteMessageAsync(loadingMessage.ChatMessageUuid!);
             }
             throw;
         }
