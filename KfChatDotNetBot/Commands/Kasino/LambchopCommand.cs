@@ -29,7 +29,7 @@ public class LambchopCommand : ICommand
         MaxInvocations = 3,
         Window = TimeSpan.FromSeconds(15)
     };
-    private static double _houseEdge = 0.05; // house edge hack?
+    private static double _houseEdge = 0.015; // house edge hack?
     
     // game assets
     private const string HAIRSPACE = " ";
@@ -85,12 +85,14 @@ public class LambchopCommand : ICommand
         if (!arguments.TryGetValue("amount", out var amount))
         {
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, not enough arguments. !lambchop <wager> <number between 1 and {FIELD_LENGTH}>", true, autoDeleteAfter: cleanupDelay);
+            RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
         var targetTile = arguments["targetTile"].Success ? Convert.ToInt32(arguments["targetTile"].Value) : FIELD_LENGTH;
         if (targetTile is < 1 or > FIELD_LENGTH)
         {
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()},  Please choose a target tile between 1 and {FIELD_LENGTH}", true, autoDeleteAfter: cleanupDelay);
+            RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
         var wager = Convert.ToDecimal(amount.Value);
@@ -102,6 +104,7 @@ public class LambchopCommand : ICommand
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
                 true, autoDeleteAfter: cleanupDelay);
+            RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
         
@@ -110,6 +113,7 @@ public class LambchopCommand : ICommand
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you have to wager more than {await wager.FormatKasinoCurrencyAsync()}", true,
                 autoDeleteAfter: cleanupDelay);
+            RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
         
