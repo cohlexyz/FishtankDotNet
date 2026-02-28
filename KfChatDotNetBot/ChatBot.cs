@@ -107,7 +107,7 @@ public class ChatBot
     {
         if (!permissions.CanSend)
         {
-            _logger.Error("Received permissions update indicating we can't send messages. This likely means the account got banned or shadowbanned. Killing the bot to avoid confusion");
+            _logger.Error("Received permissions update indicating we can't send messages. Getting new auth.");
             _kfTokenService.WipeCookies();
             RefreshXfToken().Wait(_cancellationToken);
             KfClient.ReconnectAsync().Wait(_cancellationToken);
@@ -161,8 +161,8 @@ public class ChatBot
             if (inactivityTime.TotalSeconds > inactivityTimeout)
             {
                 _kfTokenService.WipeCookies();
-                _kfTokenService.SaveCookies().Wait(_cancellationToken);
-                System.Environment.Exit(1);
+                RefreshXfToken().Wait(_cancellationToken);
+                KfClient.ReconnectAsync().Wait(_cancellationToken);
             }
         }
     }
@@ -185,16 +185,21 @@ public class ChatBot
                 _logger.Error($"inactivityTime -> {inactivityTime:g}");
                 _logger.Error($"deadTime -> {deadTime:g}");
                 _kfTokenService.WipeCookies();
-                _kfTokenService.SaveCookies().Wait(_cancellationToken);
-                Environment.Exit(1);
+                RefreshXfToken().Wait(_cancellationToken);
+                KfClient.ReconnectAsync().Wait(_cancellationToken);
+                if (shouldExit)
+                {
+                    _logger.Error("Exiting as BotExitOnDeath is enabled");
+                    System.Environment.Exit(-1);
+                }
             }
 
             if (!_usersInChat.Contains(205609) && _usersInChat.Count != 0)
             {
                 _logger.Error("Bot no longer in user list, token is probably invalid. Forcing reconnect to hopefully fix it");
                 _kfTokenService.WipeCookies();
-                _kfTokenService.SaveCookies().Wait(_cancellationToken);
-                System.Environment.Exit(1);
+                RefreshXfToken().Wait(_cancellationToken);
+                KfClient.ReconnectAsync().Wait(_cancellationToken);
             }
         }
     }
