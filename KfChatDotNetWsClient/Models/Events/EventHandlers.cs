@@ -18,11 +18,15 @@ public class EventHandlers
     public delegate void OnWsReconnectEventHandler(object sender, ReconnectionInfo reconnectionInfo);
 
     // Usually only one is sent at a time but it is a list hence the pluralization
-    public delegate void OnDeleteMessagesEventHandler(object sender, List<int> messageIds);
+    public delegate void OnDeleteMessagesEventHandler(object sender, List<string> messageIds);
 
     public delegate void OnWsDisconnectionEventHandler(object sender, DisconnectionInfo disconnectionInfo);
 
     public delegate void OnFailedToJoinRoom(object sender, string message);
 
     public delegate void OnUnknownCommand(object sender, string message);
+
+    public delegate void OnPermissionsEventHandler(object sender, PermissionsJsonModel permissions);
+
+    public delegate void OnSystemMessage(object sender, string message);
 }

@@ -75,7 +75,7 @@ public class MinesCommand : ICommand
                 await KasinoMines.GetSavedGames(gambler.Id);
                 foreach (var game in KasinoMines.ActiveGames.Values)
                 {
-                    await botInstance.KfClient.DeleteMessageAsync(game.LastMessageId);
+                    await botInstance.KfClient.DeleteMessageAsync(game.LastMessageId!);
                 }
                 KasinoMines.ActiveGames.Clear();
                 await KasinoMines.SaveActiveGames(gambler.Id);
@@ -269,11 +269,11 @@ public class MinesCommand : ICommand
 
             var lastmsg = KasinoMines.ActiveGames[gambler.Id].LastMessageId;
             SentMessageTrackerModel msg;
-            if (lastmsg == 0)
+            if (lastmsg == null)
             {
                 msg = (await botInstance.SendChatMessageAsync($"{KasinoMines.ActiveGames[gambler.Id].ToString()}", true));
                 await botInstance.WaitForChatMessageAsync(msg, ct: ctx);
-                if (msg.ChatMessageId == null) throw new InvalidOperationException("Timed out waiting for the message");
+                if (msg.ChatMessageUuid == null) throw new InvalidOperationException("Timed out waiting for the message");
             }
             else
             {
