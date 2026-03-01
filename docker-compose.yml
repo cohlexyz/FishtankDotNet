@@ -26,6 +26,11 @@ services:
     depends_on:
       - wireguard
     restart: unless-stopped
+      redis-server
+    command: >
+      --bind 127.0.0.1
+      --port 6380
+      --protected-mode yes
   kfchatbot:
     depends_on:
       - redis
