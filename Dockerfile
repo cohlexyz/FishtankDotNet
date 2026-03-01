@@ -11,7 +11,7 @@ RUN apt-get update && \
 # Install MS core fonts
 RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections && \
     apt-get update && \
-    apt-get install -y ttf-mscorefonts-installer && \
+    apt-get install -y ttf-mscorefonts-installer ffmpeg && \
     fc-cache -fv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
