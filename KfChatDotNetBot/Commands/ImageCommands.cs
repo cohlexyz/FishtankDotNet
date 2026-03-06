@@ -153,12 +153,12 @@ public class ListImageCommand : ICommand
 public class ManageImageKeyCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^admin image key add (?<key>\w+)$"),
-        new Regex(@"^admin image key remove (?<key>\w+)$"),
-        new Regex(@"^admin image key delete (?<key>\w+)$"),
-        new Regex(@"^admin images key add (?<key>\w+)$"),
-        new Regex(@"^admin images key remove (?<key>\w+)$"),
-        new Regex(@"^admin images key delete (?<key>\w+)$")
+        new Regex(@"^admin imagekey add (?<key>\w+)$"),
+        new Regex(@"^admin imagekey remove (?<key>\w+)$"),
+        new Regex(@"^admin imagekey delete (?<key>\w+)$"),
+        new Regex(@"^admin imageskey add (?<key>\w+)$"),
+        new Regex(@"^admin imageskey remove (?<key>\w+)$"),
+        new Regex(@"^admin imageskey delete (?<key>\w+)$")
     ];
     public string? HelpText => "Add or remove an acceptable image key from the BotImageAcceptableKeys setting";
     public UserRight RequiredRight => UserRight.Admin;
