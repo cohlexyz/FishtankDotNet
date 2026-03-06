@@ -418,7 +418,7 @@ public class ChatBot
     /// <param name="lengthLimit">Length limit to enforce in bytes</param>
     /// <param name="autoDeleteAfter">Length of time until the message is auto deleted, null to disable. Starts counting from when the message is echoed by Sneedchat</param>
     /// <returns>An object you can use to check the status of the message and get its ID for editing/deleting later</returns>
-    public async Task<SentMessageTrackerModel> SendChatMessageAsync(string message, bool bypassSeshDetect = false, LengthLimitBehavior lengthLimitBehavior = LengthLimitBehavior.TruncateNicely, int lengthLimit = 1023, TimeSpan? autoDeleteAfter = null)
+    public async Task<SentMessageTrackerModel> SendChatMessageAsync(string message, bool bypassSeshDetect = false, LengthLimitBehavior lengthLimitBehavior = LengthLimitBehavior.TruncateNicely, int lengthLimit = 2048, TimeSpan? autoDeleteAfter = null)
     {
         var settings = await SettingsProvider
             .GetMultipleValuesAsync([
@@ -514,7 +514,7 @@ public class ChatBot
     /// <param name="autoDeleteAfter">Length of time until the message is auto deleted, null to disable. Starts counting from when the message is echoed by Sneedchat</param>
     /// <returns>An object you can use to check the status of the message and get its ID for editing/deleting later</returns>
     public SentMessageTrackerModel SendChatMessage(string message, bool bypassSeshDetect = false,
-        LengthLimitBehavior lengthLimitBehavior = LengthLimitBehavior.TruncateNicely, int lengthLimit = 1023, TimeSpan? autoDeleteAfter = null)
+        LengthLimitBehavior lengthLimitBehavior = LengthLimitBehavior.TruncateNicely, int lengthLimit = 2048, TimeSpan? autoDeleteAfter = null)
     {
         return SendChatMessageAsync(message, bypassSeshDetect, lengthLimitBehavior, lengthLimit, autoDeleteAfter).Result;
     }
@@ -577,6 +577,7 @@ public class ChatBot
         var settings = SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.GambaSeshUserId, BuiltIn.Keys.GambaSeshDetectEnabled, BuiltIn.Keys.BotKeesSeen])
             .Result;
         _logger.Debug($"Received {users.Count} user join events");
+        _currentUsersInChat.AddRange(users);
         using var db = new ApplicationDbContext();
         _usersInChat.AddRange(users.Select(u => u.Id));
         if (users.Any(u => u.Id == 205609))
@@ -713,6 +714,11 @@ public class ChatBot
         GambaSeshPresent = false;
         _logger.Info($"Rejoining {roomId}");
         KfClient.JoinRoom(roomId);
+    }
+
+    public UserModel? FindUserByName(string username)
+    {
+        return _currentUsersInChat.FirstOrDefault(u => u.Username.Equals(username, StringComparison.CurrentCulture));
     }
 
     public enum LengthLimitBehavior

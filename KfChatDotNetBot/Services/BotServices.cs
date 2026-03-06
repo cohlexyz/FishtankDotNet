@@ -864,7 +864,12 @@ public class BotServices
         // }
         // _lastDiscordStatus = presence.Status;
         var clientStatus = presence.ClientStatus.Keys.Aggregate(string.Empty, (current, device) => current + $"{device} is {presence.ClientStatus[device]}; ");
-        _chatBot.SendChatMessage($"[img]{settings[BuiltIn.Keys.DiscordIcon].Value}[/img] {presence.User.GlobalName ?? presence.User.Username ?? settings[BuiltIn.Keys.TwitchBossmanJackUsername].Value} has updated his Discord presence: {clientStatus}");
+        // Typically means offline
+        if (presence.ClientStatus.Count == 0)
+        {
+            clientStatus = presence.Status;
+        }
+        _chatBot.SendChatMessage($"[img]{settings[BuiltIn.Keys.DiscordIcon].Value}[/img] {presence.User.GlobalName ?? presence.User.Username ?? settings[BuiltIn.Keys.TwitchBossmanJackUsername].Value} has updated his Discord presence to {clientStatus}");
         UpdateBossmanLastSighting($"going {presence.Status} on Discord").Wait(_cancellationToken);
     }
 
@@ -959,24 +964,51 @@ public class BotServices
         _logger.Error("Credentials failed to validate.");
     }
 
-    private void ShuffleOnLatestBetUpdated(object sender, ShuffleLatestBetModel bet)
+    private void ShuffleOnLatestBetUpdated(object sender, ShuffleLatestBetModel bet, bool isDotUs)
     {
         var settings = SettingsProvider
             .GetMultipleValuesAsync([
                 BuiltIn.Keys.ShuffleBmjUsername, BuiltIn.Keys.ShuffleDotUsBmjUsername,
-                BuiltIn.Keys.KiwiFarmsGreenColor, BuiltIn.Keys.KiwiFarmsRedColor
+                BuiltIn.Keys.KiwiFarmsGreenColor, BuiltIn.Keys.KiwiFarmsRedColor,
+                BuiltIn.Keys.ShuffleBmjUserId, BuiltIn.Keys.ShuffleBmjVipLevel
             ]).Result;
         _logger.Trace("Shuffle bet has arrived");
-        bool isDotUs;
+        bool offlineBet = false;
+        if (bet.Username == null && bet.VipLevel == settings[BuiltIn.Keys.ShuffleBmjVipLevel].Value && !CheckBmjIsLive().Result && !isDotUs)
+        {
+            _logger.Info($"Checking for potential offline bet {bet.Id}");
+            string? betOwner;
+            try
+            {
+                betOwner = _shuffle?.GetBetUser(bet.Id).Result;
+            }
+            catch (Exception e)
+            {
+                _logger.Error($"Caught an error when trying to get {bet.Id}");
+                _logger.Error(e);
+                return;
+            }
+            if (betOwner == null)
+            {
+                _logger.Error($"Failed to get the bet owner for {bet.Id}");
+                return;
+            }
+            _logger.Info($"Got user ID {betOwner}");
+
+            if (betOwner != settings[BuiltIn.Keys.ShuffleBmjUserId].Value) return;
+            offlineBet = true;
+        }
         if (bet.Username == settings[BuiltIn.Keys.ShuffleBmjUsername].Value)
         {
-            isDotUs = false;
             UpdateBossmanLastSighting($"betting {bet.Amount} {bet.Currency} on {bet.GameName} at Shuffle.com").Wait(_cancellationToken);
         }
         else if (bet.Username == settings[BuiltIn.Keys.ShuffleDotUsBmjUsername].Value)
         {
-            isDotUs = true;
             UpdateBossmanLastSighting($"betting {bet.Amount} {bet.Currency} on {bet.GameName} at Shuffle.us").Wait(_cancellationToken);
+        }
+        else if (offlineBet)
+        {
+            UpdateBossmanLastSighting($"betting {bet.Amount} {bet.Currency} on {bet.GameName} at Shuffle.com OFFLINE").Wait(_cancellationToken);
         }
         else
         {
