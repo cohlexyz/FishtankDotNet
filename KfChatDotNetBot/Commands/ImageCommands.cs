@@ -1,4 +1,5 @@
 ﻿using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
@@ -146,6 +147,57 @@ public class ListImageCommand : ICommand
 
         await botInstance.SendChatMessagesAsync(result.FancySplitMessage(partSeparator: "[br]"),
             bypassSeshDetect: true);
+    }
+}
+
+public class ManageImageKeyCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^admin image key add (?<key>\w+)$"),
+        new Regex(@"^admin image key remove (?<key>\w+)$"),
+        new Regex(@"^admin image key delete (?<key>\w+)$"),
+        new Regex(@"^admin images key add (?<key>\w+)$"),
+        new Regex(@"^admin images key remove (?<key>\w+)$"),
+        new Regex(@"^admin images key delete (?<key>\w+)$")
+    ];
+    public string? HelpText => "Add or remove an acceptable image key from the BotImageAcceptableKeys setting";
+    public UserRight RequiredRight => UserRight.Admin;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+        CancellationToken ctx)
+    {
+        var imageKeys = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.BotImageAcceptableKeys)).JsonDeserialize<List<string>>();
+        if (imageKeys == null) throw new InvalidOperationException($"{BuiltIn.Keys.BotImageAcceptableKeys} was null");
+        var key = arguments["key"].Value.ToLower();
+        var isAdd = message.Message.Contains(" add ");
+
+        if (isAdd)
+        {
+            if (imageKeys.Contains(key))
+            {
+                await botInstance.SendChatMessageAsync($"Key \"{key}\" is already in the acceptable keys list", true);
+                return;
+            }
+            imageKeys.Add(key);
+            await SettingsProvider.SetValueAsync(BuiltIn.Keys.BotImageAcceptableKeys, JsonSerializer.Serialize(imageKeys));
+            await botInstance.SendChatMessageAsync(
+                $"Added key \"{key}\" to acceptable image keys. Current keys: {string.Join(' ', imageKeys)}", true);
+        }
+        else
+        {
+            if (!imageKeys.Contains(key))
+            {
+                await botInstance.SendChatMessageAsync(
+                    $"Key \"{key}\" is not in the acceptable keys list. Current keys: {string.Join(' ', imageKeys)}", true);
+                return;
+            }
+            imageKeys.Remove(key);
+            await SettingsProvider.SetValueAsync(BuiltIn.Keys.BotImageAcceptableKeys, JsonSerializer.Serialize(imageKeys));
+            await botInstance.SendChatMessageAsync(
+                $"Removed key \"{key}\" from acceptable image keys. Current keys: {string.Join(' ', imageKeys)}", true);
+        }
     }
 }
 
