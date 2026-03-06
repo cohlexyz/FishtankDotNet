@@ -38,7 +38,7 @@ public class ChatBot
     private List<ScheduledAutoDeleteModel> _scheduledDeletions = [];
     private Task _scheduledAutoDeleteTask;
 
-    private List<int> _usersInChat = [];
+    private List<UserModel> _usersInChat = [];
 
     private bool _receivedJoinMessage = false;
 
@@ -194,7 +194,7 @@ public class ChatBot
                 }
             }
 
-            if (!_usersInChat.Contains(205609) && _usersInChat.Count != 0)
+            if (!_usersInChat.Any(u => u.Id == 205609) && _usersInChat.Count != 0)
             {
                 _logger.Error("Bot no longer in user list, token is probably invalid. Forcing reconnect to hopefully fix it");
                 _kfTokenService.WipeCookies();
@@ -577,9 +577,8 @@ public class ChatBot
         var settings = SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.GambaSeshUserId, BuiltIn.Keys.GambaSeshDetectEnabled, BuiltIn.Keys.BotKeesSeen])
             .Result;
         _logger.Debug($"Received {users.Count} user join events");
-        _currentUsersInChat.AddRange(users);
         using var db = new ApplicationDbContext();
-        _usersInChat.AddRange(users.Select(u => u.Id));
+        _usersInChat.AddRange(users);
         if (users.Any(u => u.Id == 205609))
         {
             _logger.Info("Bot has joined the chat!");
@@ -627,7 +626,7 @@ public class ChatBot
 
     private void OnUsersParted(object sender, List<int> userIds)
     {
-        _usersInChat.RemoveAll(id => userIds.Contains(id));
+        _usersInChat.RemoveAll(u => userIds.Contains(u.Id));
         var settings = SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.GambaSeshUserId, BuiltIn.Keys.GambaSeshDetectEnabled])
             .Result;
         if (userIds.Contains(settings[BuiltIn.Keys.GambaSeshUserId].ToType<int>()) && settings[BuiltIn.Keys.GambaSeshDetectEnabled].ToBoolean())
@@ -718,7 +717,7 @@ public class ChatBot
 
     public UserModel? FindUserByName(string username)
     {
-        return _currentUsersInChat.FirstOrDefault(u => u.Username.Equals(username, StringComparison.CurrentCulture));
+        return _usersInChat.FirstOrDefault(u => u.Username.Equals(username, StringComparison.CurrentCulture));
     }
 
     public enum LengthLimitBehavior
