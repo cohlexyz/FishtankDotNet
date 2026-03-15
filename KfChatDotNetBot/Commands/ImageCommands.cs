@@ -1,6 +1,7 @@
 ﻿using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Raffinert.FuzzySharp;
 using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
@@ -205,7 +206,7 @@ public class ManageImageKeyCommand : ICommand
 public class GetRandomImage : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^(?<key>\w+)")
+        new Regex(@"^(?<key>\w+)(?:\s+(?<search>.+))?")
     ];
     public string? HelpText => "Get a random image";
     public UserRight RequiredRight => UserRight.Loser;
@@ -221,6 +222,7 @@ public class GetRandomImage : ICommand
     {
         await using var db = new ApplicationDbContext();
         var key = arguments["key"].Value.ToLower();
+        var searchTerm = arguments["search"].Success ? arguments["search"].Value.Trim() : null;
         var images = db.Images.Where(i => i.Key == key);
         if (!await images.AnyAsync(ctx))
         {
@@ -233,18 +235,38 @@ public class GetRandomImage : ICommand
             BuiltIn.Keys.BotImagePigCubeSelfDestructMax, BuiltIn.Keys.BotImageInvertedPigCubeSelfDestructDelay,
             BuiltIn.Keys.BotImageChinkSelfDestruct, BuiltIn.Keys.BotImageChinkSelfDestructDelay
         ]);
-        var divideBy = settings[BuiltIn.Keys.BotImageRandomSliceDivideBy].ToType<int>();
-        var limit = 1;
-        var count = await images.CountAsync(ctx);
-        if (count > divideBy)
-        {
-            limit = count / divideBy;
-        }
 
-        // EF with SQLite can't sort on dates as it's just TEXT
-        var selection = (await images.ToListAsync(ctx)).OrderBy(i => i.LastSeen).Take(limit).ToList();
-        // MaxValue is never returned by Next so you don't need to -1 for indexing
-        var image = selection[new Random().Next(0, selection.Count)];
+        ImageDbModel image;
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+            var allImages = await images.ToListAsync(ctx);
+            var best = allImages
+                .Select(i => (Image: i, Score: Fuzz.PartialRatio(searchTerm.ToLower(), i.Url.ToLower())))
+                .OrderByDescending(x => x.Score)
+                .FirstOrDefault();
+            if (best.Image == null || best.Score < 50)
+            {
+                RateLimitService.RemoveMostRecentEntry(user, this);
+                await botInstance.SendChatMessageAsync($"No image in {key} matched \"{searchTerm}\"", true);
+                return;
+            }
+            image = best.Image;
+        }
+        else
+        {
+            var divideBy = settings[BuiltIn.Keys.BotImageRandomSliceDivideBy].ToType<int>();
+            var limit = 1;
+            var count = await images.CountAsync(ctx);
+            if (count > divideBy)
+            {
+                limit = count / divideBy;
+            }
+
+            // EF with SQLite can't sort on dates as it's just TEXT
+            var selection = (await images.ToListAsync(ctx)).OrderBy(i => i.LastSeen).Take(limit).ToList();
+            // MaxValue is never returned by Next so you don't need to -1 for indexing
+            image = selection[new Random().Next(0, selection.Count)];
+        }
         image.LastSeen = DateTimeOffset.UtcNow;
         db.Images.Update(image);
         await db.SaveChangesAsync(ctx);
