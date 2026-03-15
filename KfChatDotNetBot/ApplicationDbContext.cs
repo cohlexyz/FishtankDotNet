@@ -28,4 +28,5 @@ public class ApplicationDbContext : DbContext
     public DbSet<WagerDbModel> Wagers { get; set; }
     public DbSet<GamblerExclusionDbModel> Exclusions { get; set; }
     public DbSet<GamblerPerkDbModel> Perks { get; set; }
+    public DbSet<CounterDbModel> Counters { get; set; }
 }

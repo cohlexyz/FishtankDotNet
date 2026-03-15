@@ -10,7 +10,11 @@ namespace KfChatDotNetBot.Commands;
 
 public class PrayerTimerCommand : ICommand
 {
-    public List<Regex> Patterns => [new Regex(@"^prayertimer?$", RegexOptions.IgnoreCase)];
+    public List<Regex> Patterns => [
+        new Regex(@"^prayertimer?$", RegexOptions.IgnoreCase),
+        new Regex(@"^praytime$", RegexOptions.IgnoreCase),
+        new Regex(@"^nextprayer$", RegexOptions.IgnoreCase)
+    ];
     public string? HelpText => "Get time until next Islam prayer in Georgia (US) time";
     public UserRight RequiredRight => UserRight.Guest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
