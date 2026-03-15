@@ -56,7 +56,7 @@ public class StoxCommand : ICommand
         // sort stocks by current price descending
         stoxData.Stocks.Sort((x, y) => y.CurrentPrice.CompareTo(x.CurrentPrice));
 
-        string msg = "[size=50][TABLE]";
+        string msg = "[size=50][TABLE width=\"1%\"]";
 
         if (LastStocksValues.Count == 0)
         {
