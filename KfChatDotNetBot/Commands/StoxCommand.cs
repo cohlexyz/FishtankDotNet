@@ -56,7 +56,7 @@ public class StoxCommand : ICommand
         // sort stocks by current price descending
         stoxData.Stocks.Sort((x, y) => y.CurrentPrice.CompareTo(x.CurrentPrice));
 
-        string msg = "";
+        string msg = "[size=3]";
 
         if (LastStocksValues.Count == 0)
         {
@@ -108,6 +108,15 @@ public class StoxCommand : ICommand
     }
 }
 
+internal static class StoxMarket
+{
+    internal static async Task<bool> IsOpenAsync()
+    {
+        var setting = await SettingsProvider.GetValueAsync(BuiltIn.Keys.StoxMarketOpen);
+        return setting.Value?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? true;
+    }
+}
+
 public class StoxBuyCommand : ICommand
 {
     public List<Regex> Patterns => [
@@ -125,6 +134,13 @@ public class StoxBuyCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
+        if (!await StoxMarket.IsOpenAsync())
+        {
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, the stox market is currently closed.",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
         var symbol = arguments["symbol"].Value.ToUpper();
         var amount = int.Parse(arguments["amount"].Value);
 
@@ -224,6 +240,13 @@ public class StoxSellCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
+        if (!await StoxMarket.IsOpenAsync())
+        {
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, the stox market is currently closed.",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
         var symbol = arguments["symbol"].Value.ToUpper();
         var amount = int.Parse(arguments["amount"].Value);
 
@@ -431,6 +454,13 @@ public class StoxShortCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
+        if (!await StoxMarket.IsOpenAsync())
+        {
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, the stox market is currently closed.",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
         var symbol = arguments["symbol"].Value.ToUpper();
         var amount = int.Parse(arguments["amount"].Value);
 
@@ -541,6 +571,13 @@ public class StoxCoverCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
+        if (!await StoxMarket.IsOpenAsync())
+        {
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, the stox market is currently closed.",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
         var symbol = arguments["symbol"].Value.ToUpper();
         var amount = int.Parse(arguments["amount"].Value);
 
@@ -626,6 +663,44 @@ public class StoxCoverCommand : ICommand
             : $". No remaining short position in {symbol}.";
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, covered {amount}x {symbol} short. Entry: ₣{entryPrice:0.##}, close: ₣{stock.CurrentPrice}. P&L: {pnlStr}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
+            true, autoDeleteAfter: TimeSpan.FromSeconds(30));
+    }
+}
+
+public class StoxOpenMarketCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^stox open$", RegexOptions.IgnoreCase)
+    ];
+    public string? HelpText => null;
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+        CancellationToken ctx)
+    {
+        await SettingsProvider.SetValueAsBooleanAsync(BuiltIn.Keys.StoxMarketOpen, true);
+        await botInstance.SendChatMessageAsync("Stox market is now [B][COLOR=#00ff00]OPEN[/COLOR][/B]. Trading enabled.",
+            true, autoDeleteAfter: TimeSpan.FromSeconds(30));
+    }
+}
+
+public class StoxCloseMarketCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^stox close$", RegexOptions.IgnoreCase)
+    ];
+    public string? HelpText => null;
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+        CancellationToken ctx)
+    {
+        await SettingsProvider.SetValueAsBooleanAsync(BuiltIn.Keys.StoxMarketOpen, false);
+        await botInstance.SendChatMessageAsync("Stox market is now [B][COLOR=#ff0000]CLOSED[/COLOR][/B]. Trading suspended.",
             true, autoDeleteAfter: TimeSpan.FromSeconds(30));
     }
 }
