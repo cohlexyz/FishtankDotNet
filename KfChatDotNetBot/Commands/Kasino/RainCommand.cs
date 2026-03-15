@@ -3,6 +3,7 @@ using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
 using KfChatDotNetBot.Services;
+using KfChatDotNetBot.Settings;
 using KfChatDotNetWsClient.Models.Events;
 namespace KfChatDotNetBot.Commands.Kasino;
 
@@ -23,6 +24,22 @@ public class RainCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
+        var settings = await SettingsProvider.GetMultipleValuesAsync([
+            BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay, BuiltIn.Keys.KasinoRainCountdownDuration,
+            BuiltIn.Keys.KasinoRainEnabled
+        ]);
+        
+        // Check if rain is enabled
+        var rainEnabled = (settings[BuiltIn.Keys.KasinoRainEnabled]).ToBoolean();
+        if (!rainEnabled)
+        {
+            var gameDisabledCleanupDelay= TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, rain is currently disabled.", 
+                true, autoDeleteAfter: gameDisabledCleanupDelay);
+            return;
+        }
+        
         var cleanupDelay = TimeSpan.FromSeconds(30);
         if (botInstance.BotServices.KasinoRain == null || !botInstance.BotServices.KasinoRain.IsInitialized())
         {
@@ -63,6 +80,12 @@ public class RainCommand : ICommand
                 return;
             }
 
+            if ((DateTimeOffset.UtcNow - gambler.Created).TotalHours < 4)
+            {
+                await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you're too fresh for a rain", true, autoDeleteAfter: cleanupDelay);
+                return;
+            }
+
             await botInstance.BotServices.KasinoRain.AddParticipant(user.Id);
             var pluralSuffix = string.Empty;
             if (rain.Participants.Count > 0) pluralSuffix = "s";
@@ -94,7 +117,7 @@ public class RainCommand : ICommand
             return;
         }
 
-        decimal rainMin = 100;
+        var rainMin = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.KasinoRainMinimum)).ToType<decimal>();
         if (decAmount < rainMin)
         {
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, rain at least {await rainMin.FormatKasinoCurrencyAsync()}", true,
@@ -110,7 +133,8 @@ public class RainCommand : ICommand
             RainAmount = decAmount,
             PayoutWhen = DateTimeOffset.MaxValue
         };
-        var timer = 60;
+        var rainCountdown = settings[BuiltIn.Keys.KasinoRainCountdownDuration].ToType<int>();
+        var timer = rainCountdown;
         var msg = await botInstance.SendChatMessageAsync(
             $"🌧️🌧️ {user.FormatUsername()} is making it rain with {await decAmount.FormatKasinoCurrencyAsync()}! Type [ditto]!rain[/ditto] in the next {timer} seconds to join.",
             true);
@@ -122,7 +146,7 @@ public class RainCommand : ICommand
 
         // Wait to set a real payout deadline only when chyat echoes the message out of fairness
         // (and also so the timer doesn't overlap with the payout deadline)
-        rain.PayoutWhen = DateTimeOffset.UtcNow.AddSeconds(60);
+        rain.PayoutWhen = DateTimeOffset.UtcNow.AddSeconds(rainCountdown);
         await botInstance.BotServices.KasinoRain.SaveRainState(rain);
         while (timer > 0)
         {
