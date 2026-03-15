@@ -2,6 +2,12 @@ using System.Text.Json.Serialization;
 
 namespace KfChatDotNetBot.Models;
 
+public class StoxShortPosition
+{
+    public int Quantity { get; set; }
+    public decimal EntryPrice { get; set; }
+}
+
 public class Stox
 {
     [JsonPropertyName("tickerSymbol")]

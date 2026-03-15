@@ -284,7 +284,15 @@ public enum TransactionSourceEventType
     Sponsorship,
     Loan,
     StoxSale,
-    StoxPurchase
+    StoxPurchase,
+    /// <summary>
+    /// Collateral locked when opening a short position
+    /// </summary>
+    StoxShort,
+    /// <summary>
+    /// Collateral returned (plus/minus P&L) when closing a short position
+    /// </summary>
+    StoxCover
 }
 
 public enum WagerGame
