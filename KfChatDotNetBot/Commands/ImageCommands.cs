@@ -240,17 +240,19 @@ public class GetRandomImage : ICommand
         if (!string.IsNullOrEmpty(searchTerm))
         {
             var allImages = await images.ToListAsync(ctx);
-            var best = allImages
+            var scored = allImages
                 .Select(i => (Image: i, Score: Fuzz.PartialRatio(searchTerm.ToLower(), i.Url.ToLower())))
                 .OrderByDescending(x => x.Score)
-                .FirstOrDefault();
-            if (best.Image == null || best.Score < 50)
+                .ToList();
+            if (scored.Count == 0 || scored[0].Score < 50)
             {
                 RateLimitService.RemoveMostRecentEntry(user, this);
                 await botInstance.SendChatMessageAsync($"No image in {key} matched \"{searchTerm}\"", true);
                 return;
             }
-            image = best.Image;
+            var bestScore = scored[0].Score;
+            var candidates = scored.Where(x => x.Score == bestScore).Select(x => x.Image).ToList();
+            image = candidates[new Random().Next(0, candidates.Count)];
         }
         else
         {
