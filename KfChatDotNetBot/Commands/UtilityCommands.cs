@@ -146,6 +146,6 @@ public class PPVCommand : ICommand
         CancellationToken ctx)
     {
         var url = await SettingsProvider.GetValueAsync(BuiltIn.Keys.RestreamUrl);
-        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, restream URL: https://old.ppv.to/ft", true);
+        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, restream URL: https://old.ppv.to/ft, MPV playlist: https://i.ddos.lgbt/u/fishtank-s5.m3u", true);
     }
 }
