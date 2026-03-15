@@ -1812,19 +1812,19 @@ public class KasinoShop
         return id;
     }
 
-    public static readonly Dictionary<Cars, Car> DefaultCars = new()
-    {
-        {Cars.Civic, new Car(Cars.Civic)},
-        {Cars.Audi, new Car(Cars.Audi)},
-        {Cars.Bentley, new Car(Cars.Bentley)},
-        {Cars.Bmw, new Car(Cars.Bmw)}
-    };
     public static readonly Dictionary<Cars, decimal> CarPrices = new()
     {
         { Cars.Civic , 2_000_000 },
         { Cars.Audi, 4_000_000 },
         { Cars.Bentley , 6_000_000 },
         { Cars.Bmw , 8_000_000 },
+    };
+    public static readonly Dictionary<Cars, Car> DefaultCars = new()
+    {
+        {Cars.Civic, new Car(Cars.Civic)},
+        {Cars.Audi, new Car(Cars.Audi)},
+        {Cars.Bentley, new Car(Cars.Bentley)},
+        {Cars.Bmw, new Car(Cars.Bmw)}
     };
 
     public static readonly List<string> CsSkinObjects = new()
