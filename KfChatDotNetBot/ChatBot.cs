@@ -40,7 +40,6 @@ public class ChatBot
 
     private List<UserModel> _usersInChat = [];
 
-    private bool _receivedJoinMessage = false;
 
     public ChatBot()
     {
@@ -582,7 +581,6 @@ public class ChatBot
         if (users.Any(u => u.Id == 205609))
         {
             _logger.Info("Bot has joined the chat!");
-            _receivedJoinMessage = true;
         }
 
         foreach (var user in users)
@@ -682,7 +680,6 @@ public class ChatBot
         _logger.Error($"Sneedchat disconnected due to {disconnectionInfo.Type}");
         _logger.Error($"Close Status => {disconnectionInfo.CloseStatus}; Close Status Description => {disconnectionInfo.CloseStatusDescription}");
         _logger.Error(disconnectionInfo.Exception);
-        _receivedJoinMessage = false;
         _usersInChat.Clear();
 
         if (disconnectionInfo.Type == DisconnectionType.Lost)
@@ -705,7 +702,6 @@ public class ChatBot
 
     private void OnKfWsReconnected(object sender, ReconnectionInfo reconnectionInfo)
     {
-        _receivedJoinMessage = false;
         _lastReconnectAttempt = DateTime.UtcNow;
         var roomId = SettingsProvider.GetValueAsync(BuiltIn.Keys.KiwiFarmsRoomId).Result.ToType<int>();
         _logger.Error($"Sneedchat reconnected due to {reconnectionInfo.Type}");

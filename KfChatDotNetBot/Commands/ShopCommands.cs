@@ -123,7 +123,7 @@ public class ShopListCommand : ICommand
         Window = TimeSpan.FromSeconds(120)
     };
 
-    
+
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var cleanupDelay = TimeSpan.FromSeconds(10);
@@ -278,7 +278,7 @@ public class LoanCommand : ICommand
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, could not find a kasino shop profile for {id}.", true, autoDeleteAfter: cleanupDelay);
             return;
         }
-        
+
         await botInstance.BotServices.KasinoShop.ProcessLoan(id, Convert.ToDecimal(amount.Value), gambler, gambler.Id);
     }
 }
@@ -439,7 +439,7 @@ public class ShopInvestmentsCommand : ICommand
             }
         }
         else investment = Convert.ToDecimal(amount.Value);
-        
+
         await botInstance.BotServices.KasinoShop.ProcessInvestment(gambler, item, investment);
     }
 }
@@ -511,13 +511,13 @@ public class ShopShoeCommand : ICommand
             throw new InvalidOperationException($"Caught a null when retrieving gambler for {user.KfUsername}");
         }
         await GlobalShopFunctions.CheckProfile(botInstance, user, gambler);
-        
+
         if (!arguments.TryGetValue("num", out var num))
         {
             await botInstance.BotServices.KasinoShop.PrintShoeMarket(gambler);
             return;
         }
-        
+
         int shoe = Convert.ToInt32(num.Value);
         if (shoe < 1 || shoe > 3)
         {
@@ -571,9 +571,9 @@ public class ShopSkinCommand : ICommand
         }
 
         int skin = Convert.ToInt32(num.Value);
-        
+
         await botInstance.BotServices.KasinoShop.ProcessSkinPurchase(gambler, skin);
-        
+
     }
 }
 public class ShopStakeCommand : ICommand
@@ -615,7 +615,7 @@ public class ShopStakeCommand : ICommand
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, stake your crypto to earn a small amount of interest every day. Minimum stake time: 1 week. !stake <amount>", true, autoDeleteAfter: cleanupDelay);
             return;
         }
-        
+
         await botInstance.BotServices.KasinoShop.ProcessStake(gambler, Convert.ToDecimal(amount.Value));
     }
 }
@@ -686,7 +686,7 @@ public class SmashCommand : ICommand
     [
         new Regex(@"^smash", RegexOptions.IgnoreCase),
     ];
-    
+
     public string? HelpText => "destroy your <asset>, show your loaners you're really gonna do it dewd!!!";
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(30);
@@ -870,7 +870,7 @@ public class ShopDrugsCommand : ICommand
                 }
                 amount = Convert.ToDecimal(amountt.Value);
                 await botInstance.BotServices.KasinoShop.ProcessDrugUse(gambler, amount, drug);
-                
+
             }
         }
         else if (arguments.TryGetValue("choice", out var choice))
@@ -1285,14 +1285,13 @@ public class KeypadCommand : ICommand
 
         if (!arguments.TryGetValue("num", out var num)) return;
         var number = Convert.ToDecimal(num.Value);
-        
+
         await botInstance.BotServices.KasinoShop!.ProcessRigging(type, number);
     }
 }
 
 public class PanelCommand : ICommand
 {
-    private Rigging type = Rigging.Dial;
     public List<Regex> Patterns =>
     [
         new Regex(@"^panel")
@@ -1315,7 +1314,7 @@ public class PanelCommand : ICommand
             await botInstance.SendChatMessageAsync("KasinoShop is not currently running.", true, autoDeleteAfter: cleanupDelay);
             return;
         }
-        
+
         await botInstance.BotServices.KasinoShop!.GetCurrentRiggingState();
     }
 }
@@ -1336,6 +1335,6 @@ public static class GlobalShopFunctions
             await botInstance.BotServices.KasinoShop.CreateProfile(gambler);
             await botInstance.SendChatMessageAsync($"Created kasino shop profile for {user.FormatUsername()}({user.KfId})", true);
         }
-        
+
     }
 }
