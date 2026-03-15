@@ -449,7 +449,7 @@ public class GetDailyDollarCommand : ICommand
         if (gambler!.Created.Date == DateTime.UtcNow.Date)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, new accounts cannot redeem a daily dollar", true,
+                $"{user.FormatUsername()}, new accounts cannot redeem a daily dollar. You have a starting balance.", true,
                 autoDeleteAfter: TimeSpan.FromSeconds(15));
             return;
         }
