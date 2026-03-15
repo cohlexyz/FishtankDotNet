@@ -56,13 +56,13 @@ public class StoxCommand : ICommand
         // sort stocks by current price descending
         stoxData.Stocks.Sort((x, y) => y.CurrentPrice.CompareTo(x.CurrentPrice));
 
-        string msg = "[size=3]";
+        string msg = "[size=50][TABLE]";
 
         if (LastStocksValues.Count == 0)
         {
             foreach (var stox in stoxData.Stocks)
             {
-                msg += $"{stox.Symbol}: ₣{stox.CurrentPrice}\n";
+                msg += $"[TR][TD]{stox.Symbol}[/TD][TD]₣{stox.CurrentPrice}[/TD][/TR]";
             }
         }
         else
@@ -79,7 +79,7 @@ public class StoxCommand : ICommand
             {
                 if (previous == null)
                 {
-                    msg += $"{current.Symbol}: ₣{current.CurrentPrice}\n";
+                    msg += $"[TR][TD]{current.Symbol}[/TD][TD]₣{current.CurrentPrice}[/TD][/TR]";
                 }
                 else
                 {
@@ -98,7 +98,7 @@ public class StoxCommand : ICommand
                     {
                         changeStr = "₣0";
                     }
-                    msg += $"{current.Symbol}: ₣{current.CurrentPrice} ({changeStr})\n";
+                    msg += $"[TR][TD]{current.Symbol}[/TD][TD]₣{current.CurrentPrice} ({changeStr})[/TD][/TR]";
                 }
             }
         }
@@ -323,7 +323,7 @@ public class StoxSellCommand : ICommand
             : $". You no longer hold any {symbol}.";
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, sold {amount}x {symbol} @ ₣{stock.CurrentPrice} for {await proceeds.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
-            true, autoDeleteAfter: TimeSpan.FromSeconds(30));
+            true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
 
