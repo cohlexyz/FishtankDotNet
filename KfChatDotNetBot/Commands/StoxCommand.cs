@@ -56,52 +56,39 @@ public class StoxCommand : ICommand
         // sort stocks by current price descending
         stoxData.Stocks.Sort((x, y) => y.CurrentPrice.CompareTo(x.CurrentPrice));
 
-        string msg = "[size=50][TABLE width=\"1%\"]";
+        string msg = "[size=80][TABLE width=\"1%\"]";
 
-        if (LastStocksValues.Count == 0)
+        var currentAndPrevious = stoxData.Stocks
+            .Select(s => (current: s, previous: LastStocksValues.Count > 0 ? LastStocksValues.FirstOrDefault(x => x.Symbol == s.Symbol) : null))
+            .ToList();
+
+        static string GetCells(Stox current, Stox? previous)
         {
-            foreach (var stox in stoxData.Stocks)
-            {
-                msg += $"[TR][TD]{stox.Symbol}[/TD][TD]₣{stox.CurrentPrice}[/TD][/TR]";
-            }
+            if (previous == null)
+                return $"[TD]{current.Symbol}[/TD][TD]₣{current.CurrentPrice}[/TD]";
+
+            int change = current.CurrentPrice - previous.CurrentPrice;
+            string changeStr = change > 0
+                ? $"[B][COLOR=#00ff00]₣{change}↗[/COLOR][/B]"
+                : change < 0
+                    ? $"[B][COLOR=#ff0000]₣{change}↘[/COLOR][/B]"
+                    : "₣0";
+
+            return $"[TD]{current.Symbol}[/TD][TD]₣{current.CurrentPrice} ({changeStr})[/TD]";
         }
-        else
+
+        for (int i = 0; i < currentAndPrevious.Count; i += 2)
         {
-            List<(Stox, Stox?)> CurrentAndPrevious = new();
-            for (int i = 0; i < stoxData.Stocks.Count; i++)
+            var (c1, p1) = currentAndPrevious[i];
+            string row = GetCells(c1, p1);
+            if (i + 1 < currentAndPrevious.Count)
             {
-                var current = stoxData.Stocks[i];
-                var previous = LastStocksValues.FirstOrDefault(x => x.Symbol == current.Symbol);
-                CurrentAndPrevious.Add((current, previous));
+                var (c2, p2) = currentAndPrevious[i + 1];
+                row += GetCells(c2, p2);
             }
-
-            foreach (var (current, previous) in CurrentAndPrevious)
-            {
-                if (previous == null)
-                {
-                    msg += $"[TR][TD]{current.Symbol}[/TD][TD]₣{current.CurrentPrice}[/TD][/TR]";
-                }
-                else
-                {
-                    int change = current.CurrentPrice - previous.CurrentPrice;
-                    string changeStr = "";
-
-                    if (change > 0)
-                    {
-                        changeStr = $"[B][COLOR=#00ff00]₣{change}↗[/COLOR][/B]";
-                    }
-                    else if (change < 0)
-                    {
-                        changeStr = $"[B][COLOR=#ff0000]₣{change}↘[/COLOR][/B]";
-                    }
-                    else
-                    {
-                        changeStr = "₣0";
-                    }
-                    msg += $"[TR][TD]{current.Symbol}[/TD][TD]₣{current.CurrentPrice} ({changeStr})[/TD][/TR]";
-                }
-            }
+            msg += $"[TR]{row}[/TR]";
         }
+
         LastStocksValues = stoxData.Stocks;
 
         await botInstance.SendChatMessageAsync(msg, autoDeleteAfter: TimeSpan.FromSeconds(90));
