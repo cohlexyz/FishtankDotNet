@@ -19,7 +19,7 @@ public class TimeCommand : ICommand
         var estOffset = estZone.GetUtcOffset(nowEst);
         var ftt = new DateTimeOffset(nowEst, estOffset);
 
-        var targetUtc = new DateTime(2026, 3, 15, 11, 0, 0, DateTimeKind.Utc);
+        var targetUtc = new DateTime(2026, 3, 15, 15, 0, 0, DateTimeKind.Utc);
         var nowUtc = DateTime.UtcNow;
 
         string extraInfo;
