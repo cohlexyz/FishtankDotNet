@@ -97,6 +97,6 @@ public class CounterShowCommand : ICommand
         await using var db = new ApplicationDbContext();
         var counter = await db.Counters.FirstOrDefaultAsync(c => c.Name == name, ctx);
         if (counter == null) return;
-        await botInstance.SendChatMessageAsync($"{name}: {counter.Value:N0}", true);
+        await botInstance.SendChatMessageAsync($"{name} count at: {counter.Value:N0}", true);
     }
 }
