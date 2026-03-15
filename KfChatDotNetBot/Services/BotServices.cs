@@ -96,8 +96,8 @@ public class BotServices
             // BuildShuffleDotUs(),
             BuildFishtankForwarder(),
             BuildYouTubePubSub(),
-            BuildKasinoRain(),
-            BuildKasinoShop()
+            BuildKasinoRain()
+            // BuildKasinoShop()
         ];
         try
         {
