@@ -1793,12 +1793,13 @@ public class KasinoShop
 
     public static int GenerateRandomId(GamblerDbModel gambler)
     {
-        var profile = BotInstance.BotServices.KasinoShop!.Gambler_Profiles[gambler.User.KfId];
+        BotInstance.BotServices.KasinoShop!.Gambler_Profiles.TryGetValue(gambler.User.KfId, out var profile);
+        var assets = profile?.Assets ?? new Dictionary<int, Asset>();
         int counter = 0;
         int id = Money.GetRandomNumber(gambler, 0, 999999999);
-        if (profile.Assets.ContainsKey(id))
+        if (assets.ContainsKey(id))
         {
-            while (profile.Assets.ContainsKey(id))
+            while (assets.ContainsKey(id))
             {
                 id = Money.GetRandomNumber(gambler, 0, 999999999);
                 counter++;
