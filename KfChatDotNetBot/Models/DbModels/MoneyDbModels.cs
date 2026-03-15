@@ -282,7 +282,9 @@ public enum TransactionSourceEventType
     Deposit,
     Withdraw,
     Sponsorship,
-    Loan
+    Loan,
+    StoxSale,
+    StoxPurchase
 }
 
 public enum WagerGame
