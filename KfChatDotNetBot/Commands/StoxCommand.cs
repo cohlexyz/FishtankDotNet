@@ -168,6 +168,13 @@ public class StoxBuyCommand : ICommand
             return;
         }
 
+        if (stock.CurrentPrice <= 0)
+        {
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, {symbol} is currently not for sale.",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
         var cost = (decimal)stock.CurrentPrice * amount;
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
         if (gambler == null)
