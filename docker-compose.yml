@@ -26,10 +26,14 @@ services:
     depends_on:
       - wireguard
     restart: unless-stopped
+    volumes:
+      - redis-data:/data
     command: >
       --bind 127.0.0.1
       --port 6380
       --protected-mode yes
+      --appendonly yes
+      --appendfsync everysec
   kfchatbot:
     depends_on:
       - redis
@@ -44,3 +48,6 @@ services:
       - ./KfChatDotNetBot/bin/Debug/net10.0:/app
     network_mode: 'service:wireguard'
     restart: unless-stopped
+
+volumes:
+  redis-data:
