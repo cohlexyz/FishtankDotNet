@@ -131,3 +131,21 @@ public class GetLastActivity : ICommand
             true);
     }
 }
+
+public class PPVCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex("^ppv$")
+    ];
+
+    public string? HelpText => "Watch cows live";
+    public UserRight RequiredRight => UserRight.Guest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+        CancellationToken ctx)
+    {
+        var url = await SettingsProvider.GetValueAsync(BuiltIn.Keys.RestreamUrl);
+        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, restream URL: https://old.ppv.to/ft", true);
+    }
+}
