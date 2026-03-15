@@ -16,20 +16,21 @@ public class TimeCommand : ICommand
     {
         var estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
         var nowEst = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, estZone);
-        var ftt = new DateTimeOffset(nowEst, estZone.BaseUtcOffset);
+        var estOffset = estZone.GetUtcOffset(nowEst);
+        var ftt = new DateTimeOffset(nowEst, estOffset);
 
-        var targetEst = new DateTime(2026, 3, 15, 16, 0, 0, DateTimeKind.Unspecified);
-        var targetOffset = new DateTimeOffset(targetEst, estZone.BaseUtcOffset);
+        var targetUtc = new DateTime(2026, 3, 15, 20, 0, 0, DateTimeKind.Utc);
+        var nowUtc = DateTime.UtcNow;
 
         string extraInfo;
-        if (ftt < targetOffset)
+        if (nowUtc < targetUtc)
         {
-            var remaining = targetOffset - ftt;
+            var remaining = targetUtc - nowUtc;
             extraInfo = $" | {(int)remaining.TotalDays}d {remaining.Hours}h {remaining.Minutes}m {remaining.Seconds}s until Fishtank starts";
         }
         else
         {
-            var elapsed = ftt - targetOffset;
+            var elapsed = nowUtc - targetUtc;
             var days = (int)elapsed.TotalDays;
             extraInfo = $" on day {days}";
         }
