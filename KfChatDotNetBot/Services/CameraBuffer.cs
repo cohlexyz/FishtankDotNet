@@ -176,8 +176,9 @@ public class CameraBuffer : IAsyncDisposable
         {
             await File.WriteAllBytesAsync(tempTs, snapshot, ct);
 
-            // Use -c copy to remux (near instant) rather than re-encoding to VP9 which is very slow
-            var ffmpegArgs = $"-i \"{tempTs}\" -c copy -y \"{tempMp4}\"";
+            // Scale to 720p and encode with H.264 CRF 23 to reduce file size.
+            // libx264 fast preset is light enough for a 4-core VPS and still much faster than real-time.
+            var ffmpegArgs = $"-i \"{tempTs}\" -vf scale=1280:720 -c:v libx264 -preset fast -crf 23 -c:a copy -y \"{tempMp4}\"";
             var processInfo = new ProcessStartInfo
             {
                 FileName = _ffmpegPath,
@@ -208,7 +209,7 @@ public class CameraBuffer : IAsyncDisposable
                 throw new InvalidOperationException($"FFmpeg re-mux failed with exit code {remux.ExitCode}");
             }
 
-            Logger.Info($"[CameraBuffer:{CameraName}] Re-muxed {snapshot.Length} bytes TS -> MP4 at {tempMp4}");
+            Logger.Info($"[CameraBuffer:{CameraName}] Encoded {snapshot.Length} bytes TS -> 720p MP4 at {tempMp4}");
             return tempMp4;
         }
         finally
