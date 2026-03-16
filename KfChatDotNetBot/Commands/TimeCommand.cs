@@ -19,7 +19,7 @@ public class TimeCommand : ICommand
         var estOffset = estZone.GetUtcOffset(nowEst);
         var ftt = new DateTimeOffset(nowEst, estOffset);
 
-        var targetUtc = new DateTime(2026, 3, 15, 15, 0, 0, DateTimeKind.Utc);
+        var targetUtc = new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc);
         var nowUtc = DateTime.UtcNow;
 
         string extraInfo;
@@ -31,7 +31,7 @@ public class TimeCommand : ICommand
         else
         {
             var elapsed = nowUtc - targetUtc;
-            var days = (int)elapsed.TotalDays;
+            var days = (int)Math.Ceiling(elapsed.TotalDays);
             extraInfo = $" on day {days}";
         }
 
