@@ -189,6 +189,7 @@ public class ClipService
         if (target.BufferDuration < TimeSpan.FromSeconds(5))
             return $"Buffer for {target.CameraName} is too short ({target.BufferDuration.TotalSeconds:N0}s). Wait a bit longer.";
 
+        Logger.Info($"[ClipService] Starting clip for {target!.CameraName}");
         string mp4Path;
         DateTimeOffset cutoff;
         try
@@ -205,6 +206,7 @@ public class ClipService
         {
             await using var stream = File.OpenRead(mp4Path);
             var filename = $"{target.CameraName.Replace(' ', '_')}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.mp4";
+            Logger.Info($"[ClipService] Uploaded started for {target.CameraName}");
             var url = await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), "1h", ct, filename);
             if (url == null)
                 return $"Zipline upload returned null for {target.CameraName} clip";
