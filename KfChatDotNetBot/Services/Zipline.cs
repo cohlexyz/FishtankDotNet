@@ -19,6 +19,17 @@ public static class Zipline
         return url;
     }
 
+    public static async Task<string?> Upload(Stream content, MediaTypeHeaderValue mimeType, IProgress<(long sent, long total)> progress, string? expiration = null, CancellationToken ct = default, string? filename = null)
+    {
+        var totalBytes = content.CanSeek ? content.Length : -1;
+        using var formContent = new MultipartFormDataContent();
+        var fileContent = new ProgressableStreamContent(content, totalBytes, progress);
+        fileContent.Headers.ContentType = mimeType;
+        formContent.Add(fileContent, "upload", filename ?? Money.GenerateEventId());
+        var url = await DoUpload(formContent, expiration, ct);
+        return url;
+    }
+
     public static async Task<string?> Upload(string content, MediaTypeHeaderValue mimeType, string? expiration = null, CancellationToken ct = default)
     {
         using var formContent = new MultipartFormDataContent();
@@ -51,6 +62,7 @@ public static class Zipline
 
         using var client = new HttpClient(handler);
         client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", settings[BuiltIn.Keys.ZiplineKey].Value);
+        client.Timeout = TimeSpan.FromMinutes(2);
         if (expiration != null)
         {
             client.DefaultRequestHeaders.Add("x-zipline-deletes-at", expiration);
@@ -84,5 +96,47 @@ public static class Zipline
     {
         var key = await SettingsProvider.GetValueAsync(BuiltIn.Keys.ZiplineKey);
         return !string.IsNullOrEmpty(key.Value);
+    }
+
+    /// <summary>
+    /// HttpContent wrapper that reports upload progress as bytes are written to the network stream.
+    /// </summary>
+    private class ProgressableStreamContent : HttpContent
+    {
+        private const int BufferSize = 81920; // 80 KB chunks
+        private readonly Stream _stream;
+        private readonly long _totalBytes;
+        private readonly IProgress<(long sent, long total)> _progress;
+
+        public ProgressableStreamContent(Stream stream, long totalBytes, IProgress<(long sent, long total)> progress)
+        {
+            _stream = stream;
+            _totalBytes = totalBytes;
+            _progress = progress;
+        }
+
+        protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+        {
+            var buffer = new byte[BufferSize];
+            long totalSent = 0;
+            int bytesRead;
+            while ((bytesRead = await _stream.ReadAsync(buffer)) > 0)
+            {
+                await stream.WriteAsync(buffer.AsMemory(0, bytesRead));
+                totalSent += bytesRead;
+                _progress.Report((totalSent, _totalBytes));
+            }
+        }
+
+        protected override bool TryComputeLength(out long length)
+        {
+            if (_totalBytes >= 0)
+            {
+                length = _totalBytes;
+                return true;
+            }
+            length = 0;
+            return false;
+        }
     }
 }

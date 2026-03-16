@@ -130,14 +130,43 @@ public class ClipSaveCommand : ICommand
         }
 
         var camera = arguments["camera"].Value.Trim();
-        await botInstance.SendChatMessageAsync($"Saving clip for {camera}...", true, autoDeleteAfter: TimeSpan.FromSeconds(30));
-        var result = await clipService.SaveAsync(camera, FishtankCameras.Cameras, ctx);
-        if (result.StartsWith("Error"))
+        var sent = await botInstance.SendChatMessageAsync($"Saving clip for {camera}...", true);
+        var gotUuid = await botInstance.WaitForChatMessageAsync(sent, TimeSpan.FromSeconds(10), ctx);
+
+        // Throttle edits to avoid spamming the server
+        var lastEditPercent = -1;
+        IProgress<(long sent, long total)>? progress = null;
+        if (gotUuid)
         {
-            await botInstance.SendChatMessageAsync(result, true);
+            progress = new Progress<(long sent, long total)>(p =>
+            {
+                if (p.total <= 0) return;
+                var pct = (int)(p.sent * 100 / p.total);
+                // Only edit every 10%
+                if (pct / 10 == lastEditPercent / 10) return;
+                lastEditPercent = pct;
+                var bar = new string('█', pct / 10) + new string('░', 10 - pct / 10);
+                _ = botInstance.KfClient.EditMessageAsync(sent.ChatMessageUuid!,
+                    $"Uploading clip for {camera}... [{bar}] {pct}%");
+            });
+        }
+
+        var result = await clipService.SaveAsync(camera, FishtankCameras.Cameras, ctx, progress);
+        if (result.StartsWith("Error") || result.StartsWith("No active") || result.StartsWith("Buffer for") || result.StartsWith("Failed to") || result.StartsWith("Zipline"))
+        {
+            if (gotUuid)
+                await botInstance.KfClient.EditMessageAsync(sent.ChatMessageUuid!, result);
+            else
+                await botInstance.SendChatMessageAsync(result, true);
             return;
         }
-        await botInstance.SendChatMessageAsync($"@{user.KfUsername}, here's your clip: {result}", true);
+
+        // Edit the upload message with the final result
+        if (gotUuid)
+            await botInstance.KfClient.EditMessageAsync(sent.ChatMessageUuid!,
+                $"@{user.KfUsername}, here's your clip: {result}");
+        else
+            await botInstance.SendChatMessageAsync($"@{user.KfUsername}, here's your clip: {result}", true);
     }
 }
 

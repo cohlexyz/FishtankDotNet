@@ -158,7 +158,7 @@ public class ClipService
     /// Saves the buffer for a camera and uploads it to Zipline.
     /// Returns the Zipline URL.
     /// </summary>
-    public async Task<string> SaveAsync(string cameraQuery, Dictionary<string, string> cameras, CancellationToken ct)
+    public async Task<string> SaveAsync(string cameraQuery, Dictionary<string, string> cameras, CancellationToken ct, IProgress<(long sent, long total)>? uploadProgress = null)
     {
         CameraBuffer? target;
         lock (_lock)
@@ -207,7 +207,9 @@ public class ClipService
             await using var stream = File.OpenRead(mp4Path);
             var filename = $"{target.CameraName.Replace(' ', '_')}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.mp4";
             Logger.Info($"[ClipService] Uploaded started for {target.CameraName}");
-            var url = await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), "1h", ct, filename);
+            var url = uploadProgress != null
+                ? await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), uploadProgress, "1h", ct, filename)
+                : await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), "1h", ct, filename);
             if (url == null)
                 return $"Zipline upload returned null for {target.CameraName} clip";
 
