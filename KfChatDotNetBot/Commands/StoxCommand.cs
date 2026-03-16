@@ -28,7 +28,7 @@ public class StoxCommand : ICommand
     {
         MaxInvocations = 1,
         Window = TimeSpan.FromSeconds(60),
-        Flags = RateLimitFlags.Global
+        Flags = RateLimitFlags.Global | RateLimitFlags.NoResponse
     };
 
     internal static List<Stox> LastStocksValues { get; set; } = new();
@@ -121,8 +121,9 @@ public class StoxBuyCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 1,
-        Window = TimeSpan.FromSeconds(60)
+        MaxInvocations = 2,
+        Window = TimeSpan.FromSeconds(60),
+        Flags = RateLimitFlags.NoResponse
     };
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
@@ -234,8 +235,9 @@ public class StoxSellCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 1,
-        Window = TimeSpan.FromSeconds(60)
+        MaxInvocations = 2,
+        Window = TimeSpan.FromSeconds(60),
+        Flags = RateLimitFlags.NoResponse
     };
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
@@ -339,8 +341,9 @@ public class StoxPortfolioCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 1,
-        Window = TimeSpan.FromSeconds(120)
+        MaxInvocations = 2,
+        Window = TimeSpan.FromSeconds(120),
+        Flags = RateLimitFlags.NoResponse
     };
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
@@ -448,8 +451,9 @@ public class StoxShortCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 1,
-        Window = TimeSpan.FromSeconds(60)
+        MaxInvocations = 2,
+        Window = TimeSpan.FromSeconds(60),
+        Flags = RateLimitFlags.NoResponse
     };
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
@@ -565,8 +569,9 @@ public class StoxCoverCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 1,
-        Window = TimeSpan.FromSeconds(60)
+        MaxInvocations = 2,
+        Window = TimeSpan.FromSeconds(60),
+        Flags = RateLimitFlags.NoResponse
     };
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
