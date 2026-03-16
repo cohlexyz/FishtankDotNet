@@ -9,6 +9,29 @@ using KfChatDotNetWsClient.Models.Events;
 
 namespace KfChatDotNetBot.Commands;
 
+public class HelpCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex("^help$"),
+        new Regex("^guide$"),
+        new Regex("^commands$"),
+    ];
+
+    public string? HelpText => "Link to the bot guide";
+    public UserRight RequiredRight => UserRight.Guest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => new RateLimitOptionsModel
+    {
+        MaxInvocations = 1,
+        Window = TimeSpan.FromSeconds(60),
+        Flags = RateLimitFlags.Global
+    };
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        await botInstance.SendChatMessageAsync("Bot usage guide: https://kiwifarms.st/posts/23976561", true);
+    }
+}
+
 public class TempSuppressGambaMessages : ICommand
 {
     public List<Regex> Patterns => [
