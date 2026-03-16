@@ -19,7 +19,7 @@ public class SetRoleCommand : ICommand
     ];
 
     public string? HelpText => "Set a user's role";
-    public UserRight RequiredRight => UserRight.Admin;
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
@@ -32,6 +32,13 @@ public class SetRoleCommand : ICommand
         if (targetUser == null)
         {
             await botInstance.SendChatMessageAsync($"User '{targetUserId}' does not exist", true);
+            return;
+        }
+
+        if (role >= user.UserRight)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, you can't set a role higher or equal than your own", true);
             return;
         }
 
@@ -51,7 +58,7 @@ public class CacheClearAdminCommand : ICommand
     public UserRight RequiredRight => UserRight.Admin;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
-    
+
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var cacheKeys = MemoryCache.Default.Select(kvp => kvp.Key).ToList();
@@ -276,7 +283,7 @@ public class AddCourtHearingCommand : ICommand
             return;
         }
 
-        hearings.Add(new CourtHearingModel {CaseNumber = caseNumber, Description = arguments["description"].Value, Time = date});
+        hearings.Add(new CourtHearingModel { CaseNumber = caseNumber, Description = arguments["description"].Value, Time = date });
         await SettingsProvider.SetValueAsJsonObjectAsync(BuiltIn.Keys.BotCourtCalendar, hearings);
         await botInstance.SendChatMessageAsync("Updated list of hearings", true);
     }
@@ -307,7 +314,7 @@ public class RemoveCourtHearingCommand : ICommand
                 $"Index supplied is out of range. There are only {hearings.Count} hearings in the database", true);
             return;
         }
-        
+
         hearings.RemoveAt(hearingIndex - 1);
         await SettingsProvider.SetValueAsJsonObjectAsync(BuiltIn.Keys.BotCourtCalendar, hearings);
         await botInstance.SendChatMessageAsync("Updated list of hearings", true);
