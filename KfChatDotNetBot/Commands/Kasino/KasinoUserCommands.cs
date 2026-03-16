@@ -448,10 +448,10 @@ public class GetDailyDollarCommand : ICommand
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
         if (gambler!.Created.Date == DateTime.UtcNow.Date)
         {
-            await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, new accounts cannot redeem a daily dollar. You have a starting balance.", true,
-                autoDeleteAfter: TimeSpan.FromSeconds(15));
-            return;
+            // await botInstance.SendChatMessageAsync(
+            //     $"{user.FormatUsername()}, new accounts cannot redeem a daily dollar. You have a starting balance.", true,
+            //     autoDeleteAfter: TimeSpan.FromSeconds(15));
+            // return;
         }
         await using var db = new ApplicationDbContext();
         var mostRecentTxn = await db.Transactions.OrderBy(x => x.Id).LastOrDefaultAsync(x =>
