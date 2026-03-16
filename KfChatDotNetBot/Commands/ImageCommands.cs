@@ -280,7 +280,7 @@ public class GetRandomImage : ICommand
                 : new Random().Next(settings[BuiltIn.Keys.BotImagePigCubeSelfDestructMin].ToType<int>(),
                     settings[BuiltIn.Keys.BotImagePigCubeSelfDestructMax].ToType<int>()));
         }
-        else if (key == "chink" && settings[BuiltIn.Keys.BotImageChinkSelfDestruct].ToBoolean())
+        else if (key is "chink" or "sloppa" && settings[BuiltIn.Keys.BotImageChinkSelfDestruct].ToBoolean())
         {
             RateLimitService.AddEntry(user, this, message.MessageRawHtmlDecoded);
             timeToDeletion = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.BotImageChinkSelfDestructDelay].ToType<int>());
