@@ -802,7 +802,7 @@ public class PredictionEndCommand : ICommand
                 TransactionSourceEventType.Gambling,
                 $"Prediction win: {prediction.Description}", ct: ctx);
 
-            winnersList.Add($"{bet.Username}: +{await profit.FormatKasinoCurrencyAsync()}");
+            winnersList.Add($"@{bet.Username}: +{await profit.FormatKasinoCurrencyAsync()}");
         }
 
         // Mark prediction as complete
