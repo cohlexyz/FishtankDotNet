@@ -78,19 +78,20 @@ public class StoxCommand : ICommand
             return $"[TD]{current.Symbol}[/TD][TD]₣{current.CurrentPrice} ({changeStr})[/TD]";
         }
 
-        for (int i = 0; i < currentAndPrevious.Count; i += 3)
+        // we want them spread across two rows
+        var stoxPerRow = (int)Math.Ceiling(currentAndPrevious.Count / 2.0);
+
+        for (int i = 0; i < 2; i++)
         {
-            var (c1, p1) = currentAndPrevious[i];
-            string row = GetCells(c1, p1);
-            if (i + 1 < currentAndPrevious.Count)
+            var row = string.Empty;
+            for (int j = 0; j < stoxPerRow; j++)
             {
-                var (c2, p2) = currentAndPrevious[i + 1];
-                row += GetCells(c2, p2);
-            }
-            if (i + 2 < currentAndPrevious.Count)
-            {
-                var (c3, p3) = currentAndPrevious[i + 2];
-                row += GetCells(c3, p3);
+                var index = i * stoxPerRow + j;
+                if (index >= currentAndPrevious.Count)
+                    break;
+
+                var (current, previous) = currentAndPrevious[index];
+                row += GetCells(current, previous);
             }
             msg += $"[TR]{row}[/TR]";
         }
