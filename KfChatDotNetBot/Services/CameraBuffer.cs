@@ -344,6 +344,19 @@ public class CameraBuffer : IAsyncDisposable
         OnDied?.Invoke(this);
     }
 
+    /// <summary>
+    /// Clears accumulated buffer data without stopping FFmpeg.
+    /// </summary>
+    public void ResetBuffer()
+    {
+        lock (_bufferLock)
+        {
+            _buffer.Clear();
+            _totalBytes = 0;
+        }
+        Logger.Info($"[CameraBuffer:{CameraName}] Buffer reset");
+    }
+
     public async ValueTask DisposeAsync()
     {
         await StopAsync();

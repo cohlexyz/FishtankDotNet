@@ -209,6 +209,7 @@ public class ClipService
                 return $"Zipline upload returned null for {target.CameraName} clip";
 
             Logger.Info($"[ClipService] Uploaded clip for {target.CameraName}: {url}");
+            target.ResetBuffer();
             return url;
         }
         catch (Exception ex)
