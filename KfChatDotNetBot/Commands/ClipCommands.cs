@@ -37,7 +37,7 @@ public class ClipStartCommand : ICommand
 {
     public List<Regex> Patterns => [new Regex(@"^clip start (?<camera>.+)$")];
     public string? HelpText => "Start buffering a camera stream (max 3, oldest evicted)";
-    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public UserRight RequiredRight => UserRight.Clipper;
     public TimeSpan Timeout => TimeSpan.FromSeconds(30);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
@@ -60,7 +60,7 @@ public class ClipSwitchCommand : ICommand
 {
     public List<Regex> Patterns => [new Regex(@"^clip switch (?<camera>.+)$")];
     public string? HelpText => "Switch to a camera stream (alias for clip start)";
-    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public UserRight RequiredRight => UserRight.Clipper;
     public TimeSpan Timeout => TimeSpan.FromSeconds(30);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
@@ -83,7 +83,7 @@ public class ClipStopCommand : ICommand
 {
     public List<Regex> Patterns => [new Regex(@"^clip stop(?:\s+(?<camera>.+))?$")];
     public string? HelpText => "Stop buffering a camera (or all if no name given)";
-    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public UserRight RequiredRight => UserRight.Clipper;
     public TimeSpan Timeout => TimeSpan.FromSeconds(30);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
@@ -106,7 +106,7 @@ public class ClipSaveCommand : ICommand
 {
     public List<Regex> Patterns => [new Regex(@"^clip save (?<camera>.+)$")];
     public string? HelpText => "Save the buffer for a camera as a clip and upload it";
-    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public UserRight RequiredRight => UserRight.Clipper;
     public TimeSpan Timeout => TimeSpan.FromMinutes(5);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
@@ -140,7 +140,7 @@ public class ClipListCommand : ICommand
 {
     public List<Regex> Patterns => [new Regex(@"^clip list$")];
     public string? HelpText => "List currently buffered cameras";
-    public UserRight RequiredRight => UserRight.Loser;
+    public UserRight RequiredRight => UserRight.Clipper;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
@@ -170,7 +170,7 @@ public class ClipCamerasCommand : ICommand
 {
     public List<Regex> Patterns => [new Regex(@"^clip cameras$")];
     public string? HelpText => "List all available camera names";
-    public UserRight RequiredRight => UserRight.Loser;
+    public UserRight RequiredRight => UserRight.Clipper;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
 

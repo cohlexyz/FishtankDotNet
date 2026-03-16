@@ -16,6 +16,8 @@ public enum UserRight
     Admin = 1000,
     [Description("True and Honest")]
     TrueAndHonest = 100,
+    [Description("Clipper")]
+    Clipper = 50,
     [Description("Rat")]
     Guest = 10,
     Loser = 0
