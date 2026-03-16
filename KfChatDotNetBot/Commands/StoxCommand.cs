@@ -1,4 +1,5 @@
 
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -107,7 +108,7 @@ internal static class StoxMarket
 public class StoxBuyCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^stox buy (?<symbol>\w+) (?<amount>\d+)$", RegexOptions.IgnoreCase)
+        new Regex(@"^stox buy (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
     ];
     public string? HelpText => "Buy stocks with your Kasino balance: !stox buy <symbol> <amount>";
     public UserRight RequiredRight => UserRight.Loser;
@@ -129,7 +130,7 @@ public class StoxBuyCommand : ICommand
         }
 
         var symbol = arguments["symbol"].Value.ToUpper();
-        var amount = int.Parse(arguments["amount"].Value);
+        var amount = decimal.Parse(arguments["amount"].Value, CultureInfo.InvariantCulture);
 
         if (symbol.Contains("?"))
         {
@@ -183,7 +184,7 @@ public class StoxBuyCommand : ICommand
         if (gambler.Balance < cost)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough to buy {amount}x {symbol} at ₣{stock.CurrentPrice} each (total: {await cost.FormatKasinoCurrencyAsync()}).",
+                $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough to buy {amount:0.####}x {symbol} at ₣{stock.CurrentPrice} each (total: {await cost.FormatKasinoCurrencyAsync()}).",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
@@ -202,17 +203,17 @@ public class StoxBuyCommand : ICommand
         var portfolioKey = $"Stox.Portfolio.{gambler.Id}";
         var portfolioJson = await db.StringGetAsync(portfolioKey);
         var portfolio = portfolioJson.HasValue
-            ? JsonSerializer.Deserialize<Dictionary<string, int>>(portfolioJson.ToString()) ?? []
-            : new Dictionary<string, int>();
+            ? JsonSerializer.Deserialize<Dictionary<string, decimal>>(portfolioJson.ToString()) ?? []
+            : new Dictionary<string, decimal>();
 
-        portfolio[symbol] = portfolio.GetValueOrDefault(symbol, 0) + amount;
+        portfolio[symbol] = portfolio.GetValueOrDefault(symbol, 0m) + amount;
         await db.StringSetAsync(portfolioKey, JsonSerializer.Serialize(portfolio));
 
         var newBalance = await Money.ModifyBalanceAsync(gambler.Id, -cost, TransactionSourceEventType.StoxPurchase,
-            $"Bought {amount}x {symbol} @ ₣{stock.CurrentPrice}", ct: ctx);
+            $"Bought {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}", ct: ctx);
 
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, bought {amount}x {symbol} @ ₣{stock.CurrentPrice} for {await cost.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. You now hold {portfolio[symbol]}x {symbol}.",
+            $"{user.FormatUsername()}, bought {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await cost.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. You now hold {portfolio[symbol]:0.####}x {symbol}.",
             true, autoDeleteAfter: TimeSpan.FromSeconds(30));
     }
 }
@@ -220,7 +221,7 @@ public class StoxBuyCommand : ICommand
 public class StoxSellCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^stox sell (?<symbol>\w+) (?<amount>\d+)$", RegexOptions.IgnoreCase)
+        new Regex(@"^stox sell (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
     ];
     public string? HelpText => "Sell stocks for Kasino balance: !stox sell <symbol> <amount>";
     public UserRight RequiredRight => UserRight.Loser;
@@ -242,7 +243,7 @@ public class StoxSellCommand : ICommand
         }
 
         var symbol = arguments["symbol"].Value.ToUpper();
-        var amount = int.Parse(arguments["amount"].Value);
+        var amount = decimal.Parse(arguments["amount"].Value, CultureInfo.InvariantCulture);
 
         if (amount <= 0)
         {
@@ -269,14 +270,14 @@ public class StoxSellCommand : ICommand
         var portfolioKey = $"Stox.Portfolio.{gambler.Id}";
         var portfolioJson = await db.StringGetAsync(portfolioKey);
         var portfolio = portfolioJson.HasValue
-            ? JsonSerializer.Deserialize<Dictionary<string, int>>(portfolioJson.ToString()) ?? []
-            : new Dictionary<string, int>();
+            ? JsonSerializer.Deserialize<Dictionary<string, decimal>>(portfolioJson.ToString()) ?? []
+            : new Dictionary<string, decimal>();
 
-        var held = portfolio.GetValueOrDefault(symbol, 0);
+        var held = portfolio.GetValueOrDefault(symbol, 0m);
         if (held < amount)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you only hold {held}x {symbol} and can't sell {amount}x.",
+                $"{user.FormatUsername()}, you only hold {held:0.####}x {symbol} and can't sell {amount:0.####}x.",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
@@ -305,18 +306,18 @@ public class StoxSellCommand : ICommand
 
         var proceeds = (decimal)stock.CurrentPrice * amount;
         portfolio[symbol] = held - amount;
-        if (portfolio[symbol] == 0)
+        if (portfolio[symbol] == 0m)
             portfolio.Remove(symbol);
         await db.StringSetAsync(portfolioKey, JsonSerializer.Serialize(portfolio));
 
         var newBalance = await Money.ModifyBalanceAsync(gambler.Id, proceeds, TransactionSourceEventType.StoxSale,
-            $"Sold {amount}x {symbol} @ ₣{stock.CurrentPrice}", ct: ctx);
+            $"Sold {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}", ct: ctx);
 
         var remaining = portfolio.TryGetValue(symbol, out var rem)
-            ? $". You still hold {rem}x {symbol}."
+            ? $". You still hold {rem:0.####}x {symbol}."
             : $". You no longer hold any {symbol}.";
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, sold {amount}x {symbol} @ ₣{stock.CurrentPrice} for {await proceeds.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
+            $"{user.FormatUsername()}, sold {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await proceeds.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
             true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
@@ -359,8 +360,8 @@ public class StoxPortfolioCommand : ICommand
 
         var portfolioJson = await db.StringGetAsync(portfolioKey);
         var portfolio = portfolioJson.HasValue
-            ? JsonSerializer.Deserialize<Dictionary<string, int>>(portfolioJson.ToString()) ?? []
-            : new Dictionary<string, int>();
+            ? JsonSerializer.Deserialize<Dictionary<string, decimal>>(portfolioJson.ToString()) ?? []
+            : new Dictionary<string, decimal>();
 
         var shortsJson = await db.StringGetAsync(shortsKey);
         var shorts = shortsJson.HasValue
@@ -399,9 +400,9 @@ public class StoxPortfolioCommand : ICommand
                     var price = stoxData?.Stocks.FirstOrDefault(s =>
                         s.Symbol.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase))?.CurrentPrice;
                     var valueStr = price.HasValue
-                        ? $" (value: ₣{price.Value * kvp.Value})"
+                        ? $" (value: ₣{price.Value * kvp.Value:0.##})"
                         : string.Empty;
-                    return $"  {kvp.Key}: {kvp.Value}x{valueStr}";
+                    return $"  {kvp.Key}: {kvp.Value:0.####}x{valueStr}";
                 }));
         }
 
@@ -416,12 +417,12 @@ public class StoxPortfolioCommand : ICommand
                     var currentPrice = stoxData?.Stocks.FirstOrDefault(s =>
                         s.Symbol.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase))?.CurrentPrice;
                     if (!currentPrice.HasValue)
-                        return $"  {kvp.Key}: {pos.Quantity}x short (entry: ₣{pos.EntryPrice:0.##})";
+                        return $"  {kvp.Key}: {pos.Quantity:0.####}x short (entry: ₣{pos.EntryPrice:0.##})";
                     var pnl = pos.Quantity * (pos.EntryPrice - currentPrice.Value);
                     var pnlStr = pnl >= 0
                         ? $"[COLOR=#00ff00]+₣{pnl:0.##}[/COLOR]"
                         : $"[COLOR=#ff0000]₣{pnl:0.##}[/COLOR]";
-                    return $"  {kvp.Key}: {pos.Quantity}x short (entry: ₣{pos.EntryPrice:0.##}, current: ₣{currentPrice.Value}, P&L: {pnlStr})";
+                    return $"  {kvp.Key}: {pos.Quantity:0.####}x short (entry: ₣{pos.EntryPrice:0.##}, current: ₣{currentPrice.Value}, P&L: {pnlStr})";
                 }));
         }
 
@@ -434,7 +435,7 @@ public class StoxPortfolioCommand : ICommand
 public class StoxShortCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^stox short (?<symbol>\w+) (?<amount>\d+)$", RegexOptions.IgnoreCase)
+        new Regex(@"^stox short (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
     ];
     public string? HelpText => "Short sell stocks (profit if price drops): !stox short <symbol> <amount>";
     public UserRight RequiredRight => UserRight.Loser;
@@ -456,7 +457,7 @@ public class StoxShortCommand : ICommand
         }
 
         var symbol = arguments["symbol"].Value.ToUpper();
-        var amount = int.Parse(arguments["amount"].Value);
+        var amount = decimal.Parse(arguments["amount"].Value, CultureInfo.InvariantCulture);
 
         if (symbol.Contains("?"))
         {
@@ -503,7 +504,7 @@ public class StoxShortCommand : ICommand
         if (gambler.Balance < collateral)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you need {await collateral.FormatKasinoCurrencyAsync()} collateral to short {amount}x {symbol} at ₣{stock.CurrentPrice} each, but only have {await gambler.Balance.FormatKasinoCurrencyAsync()}.",
+                $"{user.FormatUsername()}, you need {await collateral.FormatKasinoCurrencyAsync()} collateral to short {amount:0.####}x {symbol} at ₣{stock.CurrentPrice} each, but only have {await gambler.Balance.FormatKasinoCurrencyAsync()}.",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
@@ -539,11 +540,11 @@ public class StoxShortCommand : ICommand
         await db.StringSetAsync(shortsKey, JsonSerializer.Serialize(shorts));
 
         var newBalance = await Money.ModifyBalanceAsync(gambler.Id, -collateral, TransactionSourceEventType.StoxShort,
-            $"Opened short {amount}x {symbol} @ ₣{stock.CurrentPrice}", ct: ctx);
+            $"Opened short {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}", ct: ctx);
 
         var pos = shorts[symbol];
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, opened short of {amount}x {symbol} @ ₣{stock.CurrentPrice}. Collateral locked: {await collateral.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. Total short: {pos.Quantity}x {symbol} (avg entry: ₣{pos.EntryPrice:0.##}).",
+            $"{user.FormatUsername()}, opened short of {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}. Collateral locked: {await collateral.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. Total short: {pos.Quantity:0.####}x {symbol} (avg entry: ₣{pos.EntryPrice:0.##}).",
             true, autoDeleteAfter: TimeSpan.FromSeconds(30));
     }
 }
@@ -551,7 +552,7 @@ public class StoxShortCommand : ICommand
 public class StoxCoverCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^stox cover (?<symbol>\w+) (?<amount>\d+)$", RegexOptions.IgnoreCase)
+        new Regex(@"^stox cover (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
     ];
     public string? HelpText => "Cover (close) a short position: !stox cover <symbol> <amount>";
     public UserRight RequiredRight => UserRight.Loser;
@@ -573,7 +574,7 @@ public class StoxCoverCommand : ICommand
         }
 
         var symbol = arguments["symbol"].Value.ToUpper();
-        var amount = int.Parse(arguments["amount"].Value);
+        var amount = decimal.Parse(arguments["amount"].Value, CultureInfo.InvariantCulture);
 
         if (amount <= 0)
         {
@@ -605,9 +606,9 @@ public class StoxCoverCommand : ICommand
 
         if (!shorts.TryGetValue(symbol, out var position) || position.Quantity < amount)
         {
-            var held = shorts.TryGetValue(symbol, out var p) ? p.Quantity : 0;
+            var held = shorts.TryGetValue(symbol, out var p) ? p.Quantity : 0m;
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you only have {held}x {symbol} shorted and can't cover {amount}x.",
+                $"{user.FormatUsername()}, you only have {held:0.####}x {symbol} shorted and can't cover {amount:0.####}x.",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
@@ -647,16 +648,16 @@ public class StoxCoverCommand : ICommand
         await db.StringSetAsync(shortsKey, JsonSerializer.Serialize(shorts));
 
         var newBalance = await Money.ModifyBalanceAsync(gambler.Id, netEffect, TransactionSourceEventType.StoxCover,
-            $"Covered {amount}x {symbol} short @ entry ₣{entryPrice:0.##}, close ₣{stock.CurrentPrice}", ct: ctx);
+            $"Covered {amount:0.####}x {symbol} short @ entry ₣{entryPrice:0.##}, close ₣{stock.CurrentPrice}", ct: ctx);
 
         var pnlStr = pnl >= 0
             ? $"[B][COLOR=#00ff00]+{await pnl.FormatKasinoCurrencyAsync()}[/COLOR][/B]"
             : $"[B][COLOR=#ff0000]{await pnl.FormatKasinoCurrencyAsync()}[/COLOR][/B]";
         var remaining = shorts.TryGetValue(symbol, out var rem)
-            ? $". You still short {rem.Quantity}x {symbol}."
+            ? $". You still short {rem.Quantity:0.####}x {symbol}."
             : $". No remaining short position in {symbol}.";
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, covered {amount}x {symbol} short. Entry: ₣{entryPrice:0.##}, close: ₣{stock.CurrentPrice}. P&L: {pnlStr}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
+            $"{user.FormatUsername()}, covered {amount:0.####}x {symbol} short. Entry: ₣{entryPrice:0.##}, close: ₣{stock.CurrentPrice}. P&L: {pnlStr}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
             true, autoDeleteAfter: TimeSpan.FromSeconds(30));
     }
 }

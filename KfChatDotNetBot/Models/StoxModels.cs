@@ -4,7 +4,7 @@ namespace KfChatDotNetBot.Models;
 
 public class StoxShortPosition
 {
-    public int Quantity { get; set; }
+    public decimal Quantity { get; set; }
     public decimal EntryPrice { get; set; }
 }
 
