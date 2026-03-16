@@ -204,7 +204,7 @@ public class ClipService
         {
             await using var stream = File.OpenRead(webmPath);
             var filename = $"{target.CameraName.Replace(' ', '_')}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.mp4";
-            var url = await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), "1d", ct, filename);
+            var url = await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), "1h", ct, filename);
             if (url == null)
                 return $"Zipline upload returned null for {target.CameraName} clip";
 
