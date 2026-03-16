@@ -9,16 +9,16 @@ namespace KfChatDotNetBot.Services;
 
 public static class Zipline
 {
-    public static async Task<string?> Upload(Stream content, MediaTypeHeaderValue mimeType, string? expiration = null, CancellationToken ct = default)
+    public static async Task<string?> Upload(Stream content, MediaTypeHeaderValue mimeType, string? expiration = null, CancellationToken ct = default, string? filename = null)
     {
         using var formContent = new MultipartFormDataContent();
         var fileContent = new StreamContent(content);
         fileContent.Headers.ContentType = mimeType;
-        formContent.Add(fileContent, "upload", Money.GenerateEventId());
+        formContent.Add(fileContent, "upload", filename ?? Money.GenerateEventId());
         var url = await DoUpload(formContent, expiration, ct);
         return url;
     }
-    
+
     public static async Task<string?> Upload(string content, MediaTypeHeaderValue mimeType, string? expiration = null, CancellationToken ct = default)
     {
         using var formContent = new MultipartFormDataContent();
@@ -28,7 +28,7 @@ public static class Zipline
         var url = await DoUpload(formContent, expiration, ct);
         return url;
     }
-    
+
     private static async Task<string?> DoUpload(MultipartFormDataContent content, string? expiration = null, CancellationToken ct = default)
     {
         var logger = LogManager.GetCurrentClassLogger();
@@ -41,7 +41,7 @@ public static class Zipline
         {
             throw new InvalidOperationException("ZiplineKey is not defined");
         }
-        
+
         var handler = new HttpClientHandler();
         if (settings[BuiltIn.Keys.Proxy].Value != null)
         {

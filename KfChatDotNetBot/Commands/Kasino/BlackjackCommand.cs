@@ -212,8 +212,8 @@ public class BlackjackCommand : ICommand
             BuiltIn.Keys.KiwiFarmsGreenColor, BuiltIn.Keys.KiwiFarmsRedColor
         ]);
         var colors = new GameColors(
-            colorSettings[BuiltIn.Keys.KiwiFarmsGreenColor].Value,
-            colorSettings[BuiltIn.Keys.KiwiFarmsRedColor].Value);
+            colorSettings[BuiltIn.Keys.KiwiFarmsGreenColor].Value!,
+            colorSettings[BuiltIn.Keys.KiwiFarmsRedColor].Value!);
 
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
 

@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Text.RegularExpressions;
 using Raffinert.FuzzySharp;
 using KfChatDotNetBot.Settings;
 using NLog;
@@ -48,7 +49,9 @@ public class ClipService
         }
 
         var ffmpegPath = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.FFmpegBinaryPath)).Value ?? "ffmpeg";
-        var buffer = new CameraBuffer(matchedName, url, ffmpegPath, _ct);
+        var resolvedUrl = await ResolveBestStreamUrlAsync(url, _ct);
+        Logger.Info($"[ClipService] Resolved stream URL for {matchedName}: {resolvedUrl}");
+        var buffer = new CameraBuffer(matchedName, resolvedUrl, ffmpegPath, _ct);
         buffer.OnDied = OnBufferDied;
 
         string? evictedName = null;
@@ -199,7 +202,8 @@ public class ClipService
         try
         {
             await using var stream = File.OpenRead(webmPath);
-            var url = await Zipline.Upload(stream, new MediaTypeHeaderValue("video/x-matroska"), "1d", ct);
+            var filename = $"{target.CameraName.Replace(' ', '_')}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.mp4";
+            var url = await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), "1d", ct, filename);
             if (url == null)
                 return $"Zipline upload returned null for {target.CameraName} clip";
 
@@ -246,6 +250,53 @@ public class ClipService
             return (best.Name, cameras[best.Name]);
 
         return (null, null);
+    }
+
+    private static async Task<string> ResolveBestStreamUrlAsync(string url, CancellationToken ct)
+    {
+        using var client = new HttpClient();
+        string content;
+        try
+        {
+            content = await client.GetStringAsync(url, ct);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"[ClipService] Could not fetch m3u8 to resolve best stream ({ex.Message}), using original URL");
+            return url;
+        }
+
+        if (!content.Contains("#EXT-X-STREAM-INF"))
+            return url;
+
+        var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        string? bestVariantUrl = null;
+        long bestBandwidth = -1;
+
+        for (var i = 0; i < lines.Length - 1; i++)
+        {
+            var line = lines[i].Trim();
+            if (!line.StartsWith("#EXT-X-STREAM-INF:", StringComparison.Ordinal)) continue;
+
+            var bwMatch = Regex.Match(line, @"BANDWIDTH=(\d+)");
+            if (!bwMatch.Success) continue;
+
+            var bandwidth = long.Parse(bwMatch.Groups[1].Value);
+            if (bandwidth <= bestBandwidth) continue;
+
+            var nextLine = lines[i + 1].Trim();
+            if (nextLine.StartsWith("#")) continue;
+
+            bestBandwidth = bandwidth;
+            bestVariantUrl = nextLine;
+        }
+
+        if (bestVariantUrl == null) return url;
+
+        if (!bestVariantUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            bestVariantUrl = new Uri(new Uri(url), bestVariantUrl).ToString();
+
+        return bestVariantUrl;
     }
 
     private void OnBufferDied(CameraBuffer buffer)

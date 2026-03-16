@@ -166,14 +166,14 @@ public class CameraBuffer : IAsyncDisposable
 
         var id = Guid.NewGuid().ToString("N")[..8];
         var tempTs = Path.Combine(Path.GetTempPath(), $"clip_{CameraName.Replace(' ', '_')}_{id}.ts");
-        var tempMkv = Path.Combine(Path.GetTempPath(), $"clip_{CameraName.Replace(' ', '_')}_{id}.mkv");
+        var tempMp4 = Path.Combine(Path.GetTempPath(), $"clip_{CameraName.Replace(' ', '_')}_{id}.mp4");
 
         try
         {
             await File.WriteAllBytesAsync(tempTs, snapshot, ct);
 
             // Use -c copy to remux (near instant) rather than re-encoding to VP9 which is very slow
-            var ffmpegArgs = $"-i \"{tempTs}\" -c copy -y \"{tempMkv}\"";
+            var ffmpegArgs = $"-i \"{tempTs}\" -c copy -y \"{tempMp4}\"";
             var processInfo = new ProcessStartInfo
             {
                 FileName = _ffmpegPath,
@@ -204,14 +204,16 @@ public class CameraBuffer : IAsyncDisposable
                 throw new InvalidOperationException($"FFmpeg re-mux failed with exit code {remux.ExitCode}");
             }
 
-            Logger.Info($"[CameraBuffer:{CameraName}] Re-muxed {snapshot.Length} bytes TS -> MKV at {tempMkv}");
-            return tempMkv;
+            Logger.Info($"[CameraBuffer:{CameraName}] Re-muxed {snapshot.Length} bytes TS -> MP4 at {tempMp4}");
+            return tempMp4;
         }
         finally
         {
             // Always clean up the intermediate .ts file
             try { File.Delete(tempTs); }
             catch { /* best effort */ }
+            // Clean up the .mp4 only on failure (success path already returned tempMp4 to caller)
+            // ClipService is responsible for deleting tempMp4 after upload.
         }
     }
 
