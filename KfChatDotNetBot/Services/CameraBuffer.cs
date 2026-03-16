@@ -154,17 +154,20 @@ public class CameraBuffer : IAsyncDisposable
     }
 
     /// <summary>
-    /// Saves the current buffer to a temp file, re-muxes it to WebM with FFmpeg, and returns the output file path.
-    /// Caller is responsible for deleting the returned file after use.
+    /// Saves the current buffer to a temp file, re-muxes it to MP4 with FFmpeg, and returns the output file path
+    /// along with the timestamp of the last chunk included. Caller is responsible for deleting the returned file
+    /// after use. Pass the returned cutoff to <see cref="ResetBuffer"/> to clear only the saved data.
     /// </summary>
-    public async Task<string> SaveToFileAsync(CancellationToken ct)
+    public async Task<(string FilePath, DateTimeOffset Cutoff)> SaveToFileAsync(CancellationToken ct)
     {
         byte[] snapshot;
+        DateTimeOffset cutoff;
         lock (_bufferLock)
         {
             if (_buffer.Count == 0)
                 throw new InvalidOperationException("Buffer is empty, nothing to save");
 
+            cutoff = _buffer[^1].Timestamp;
             var totalLen = _buffer.Sum(b => (long)b.Data.Length);
             snapshot = new byte[totalLen];
             var offset = 0;
@@ -216,7 +219,7 @@ public class CameraBuffer : IAsyncDisposable
             }
 
             Logger.Info($"[CameraBuffer:{CameraName}] Re-muxed {snapshot.Length} bytes TS -> MP4 at {tempMp4}");
-            return tempMp4;
+            return (tempMp4, cutoff);
         }
         finally
         {
@@ -345,16 +348,39 @@ public class CameraBuffer : IAsyncDisposable
     }
 
     /// <summary>
-    /// Clears accumulated buffer data without stopping FFmpeg.
+    /// Clears buffer data up to (and including) the given cutoff timestamp,
+    /// preserving any chunks that arrived after the cutoff so consecutive clips don't have gaps.
+    /// If no cutoff is provided, clears the entire buffer.
     /// </summary>
-    public void ResetBuffer()
+    public void ResetBuffer(DateTimeOffset? cutoff = null)
     {
         lock (_bufferLock)
         {
-            _buffer.Clear();
-            _totalBytes = 0;
+            if (cutoff == null)
+            {
+                _buffer.Clear();
+                _totalBytes = 0;
+            }
+            else
+            {
+                var removeCount = 0;
+                for (var i = 0; i < _buffer.Count; i++)
+                {
+                    if (_buffer[i].Timestamp <= cutoff.Value)
+                        removeCount++;
+                    else
+                        break;
+                }
+
+                if (removeCount > 0)
+                {
+                    for (var i = 0; i < removeCount; i++)
+                        _totalBytes -= _buffer[i].Data.Length;
+                    _buffer.RemoveRange(0, removeCount);
+                }
+            }
         }
-        Logger.Info($"[CameraBuffer:{CameraName}] Buffer reset");
+        Logger.Info($"[CameraBuffer:{CameraName}] Buffer reset (cutoff: {cutoff?.ToString() ?? "all"})");
     }
 
     public async ValueTask DisposeAsync()

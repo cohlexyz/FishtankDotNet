@@ -189,10 +189,11 @@ public class ClipService
         if (target.BufferDuration < TimeSpan.FromSeconds(5))
             return $"Buffer for {target.CameraName} is too short ({target.BufferDuration.TotalSeconds:N0}s). Wait a bit longer.";
 
-        string webmPath;
+        string mp4Path;
+        DateTimeOffset cutoff;
         try
         {
-            webmPath = await target.SaveToFileAsync(ct);
+            (mp4Path, cutoff) = await target.SaveToFileAsync(ct);
         }
         catch (Exception ex)
         {
@@ -202,14 +203,14 @@ public class ClipService
 
         try
         {
-            await using var stream = File.OpenRead(webmPath);
+            await using var stream = File.OpenRead(mp4Path);
             var filename = $"{target.CameraName.Replace(' ', '_')}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.mp4";
             var url = await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), "1h", ct, filename);
             if (url == null)
                 return $"Zipline upload returned null for {target.CameraName} clip";
 
             Logger.Info($"[ClipService] Uploaded clip for {target.CameraName}: {url}");
-            target.ResetBuffer();
+            target.ResetBuffer(cutoff);
             return url;
         }
         catch (Exception ex)
@@ -219,7 +220,7 @@ public class ClipService
         }
         finally
         {
-            try { File.Delete(webmPath); }
+            try { File.Delete(mp4Path); }
             catch { /* best effort cleanup */ }
         }
     }
