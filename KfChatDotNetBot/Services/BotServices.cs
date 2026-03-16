@@ -43,6 +43,7 @@ public class BotServices
     public KasinoRain? KasinoRain;
 
     public KasinoShop? KasinoShop;
+    public ClipService? ClipService;
 
     private Task? _websocketWatchdog;
     private Task? _howlggGetUserTimer;
@@ -63,6 +64,7 @@ public class BotServices
         TemporarilyBypassGambaSeshForDiscord =
             SettingsProvider.GetValueAsync(BuiltIn.Keys.DiscordTemporarilyBypassGambaSeshInitialValue).Result.ToBoolean();
 
+        ClipService = new ClipService(_cancellationToken);
         _logger.Info("Bot services ready to initialize!");
     }
 
