@@ -107,7 +107,7 @@ public class ClipSaveCommand : ICommand
     public List<Regex> Patterns => [new Regex(@"^clip save (?<camera>.+)$")];
     public string? HelpText => "Save the buffer for a camera as a clip and upload it";
     public UserRight RequiredRight => UserRight.TrueAndHonest;
-    public TimeSpan Timeout => TimeSpan.FromMinutes(2);
+    public TimeSpan Timeout => TimeSpan.FromMinutes(5);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
         Window = TimeSpan.FromSeconds(30),

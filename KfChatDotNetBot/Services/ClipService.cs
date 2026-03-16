@@ -199,7 +199,7 @@ public class ClipService
         try
         {
             await using var stream = File.OpenRead(webmPath);
-            var url = await Zipline.Upload(stream, new MediaTypeHeaderValue("video/webm"), "1d", ct);
+            var url = await Zipline.Upload(stream, new MediaTypeHeaderValue("video/x-matroska"), "1d", ct);
             if (url == null)
                 return $"Zipline upload returned null for {target.CameraName} clip";
 

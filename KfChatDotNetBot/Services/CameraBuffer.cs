@@ -166,13 +166,14 @@ public class CameraBuffer : IAsyncDisposable
 
         var id = Guid.NewGuid().ToString("N")[..8];
         var tempTs = Path.Combine(Path.GetTempPath(), $"clip_{CameraName.Replace(' ', '_')}_{id}.ts");
-        var tempWebm = Path.Combine(Path.GetTempPath(), $"clip_{CameraName.Replace(' ', '_')}_{id}.webm");
+        var tempMkv = Path.Combine(Path.GetTempPath(), $"clip_{CameraName.Replace(' ', '_')}_{id}.mkv");
 
         try
         {
             await File.WriteAllBytesAsync(tempTs, snapshot, ct);
 
-            var ffmpegArgs = $"-i \"{tempTs}\" -c:v libvpx-vp9 -c:a libopus -y \"{tempWebm}\"";
+            // Use -c copy to remux (near instant) rather than re-encoding to VP9 which is very slow
+            var ffmpegArgs = $"-i \"{tempTs}\" -c copy -y \"{tempMkv}\"";
             var processInfo = new ProcessStartInfo
             {
                 FileName = _ffmpegPath,
@@ -190,7 +191,11 @@ public class CameraBuffer : IAsyncDisposable
                 throw new InvalidOperationException("Failed to start FFmpeg re-mux");
             }
 
-            await remux.WaitForExitAsync(ct);
+            // Use a dedicated timeout instead of the command's CancellationToken
+            // which may expire before FFmpeg finishes
+            using var remuxCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            remuxCts.CancelAfter(TimeSpan.FromMinutes(3));
+            await remux.WaitForExitAsync(remuxCts.Token);
 
             if (remux.ExitCode != 0)
             {
@@ -199,8 +204,8 @@ public class CameraBuffer : IAsyncDisposable
                 throw new InvalidOperationException($"FFmpeg re-mux failed with exit code {remux.ExitCode}");
             }
 
-            Logger.Info($"[CameraBuffer:{CameraName}] Re-muxed {snapshot.Length} bytes TS -> WebM at {tempWebm}");
-            return tempWebm;
+            Logger.Info($"[CameraBuffer:{CameraName}] Re-muxed {snapshot.Length} bytes TS -> MKV at {tempMkv}");
+            return tempMkv;
         }
         finally
         {
