@@ -16,6 +16,7 @@ public class ClipService
 
     private const int MaxBuffers = 3;
     private const int FuzzyMatchThreshold = 60;
+    private const int StopFuzzyMatchThreshold = 80;
 
     private readonly LinkedList<CameraBuffer> _activeBuffers = new();
     private readonly Lock _lock = new();
@@ -134,11 +135,11 @@ public class ClipService
             if (target == null)
             {
                 var best = _activeBuffers
-                    .Select(b => (Buffer: b, Score: Fuzz.PartialRatio(cameraQuery.ToLowerInvariant(), b.CameraName.ToLowerInvariant())))
+                    .Select(b => (Buffer: b, Score: Fuzz.Ratio(cameraQuery.ToLowerInvariant(), b.CameraName.ToLowerInvariant())))
                     .OrderByDescending(x => x.Score)
                     .FirstOrDefault();
 
-                if (best.Score >= FuzzyMatchThreshold)
+                if (best.Score >= StopFuzzyMatchThreshold)
                     target = best.Buffer;
             }
 
