@@ -78,7 +78,7 @@ public class StoxCommand : ICommand
             return $"[TD]{current.Symbol}[/TD][TD]₣{current.CurrentPrice} ({changeStr})[/TD]";
         }
 
-        for (int i = 0; i < currentAndPrevious.Count; i += 2)
+        for (int i = 0; i < currentAndPrevious.Count; i += 3)
         {
             var (c1, p1) = currentAndPrevious[i];
             string row = GetCells(c1, p1);
@@ -86,6 +86,11 @@ public class StoxCommand : ICommand
             {
                 var (c2, p2) = currentAndPrevious[i + 1];
                 row += GetCells(c2, p2);
+            }
+            if (i + 2 < currentAndPrevious.Count)
+            {
+                var (c3, p3) = currentAndPrevious[i + 2];
+                row += GetCells(c3, p3);
             }
             msg += $"[TR]{row}[/TR]";
         }
