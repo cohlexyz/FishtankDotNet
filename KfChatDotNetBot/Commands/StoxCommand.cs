@@ -120,8 +120,8 @@ public class StoxBuyCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 5,
-        Window = TimeSpan.FromSeconds(30)
+        MaxInvocations = 1,
+        Window = TimeSpan.FromSeconds(60)
     };
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
@@ -233,8 +233,8 @@ public class StoxSellCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 5,
-        Window = TimeSpan.FromSeconds(30)
+        MaxInvocations = 1,
+        Window = TimeSpan.FromSeconds(60)
     };
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
@@ -338,8 +338,8 @@ public class StoxPortfolioCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 3,
-        Window = TimeSpan.FromSeconds(30)
+        MaxInvocations = 1,
+        Window = TimeSpan.FromSeconds(120)
     };
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
@@ -447,8 +447,8 @@ public class StoxShortCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 5,
-        Window = TimeSpan.FromSeconds(30)
+        MaxInvocations = 1,
+        Window = TimeSpan.FromSeconds(60)
     };
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
@@ -564,8 +564,8 @@ public class StoxCoverCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 5,
-        Window = TimeSpan.FromSeconds(30)
+        MaxInvocations = 1,
+        Window = TimeSpan.FromSeconds(60)
     };
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
