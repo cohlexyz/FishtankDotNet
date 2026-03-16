@@ -49,9 +49,9 @@ public class ClipService
         }
 
         var ffmpegPath = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.FFmpegBinaryPath)).Value ?? "ffmpeg";
-        var resolvedUrl = await ResolveBestStreamUrlAsync(url, _ct);
-        Logger.Info($"[ClipService] Resolved stream URL for {matchedName}: {resolvedUrl}");
-        var buffer = new CameraBuffer(matchedName, resolvedUrl, ffmpegPath, _ct);
+        var (resolvedVideoUrl, resolvedAudioUrl) = await ResolveStreamsAsync(url, _ct);
+        Logger.Info($"[ClipService] Resolved stream URL for {matchedName}: {resolvedVideoUrl}{(resolvedAudioUrl != null ? $" (audio: {resolvedAudioUrl})" : "")}");
+        var buffer = new CameraBuffer(matchedName, resolvedVideoUrl, ffmpegPath, _ct, resolvedAudioUrl);
         buffer.OnDied = OnBufferDied;
 
         string? evictedName = null;
@@ -252,7 +252,7 @@ public class ClipService
         return (null, null);
     }
 
-    private static async Task<string> ResolveBestStreamUrlAsync(string url, CancellationToken ct)
+    private static async Task<(string VideoUrl, string? AudioUrl)> ResolveStreamsAsync(string url, CancellationToken ct)
     {
         using var client = new HttpClient();
         string content;
@@ -263,13 +263,34 @@ public class ClipService
         catch (Exception ex)
         {
             Logger.Warn($"[ClipService] Could not fetch m3u8 to resolve best stream ({ex.Message}), using original URL");
-            return url;
+            return (url, null);
         }
 
         if (!content.Contains("#EXT-X-STREAM-INF"))
-            return url;
+            return (url, null);
 
+        var baseUri = new Uri(url);
         var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        // Extract audio URI from #EXT-X-MEDIA:TYPE=AUDIO (prefer DEFAULT=YES)
+        string? audioUri = null;
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+            if (!line.StartsWith("#EXT-X-MEDIA:", StringComparison.Ordinal)) continue;
+            if (!line.Contains("TYPE=AUDIO", StringComparison.Ordinal)) continue;
+            var uriMatch = Regex.Match(line, @"URI=""([^""]+)""");
+            if (!uriMatch.Success) continue;
+            var candidate = uriMatch.Groups[1].Value;
+            if (!candidate.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                candidate = new Uri(baseUri, candidate).ToString();
+            audioUri = candidate;
+            // Prefer DEFAULT=YES but accept first found as fallback
+            if (line.Contains("DEFAULT=YES", StringComparison.OrdinalIgnoreCase))
+                break;
+        }
+
+        // Pick the variant with the highest BANDWIDTH
         string? bestVariantUrl = null;
         long bestBandwidth = -1;
 
@@ -291,12 +312,12 @@ public class ClipService
             bestVariantUrl = nextLine;
         }
 
-        if (bestVariantUrl == null) return url;
+        if (bestVariantUrl == null) return (url, audioUri);
 
         if (!bestVariantUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            bestVariantUrl = new Uri(new Uri(url), bestVariantUrl).ToString();
+            bestVariantUrl = new Uri(baseUri, bestVariantUrl).ToString();
 
-        return bestVariantUrl;
+        return (bestVariantUrl, audioUri);
     }
 
     private void OnBufferDied(CameraBuffer buffer)

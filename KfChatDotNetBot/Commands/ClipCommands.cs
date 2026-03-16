@@ -132,7 +132,12 @@ public class ClipSaveCommand : ICommand
         var camera = arguments["camera"].Value.Trim();
         await botInstance.SendChatMessageAsync($"Saving clip for {camera}...", true, autoDeleteAfter: TimeSpan.FromSeconds(30));
         var result = await clipService.SaveAsync(camera, FishtankCameras.Cameras, ctx);
-        await botInstance.SendChatMessageAsync(result, true);
+        if (result.StartsWith("Error"))
+        {
+            await botInstance.SendChatMessageAsync(result, true);
+            return;
+        }
+        await botInstance.SendChatMessageAsync($"@{user.KfUsername}, here's your clip: {result}", true);
     }
 }
 

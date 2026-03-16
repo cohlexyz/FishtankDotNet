@@ -45,6 +45,7 @@ public class CameraBuffer : IAsyncDisposable
     public Action<CameraBuffer>? OnDied { get; set; }
 
     private readonly string _ffmpegPath;
+    private readonly string? _audioUrl;
     private readonly CancellationTokenSource _cts;
     private Process? _process;
     private Task? _readTask;
@@ -59,11 +60,12 @@ public class CameraBuffer : IAsyncDisposable
     private static readonly TimeSpan TrimInterval = TimeSpan.FromSeconds(5);
     private const int ReadChunkSize = 8192;
 
-    public CameraBuffer(string cameraName, string streamUrl, string ffmpegPath, CancellationToken ct)
+    public CameraBuffer(string cameraName, string streamUrl, string ffmpegPath, CancellationToken ct, string? audioUrl = null)
     {
         CameraName = cameraName;
         StreamUrl = streamUrl;
         _ffmpegPath = ffmpegPath;
+        _audioUrl = audioUrl;
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
     }
 
@@ -76,7 +78,9 @@ public class CameraBuffer : IAsyncDisposable
         {
             FileName = _ffmpegPath,
             // -re is not used here: we want to read as fast as the live stream provides
-            Arguments = $"-i \"{StreamUrl}\" -c copy -f mpegts pipe:1",
+            Arguments = _audioUrl != null
+                ? $"-i \"{StreamUrl}\" -i \"{_audioUrl}\" -map 0:v -map 1:a -c copy -f mpegts pipe:1"
+                : $"-i \"{StreamUrl}\" -c copy -f mpegts pipe:1",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
