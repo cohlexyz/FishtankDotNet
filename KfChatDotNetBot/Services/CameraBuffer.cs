@@ -50,6 +50,7 @@ public class CameraBuffer : IAsyncDisposable
     private Process? _process;
     private Task? _readTask;
     private Task? _trimTask;
+    private Task? _stderrTask;
 
     private readonly List<(DateTimeOffset Timestamp, byte[] Data)> _buffer = [];
     private readonly object _bufferLock = new();
@@ -98,6 +99,7 @@ public class CameraBuffer : IAsyncDisposable
 
         _readTask = Task.Run(ReadLoopAsync, _cts.Token);
         _trimTask = Task.Run(TrimLoopAsync, _cts.Token);
+        _stderrTask = Task.Run(DrainStderrAsync, _cts.Token);
 
         // Fire-and-forget: monitor the FFmpeg process for unexpected exit
         _ = Task.Run(MonitorProcessAsync, CancellationToken.None);
@@ -132,6 +134,11 @@ public class CameraBuffer : IAsyncDisposable
         if (_trimTask != null)
         {
             try { await _trimTask.WaitAsync(TimeSpan.FromSeconds(5)); }
+            catch { /* expected on cancellation */ }
+        }
+        if (_stderrTask != null)
+        {
+            try { await _stderrTask.WaitAsync(TimeSpan.FromSeconds(5)); }
             catch { /* expected on cancellation */ }
         }
 
@@ -257,6 +264,29 @@ public class CameraBuffer : IAsyncDisposable
         }
     }
 
+    private async Task DrainStderrAsync()
+    {
+        var token = _cts.Token;
+        try
+        {
+            var reader = _process!.StandardError;
+            while (!token.IsCancellationRequested)
+            {
+                var line = await reader.ReadLineAsync(token);
+                if (line == null) break;
+                Logger.Debug($"[CameraBuffer:{CameraName}] FFmpeg: {line}");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal shutdown
+        }
+        catch (Exception ex)
+        {
+            Logger.Debug($"[CameraBuffer:{CameraName}] StderrDrain exception: {ex.Message}");
+        }
+    }
+
     private async Task TrimLoopAsync()
     {
         var token = _cts.Token;
@@ -310,14 +340,6 @@ public class CameraBuffer : IAsyncDisposable
         var exitCode = -1;
         try { exitCode = _process.ExitCode; } catch { /* process may be disposed */ }
         Logger.Error($"[CameraBuffer:{CameraName}] FFmpeg died unexpectedly (exit code {exitCode})");
-
-        try
-        {
-            var stderr = await _process.StandardError.ReadToEndAsync();
-            if (!string.IsNullOrWhiteSpace(stderr))
-                Logger.Error($"[CameraBuffer:{CameraName}] FFmpeg stderr: {stderr[..Math.Min(stderr.Length, 2000)]}");
-        }
-        catch { /* best effort */ }
 
         OnDied?.Invoke(this);
     }
