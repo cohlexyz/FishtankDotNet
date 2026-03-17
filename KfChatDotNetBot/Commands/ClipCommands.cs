@@ -102,10 +102,33 @@ public class ClipStopCommand : ICommand
     }
 }
 
+public class ClipBeginCommand : ICommand
+{
+    public List<Regex> Patterns => [new Regex(@"^clip begin (?<camera>.+)$")];
+    public string? HelpText => "Set a marker at the current time for a camera (use with !clip save to clip from the marker)";
+    public UserRight RequiredRight => UserRight.Clipper;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        var clipService = botInstance.BotServices.ClipService;
+        if (clipService == null)
+        {
+            await botInstance.SendChatMessageAsync("Clip service is not initialized", true);
+            return;
+        }
+
+        var camera = arguments["camera"].Value.Trim();
+        var result = clipService.SetMarker(camera, FishtankCameras.Cameras);
+        await botInstance.SendChatMessageAsync(result, true);
+    }
+}
+
 public class ClipSaveCommand : ICommand
 {
     public List<Regex> Patterns => [new Regex(@"^clip save (?<camera>.+?)(?:\s+(?<duration>\d+[smSM]))?$")];
-    public string? HelpText => "Save the buffer for a camera as a clip and upload it (optionally append e.g. 30s or 2m to trim)";
+    public string? HelpText => "Save the buffer for a camera as a clip and upload it (append e.g. 30s or 2m to trim, or use !clip begin to set a marker)";
     public UserRight RequiredRight => UserRight.Clipper;
     public TimeSpan Timeout => TimeSpan.FromMinutes(5);
     public RateLimitOptionsModel? RateLimitOptions => new()
@@ -131,15 +154,46 @@ public class ClipSaveCommand : ICommand
 
         var camera = arguments["camera"].Value.Trim();
 
+        // Resolve the camera name so we can look up markers by canonical name
+        var (resolvedCamera, _) = ClipService.FuzzyMatchCamera(camera, FishtankCameras.Cameras);
+
         TimeSpan? trimTo = null;
+        string? markerCameraName = null;
         if (arguments["duration"].Success)
         {
             var durStr = arguments["duration"].Value;
             var amount = int.Parse(durStr[..^1]);
             trimTo = char.ToLower(durStr[^1]) == 'm' ? TimeSpan.FromMinutes(amount) : TimeSpan.FromSeconds(amount);
         }
+        else if (resolvedCamera != null)
+        {
+            // No duration specified — check for a marker
+            var marker = clipService.GetMarker(resolvedCamera);
+            if (marker == null)
+            {
+                await botInstance.SendChatMessageAsync(
+                    $"No marker set for {resolvedCamera}. Use !clip begin {resolvedCamera} first, or specify a duration (e.g. !clip save {resolvedCamera} 30s)", true);
+                return;
+            }
 
-        var trimLabel = trimTo.HasValue ? $" (last {arguments["duration"].Value})" : "";
+            var age = DateTimeOffset.UtcNow - marker.Value;
+            if (age > TimeSpan.FromMinutes(8))
+            {
+                await botInstance.SendChatMessageAsync(
+                    $"Marker for {resolvedCamera} is too old ({age.Humanize(2)}). The buffer only holds 8 minutes.", true);
+                clipService.ClearMarker(resolvedCamera);
+                return;
+            }
+
+            trimTo = age;
+            markerCameraName = resolvedCamera;
+        }
+        else
+        {
+            // Camera didn't match — let SaveAsync handle the fuzzy match error
+        }
+
+        var trimLabel = trimTo.HasValue ? $" (last {trimTo.Value.Humanize(2)})" : "";
         var sent = await botInstance.SendChatMessageAsync($"Saving clip for {camera}{trimLabel}...", true);
         var gotUuid = await botInstance.WaitForChatMessageAsync(sent, TimeSpan.FromSeconds(10), ctx);
 
@@ -189,12 +243,14 @@ public class ClipSaveCommand : ICommand
             return;
         }
 
-        // Edit the upload message with the final result
+        // Clear the marker now that the clip was saved successfully
+        if (markerCameraName != null)
+            clipService.ClearMarker(markerCameraName);
+
+        // Send the clip URL as a new message and delete the progress message
+        await botInstance.SendChatMessageAsync($"@{user.KfUsername}, here's your clip: {result}", true);
         if (gotUuid)
-            await botInstance.KfClient.EditMessageAsync(sent.ChatMessageUuid!,
-                $"@{user.KfUsername}, here's your clip: {result}");
-        else
-            await botInstance.SendChatMessageAsync($"@{user.KfUsername}, here's your clip: {result}", true);
+            await botInstance.KfClient.DeleteMessageAsync(sent.ChatMessageUuid!);
     }
 }
 

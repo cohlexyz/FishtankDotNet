@@ -24,6 +24,8 @@ public class ClipService
     private const int FuzzyMatchThreshold = 60;
     private const int StopFuzzyMatchThreshold = 80;
 
+    private const int MaxMarkerMinutes = 8;
+
     private readonly LinkedList<CameraBuffer> _activeBuffers = new();
     private readonly Lock _lock = new();
     private readonly CancellationToken _ct;
@@ -34,6 +36,10 @@ public class ClipService
     private readonly Lock _queueStateLock = new();
     private string? _currentJobName;
     private readonly List<string> _pendingJobNames = [];
+
+    // Per-camera markers set via !clip begin
+    private readonly Dictionary<string, DateTimeOffset> _markers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Lock _markerLock = new();
 
     private record ClipJob(
         string CameraName,
@@ -176,6 +182,48 @@ public class ClipService
 
         await target.StopAsync();
         return $"Stopped buffering {target.CameraName}";
+    }
+
+    /// <summary>
+    /// Sets a marker for the given camera at the current time minus 10 seconds.
+    /// Returns a status message.
+    /// </summary>
+    public string SetMarker(string cameraQuery, Dictionary<string, string> cameras)
+    {
+        var (matchedName, _) = FuzzyMatchCamera(cameraQuery, cameras);
+        if (matchedName == null)
+            return $"No camera matched \"{cameraQuery}\". Use !clip cameras to see available cameras.";
+
+        var markerTime = DateTimeOffset.UtcNow - TimeSpan.FromSeconds(10);
+        lock (_markerLock)
+        {
+            _markers[matchedName] = markerTime;
+        }
+
+        Logger.Info($"[ClipService] Marker set for {matchedName} at {markerTime:HH:mm:ss}");
+        return $"Marker set for {matchedName}";
+    }
+
+    /// <summary>
+    /// Gets the marker timestamp for a camera, or null if none is set.
+    /// </summary>
+    public DateTimeOffset? GetMarker(string cameraName)
+    {
+        lock (_markerLock)
+        {
+            return _markers.TryGetValue(cameraName, out var ts) ? ts : null;
+        }
+    }
+
+    /// <summary>
+    /// Clears the marker for a camera.
+    /// </summary>
+    public void ClearMarker(string cameraName)
+    {
+        lock (_markerLock)
+        {
+            _markers.Remove(cameraName);
+        }
     }
 
     /// <summary>
