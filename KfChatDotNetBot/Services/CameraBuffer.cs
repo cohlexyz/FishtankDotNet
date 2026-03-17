@@ -79,8 +79,11 @@ public class CameraBuffer : IAsyncDisposable
         {
             FileName = _ffmpegPath,
             // -re is not used here: we want to read as fast as the live stream provides
+            // -use_wallclock_as_timestamps 1: forces both inputs to the same clock so separate
+            //   HLS audio/video streams stay in sync regardless of playlist start offsets
+            // -async 1: corrects any remaining audio drift by stretching/padding samples
             Arguments = _audioUrl != null
-                ? $"-i \"{StreamUrl}\" -i \"{_audioUrl}\" -map 0:v -map 1:a -c copy -f mpegts pipe:1"
+                ? $"-use_wallclock_as_timestamps 1 -i \"{StreamUrl}\" -i \"{_audioUrl}\" -map 0:v -map 1:a -c copy -async 1 -f mpegts pipe:1"
                 : $"-i \"{StreamUrl}\" -c copy -f mpegts pipe:1",
             RedirectStandardOutput = true,
             RedirectStandardError = true,

@@ -450,7 +450,7 @@ public class ClipService
         var mp4Path = Path.Combine(Path.GetTempPath(), $"clip_{cameraName.Replace(' ', '_')}_{id}.mp4");
 
         var ffmpegArgs = $"-i \"{tsPath}\" -vf scale=-2:720 -c:v libx264 -preset veryfast -crf 26 " +
-                         $"-c:a aac -b:a 128k -threads 6 -progress pipe:1 -y \"{mp4Path}\"";
+                         $"-c:a aac -b:a 128k -async 1 -threads 6 -progress pipe:1 -y \"{mp4Path}\"";
 
         var processInfo = new ProcessStartInfo
         {
