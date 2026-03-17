@@ -206,7 +206,7 @@ public class ClipService
         {
             await using var stream = File.OpenRead(mp4Path);
             var filename = $"{target.CameraName.Replace(' ', '_')}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.mp4";
-            Logger.Info($"[ClipService] Uploaded started for {target.CameraName}");
+            Logger.Info($"[ClipService] Upload started for {target.CameraName}");
             var url = uploadProgress != null
                 ? await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), uploadProgress, "1h", ct, filename)
                 : await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), "1h", ct, filename);
