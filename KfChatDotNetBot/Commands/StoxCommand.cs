@@ -191,7 +191,7 @@ public class StoxBuyCommand : ICommand
         if (gambler.Balance < cost)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough to buy {amount:0.####}x {symbol} at ₣{stock.CurrentPrice} each (total: {await cost.FormatKasinoCurrencyAsync()}).",
+                $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough to buy {amount:0.####}x {symbol} at ₣{stock.CurrentPrice} each (total: [plain]{await cost.FormatKasinoCurrencyAsync()})[/plain].",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
@@ -409,7 +409,7 @@ public class StoxPortfolioCommand : ICommand
                     var price = stoxData?.Stocks.FirstOrDefault(s =>
                         s.Symbol.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase))?.CurrentPrice;
                     var valueStr = price.HasValue
-                        ? $" (value: ₣{price.Value * kvp.Value:0.##})"
+                        ? $" (value: [plain]₣{price.Value * kvp.Value:0.##})[/plain]"
                         : string.Empty;
                     return $"  {kvp.Key}: {kvp.Value:0.####}x{valueStr}";
                 }));
@@ -426,12 +426,12 @@ public class StoxPortfolioCommand : ICommand
                     var currentPrice = stoxData?.Stocks.FirstOrDefault(s =>
                         s.Symbol.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase))?.CurrentPrice;
                     if (!currentPrice.HasValue)
-                        return $"  {kvp.Key}: {pos.Quantity:0.####}x short (entry: ₣{pos.EntryPrice:0.##})";
+                        return $"  {kvp.Key}: {pos.Quantity:0.####}x short (entry: [plain]₣{pos.EntryPrice:0.##})[/plain]";
                     var pnl = pos.Quantity * (pos.EntryPrice - currentPrice.Value);
                     var pnlStr = pnl >= 0
                         ? $"[COLOR=#00ff00]+₣{pnl:0.##}[/COLOR]"
                         : $"[COLOR=#ff0000]₣{pnl:0.##}[/COLOR]";
-                    return $"  {kvp.Key}: {pos.Quantity:0.####}x short (entry: ₣{pos.EntryPrice:0.##}, current: ₣{currentPrice.Value}, P&L: {pnlStr})";
+                    return $"  {kvp.Key}: {pos.Quantity:0.####}x short (entry: ₣{pos.EntryPrice:0.##}, current: ₣{currentPrice.Value}, P&L: [plain]{pnlStr})[/plain]";
                 }));
         }
 
@@ -554,7 +554,7 @@ public class StoxShortCommand : ICommand
 
         var pos = shorts[symbol];
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, opened short of {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}. Collateral locked: {await collateral.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. Total short: {pos.Quantity:0.####}x {symbol} (avg entry: ₣{pos.EntryPrice:0.##}).",
+            $"{user.FormatUsername()}, opened short of {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}. Collateral locked: {await collateral.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. Total short: {pos.Quantity:0.####}x {symbol} [plain](avg entry: ₣{pos.EntryPrice:0.##})[/plain].",
             true, autoDeleteAfter: TimeSpan.FromSeconds(30));
     }
 }
