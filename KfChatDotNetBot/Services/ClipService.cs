@@ -182,7 +182,7 @@ public class ClipService
     /// Snapshots the buffer for a camera to disk, then enqueues the encode+upload job.
     /// Returns the Zipline URL once the queued job completes.
     /// </summary>
-    public async Task<string> SaveAsync(string cameraQuery, Dictionary<string, string> cameras, CancellationToken ct, IProgress<ClipProgress>? progress = null)
+    public async Task<string> SaveAsync(string cameraQuery, Dictionary<string, string> cameras, CancellationToken ct, IProgress<ClipProgress>? progress = null, TimeSpan? trimTo = null)
     {
         CameraBuffer? target;
         lock (_lock)
@@ -214,13 +214,13 @@ public class ClipService
             return $"Buffer for {target.CameraName} is too short ({target.BufferDuration.TotalSeconds:N0}s). Wait a bit longer.";
 
         // Snapshot buffer to disk immediately so the buffer can keep recording
-        Logger.Info($"[ClipService] Snapshotting buffer for {target.CameraName}");
+        Logger.Info($"[ClipService] Snapshotting buffer for {target.CameraName}{(trimTo.HasValue ? $" (last {trimTo.Value.TotalSeconds:N0}s)" : "")}");
         string tsPath;
         DateTimeOffset cutoff;
         TimeSpan duration;
         try
         {
-            (tsPath, cutoff, duration) = await target.SnapshotToFileAsync(ct);
+            (tsPath, cutoff, duration) = await target.SnapshotToFileAsync(ct, trimTo);
         }
         catch (Exception ex)
         {

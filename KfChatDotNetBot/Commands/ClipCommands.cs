@@ -104,8 +104,8 @@ public class ClipStopCommand : ICommand
 
 public class ClipSaveCommand : ICommand
 {
-    public List<Regex> Patterns => [new Regex(@"^clip save (?<camera>.+)$")];
-    public string? HelpText => "Save the buffer for a camera as a clip and upload it";
+    public List<Regex> Patterns => [new Regex(@"^clip save (?<camera>.+?)(?:\s+(?<duration>\d+[smSM]))?$")];
+    public string? HelpText => "Save the buffer for a camera as a clip and upload it (optionally append e.g. 30s or 2m to trim)";
     public UserRight RequiredRight => UserRight.Clipper;
     public TimeSpan Timeout => TimeSpan.FromMinutes(5);
     public RateLimitOptionsModel? RateLimitOptions => new()
@@ -130,7 +130,17 @@ public class ClipSaveCommand : ICommand
         }
 
         var camera = arguments["camera"].Value.Trim();
-        var sent = await botInstance.SendChatMessageAsync($"Saving clip for {camera}...", true);
+
+        TimeSpan? trimTo = null;
+        if (arguments["duration"].Success)
+        {
+            var durStr = arguments["duration"].Value;
+            var amount = int.Parse(durStr[..^1]);
+            trimTo = char.ToLower(durStr[^1]) == 'm' ? TimeSpan.FromMinutes(amount) : TimeSpan.FromSeconds(amount);
+        }
+
+        var trimLabel = trimTo.HasValue ? $" (last {arguments["duration"].Value})" : "";
+        var sent = await botInstance.SendChatMessageAsync($"Saving clip for {camera}{trimLabel}...", true);
         var gotUuid = await botInstance.WaitForChatMessageAsync(sent, TimeSpan.FromSeconds(10), ctx);
 
         // Throttle edits to avoid spamming the server
@@ -169,7 +179,7 @@ public class ClipSaveCommand : ICommand
             });
         }
 
-        var result = await clipService.SaveAsync(camera, FishtankCameras.Cameras, ctx, progress);
+        var result = await clipService.SaveAsync(camera, FishtankCameras.Cameras, ctx, progress, trimTo);
         if (result.StartsWith("Error") || result.StartsWith("No active") || result.StartsWith("Buffer for") || result.StartsWith("Failed to") || result.StartsWith("Zipline"))
         {
             if (gotUuid)

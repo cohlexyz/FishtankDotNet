@@ -57,7 +57,7 @@ public class CameraBuffer : IAsyncDisposable
     private long _totalBytes;
     private bool _stopping;
 
-    private static readonly TimeSpan MaxBufferAge = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan MaxBufferAge = TimeSpan.FromMinutes(8);
     private static readonly TimeSpan TrimInterval = TimeSpan.FromSeconds(5);
     private const int ReadChunkSize = 8192;
 
@@ -159,7 +159,7 @@ public class CameraBuffer : IAsyncDisposable
     /// Caller is responsible for deleting the returned file after use.
     /// Pass the returned cutoff to <see cref="ResetBuffer"/> to clear only the saved data.
     /// </summary>
-    public async Task<(string TsPath, DateTimeOffset Cutoff, TimeSpan Duration)> SnapshotToFileAsync(CancellationToken ct)
+    public async Task<(string TsPath, DateTimeOffset Cutoff, TimeSpan Duration)> SnapshotToFileAsync(CancellationToken ct, TimeSpan? trimTo = null)
     {
         byte[] snapshot;
         DateTimeOffset cutoff;
@@ -170,21 +170,40 @@ public class CameraBuffer : IAsyncDisposable
                 throw new InvalidOperationException("Buffer is empty, nothing to save");
 
             cutoff = _buffer[^1].Timestamp;
-            duration = _buffer[^1].Timestamp - _buffer[0].Timestamp;
-            var totalLen = _buffer.Sum(b => (long)b.Data.Length);
+
+            // Find the start index for the requested window
+            var startIdx = 0;
+            if (trimTo.HasValue)
+            {
+                var windowStart = cutoff - trimTo.Value;
+                for (var i = 0; i < _buffer.Count; i++)
+                {
+                    if (_buffer[i].Timestamp >= windowStart)
+                    {
+                        startIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            duration = cutoff - _buffer[startIdx].Timestamp;
+            var totalLen = 0L;
+            for (var i = startIdx; i < _buffer.Count; i++)
+                totalLen += _buffer[i].Data.Length;
+
             snapshot = new byte[totalLen];
             var offset = 0;
-            foreach (var (_, data) in _buffer)
+            for (var i = startIdx; i < _buffer.Count; i++)
             {
-                Buffer.BlockCopy(data, 0, snapshot, offset, data.Length);
-                offset += data.Length;
+                Buffer.BlockCopy(_buffer[i].Data, 0, snapshot, offset, _buffer[i].Data.Length);
+                offset += _buffer[i].Data.Length;
             }
         }
 
         var id = Guid.NewGuid().ToString("N")[..8];
         var tempTs = Path.Combine(Path.GetTempPath(), $"clip_{CameraName.Replace(' ', '_')}_{id}.ts");
         await File.WriteAllBytesAsync(tempTs, snapshot, ct);
-        Logger.Info($"[CameraBuffer:{CameraName}] Snapshotted {snapshot.Length} bytes to {tempTs}");
+        Logger.Info($"[CameraBuffer:{CameraName}] Snapshotted {snapshot.Length} bytes ({duration.TotalSeconds:N0}s) to {tempTs}");
         return (tempTs, cutoff, duration);
     }
 
