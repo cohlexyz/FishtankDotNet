@@ -28,7 +28,7 @@ public class HelpCommand : ICommand
     };
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
-        await botInstance.SendChatMessageAsync("Bot usage guide: https://kiwifarms.st/posts/23976561", true);
+        await botInstance.SendChatMessageAsync("Bot usage guide: https://fishtank.observer/bot/", true);
     }
 }
 
