@@ -154,20 +154,23 @@ public class CameraBuffer : IAsyncDisposable
     }
 
     /// <summary>
-    /// Saves the current buffer to a temp file, re-muxes it to MP4 with FFmpeg, and returns the output file path
-    /// along with the timestamp of the last chunk included. Caller is responsible for deleting the returned file
-    /// after use. Pass the returned cutoff to <see cref="ResetBuffer"/> to clear only the saved data.
+    /// Snapshots the current buffer to a temp .ts file on disk.
+    /// Returns the file path, the cutoff timestamp, and the buffer duration.
+    /// Caller is responsible for deleting the returned file after use.
+    /// Pass the returned cutoff to <see cref="ResetBuffer"/> to clear only the saved data.
     /// </summary>
-    public async Task<(string FilePath, DateTimeOffset Cutoff)> SaveToFileAsync(CancellationToken ct)
+    public async Task<(string TsPath, DateTimeOffset Cutoff, TimeSpan Duration)> SnapshotToFileAsync(CancellationToken ct)
     {
         byte[] snapshot;
         DateTimeOffset cutoff;
+        TimeSpan duration;
         lock (_bufferLock)
         {
             if (_buffer.Count == 0)
                 throw new InvalidOperationException("Buffer is empty, nothing to save");
 
             cutoff = _buffer[^1].Timestamp;
+            duration = _buffer[^1].Timestamp - _buffer[0].Timestamp;
             var totalLen = _buffer.Sum(b => (long)b.Data.Length);
             snapshot = new byte[totalLen];
             var offset = 0;
@@ -180,55 +183,9 @@ public class CameraBuffer : IAsyncDisposable
 
         var id = Guid.NewGuid().ToString("N")[..8];
         var tempTs = Path.Combine(Path.GetTempPath(), $"clip_{CameraName.Replace(' ', '_')}_{id}.ts");
-        var tempMp4 = Path.Combine(Path.GetTempPath(), $"clip_{CameraName.Replace(' ', '_')}_{id}.mp4");
-
-        try
-        {
-            await File.WriteAllBytesAsync(tempTs, snapshot, ct);
-
-            // Use -c copy to remux (near instant) rather than re-encoding to VP9 which is very slow
-            var ffmpegArgs = $"-i \"{tempTs}\" -c copy -y \"{tempMp4}\"";
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = _ffmpegPath,
-                Arguments = ffmpegArgs,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var remux = Process.Start(processInfo);
-            if (remux == null)
-            {
-                Logger.Error($"[CameraBuffer:{CameraName}] Failed to start FFmpeg re-mux process");
-                throw new InvalidOperationException("Failed to start FFmpeg re-mux");
-            }
-
-            // Use a dedicated timeout instead of the command's CancellationToken
-            // which may expire before FFmpeg finishes
-            using var remuxCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            remuxCts.CancelAfter(TimeSpan.FromMinutes(3));
-            await remux.WaitForExitAsync(remuxCts.Token);
-
-            if (remux.ExitCode != 0)
-            {
-                var error = await remux.StandardError.ReadToEndAsync(ct);
-                Logger.Error($"[CameraBuffer:{CameraName}] FFmpeg re-mux failed (exit {remux.ExitCode}): {error}");
-                throw new InvalidOperationException($"FFmpeg re-mux failed with exit code {remux.ExitCode}");
-            }
-
-            Logger.Info($"[CameraBuffer:{CameraName}] Re-muxed {snapshot.Length} bytes TS -> MP4 at {tempMp4}");
-            return (tempMp4, cutoff);
-        }
-        finally
-        {
-            // Always clean up the intermediate .ts file
-            try { File.Delete(tempTs); }
-            catch { /* best effort */ }
-            // Clean up the .mp4 only on failure (success path already returned tempMp4 to caller)
-            // ClipService is responsible for deleting tempMp4 after upload.
-        }
+        await File.WriteAllBytesAsync(tempTs, snapshot, ct);
+        Logger.Info($"[CameraBuffer:{CameraName}] Snapshotted {snapshot.Length} bytes to {tempTs}");
+        return (tempTs, cutoff, duration);
     }
 
     private async Task ReadLoopAsync()

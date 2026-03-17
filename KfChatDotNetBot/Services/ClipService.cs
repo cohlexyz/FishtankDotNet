@@ -1,10 +1,16 @@
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
 using Raffinert.FuzzySharp;
 using KfChatDotNetBot.Settings;
 using NLog;
 
 namespace KfChatDotNetBot.Services;
+
+public enum ClipStage { Queued, Encoding, Uploading }
+
+public record ClipProgress(ClipStage Stage, int PercentComplete, int QueuePosition = 0);
 
 /// <summary>
 /// Manages up to 3 concurrent camera stream buffers in a deque (oldest-first eviction).
@@ -21,10 +27,28 @@ public class ClipService
     private readonly LinkedList<CameraBuffer> _activeBuffers = new();
     private readonly Lock _lock = new();
     private readonly CancellationToken _ct;
+    private readonly Channel<ClipJob> _clipQueue = Channel.CreateUnbounded<ClipJob>();
+    private readonly Task _queueWorker;
+
+    // Tracks what is currently encoding/uploading and what is waiting, for !clip queue
+    private readonly Lock _queueStateLock = new();
+    private string? _currentJobName;
+    private readonly List<string> _pendingJobNames = [];
+
+    private record ClipJob(
+        string CameraName,
+        string TsPath,
+        CameraBuffer Buffer,
+        DateTimeOffset Cutoff,
+        TimeSpan Duration,
+        CancellationToken Ct,
+        IProgress<ClipProgress>? Progress,
+        TaskCompletionSource<string> Result);
 
     public ClipService(CancellationToken ct)
     {
         _ct = ct;
+        _queueWorker = Task.Run(() => ProcessQueueAsync(ct), ct);
     }
 
     /// <summary>
@@ -155,10 +179,10 @@ public class ClipService
     }
 
     /// <summary>
-    /// Saves the buffer for a camera and uploads it to Zipline.
-    /// Returns the Zipline URL.
+    /// Snapshots the buffer for a camera to disk, then enqueues the encode+upload job.
+    /// Returns the Zipline URL once the queued job completes.
     /// </summary>
-    public async Task<string> SaveAsync(string cameraQuery, Dictionary<string, string> cameras, CancellationToken ct, IProgress<(long sent, long total)>? uploadProgress = null)
+    public async Task<string> SaveAsync(string cameraQuery, Dictionary<string, string> cameras, CancellationToken ct, IProgress<ClipProgress>? progress = null)
     {
         CameraBuffer? target;
         lock (_lock)
@@ -189,43 +213,50 @@ public class ClipService
         if (target.BufferDuration < TimeSpan.FromSeconds(5))
             return $"Buffer for {target.CameraName} is too short ({target.BufferDuration.TotalSeconds:N0}s). Wait a bit longer.";
 
-        Logger.Info($"[ClipService] Starting clip for {target!.CameraName}");
-        string mp4Path;
+        // Snapshot buffer to disk immediately so the buffer can keep recording
+        Logger.Info($"[ClipService] Snapshotting buffer for {target.CameraName}");
+        string tsPath;
         DateTimeOffset cutoff;
+        TimeSpan duration;
         try
         {
-            (mp4Path, cutoff) = await target.SaveToFileAsync(ct);
+            (tsPath, cutoff, duration) = await target.SnapshotToFileAsync(ct);
         }
         catch (Exception ex)
         {
-            Logger.Error($"[ClipService] SaveToFileAsync failed for {target.CameraName}: {ex}");
+            Logger.Error($"[ClipService] Snapshot failed for {target.CameraName}: {ex}");
             return $"Failed to save clip for {target.CameraName}: {ex.Message}";
         }
 
-        try
-        {
-            await using var stream = File.OpenRead(mp4Path);
-            var filename = $"{target.CameraName.Replace(' ', '_')}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.mp4";
-            Logger.Info($"[ClipService] Upload started for {target.CameraName}");
-            var url = uploadProgress != null
-                ? await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), uploadProgress, "1h", ct, filename)
-                : await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), "1h", ct, filename);
-            if (url == null)
-                return $"Zipline upload returned null for {target.CameraName} clip";
+        // Enqueue the encode+upload job
+        var tcs = new TaskCompletionSource<string>();
+        var job = new ClipJob(target.CameraName, tsPath, target, cutoff, duration, ct, progress, tcs);
 
-            Logger.Info($"[ClipService] Uploaded clip for {target.CameraName}: {url}");
-            target.ResetBuffer(cutoff);
-            return url;
-        }
-        catch (Exception ex)
+        int queueDepth;
+        lock (_queueStateLock)
         {
-            Logger.Error($"[ClipService] Zipline upload failed for {target.CameraName}: {ex}");
-            return $"Failed to upload clip for {target.CameraName}: {ex.Message}";
+            _pendingJobNames.Add(target.CameraName);
+            // Depth = pending jobs not yet started (exclude the one we just added if worker is idle)
+            queueDepth = _currentJobName != null ? _pendingJobNames.Count : _pendingJobNames.Count - 1;
         }
-        finally
+
+        if (queueDepth > 0)
+            progress?.Report(new ClipProgress(ClipStage.Queued, 0, queueDepth));
+
+        await _clipQueue.Writer.WriteAsync(job, ct);
+        Logger.Info($"[ClipService] Enqueued clip for {target.CameraName} (queue depth: {queueDepth + 1})");
+
+        return await tcs.Task;
+    }
+
+    /// <summary>
+    /// Returns the current clip job name (encoding/uploading) and the list of queued job names.
+    /// </summary>
+    public (string? CurrentJob, IReadOnlyList<string> PendingJobs) GetQueueStatus()
+    {
+        lock (_queueStateLock)
         {
-            try { File.Delete(mp4Path); }
-            catch { /* best effort cleanup */ }
+            return (_currentJobName, [.. _pendingJobNames]);
         }
     }
 
@@ -334,5 +365,139 @@ public class ClipService
         {
             _activeBuffers.Remove(buffer);
         }
+    }
+
+    private async Task ProcessQueueAsync(CancellationToken ct)
+    {
+        await foreach (var job in _clipQueue.Reader.ReadAllAsync(ct))
+        {
+            try
+            {
+                var result = await ProcessJobAsync(job);
+                job.Result.TrySetResult(result);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[ClipService] Queue job failed for {job.CameraName}: {ex}");
+                job.Result.TrySetResult($"Failed to process clip for {job.CameraName}: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task<string> ProcessJobAsync(ClipJob job)
+    {
+        lock (_queueStateLock)
+        {
+            _currentJobName = job.CameraName;
+            _pendingJobNames.Remove(job.CameraName);
+        }
+
+        string? mp4Path = null;
+        try
+        {
+            var ffmpegPath = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.FFmpegBinaryPath)).Value ?? "ffmpeg";
+
+            // Encode .ts -> 720p H.264 MP4
+            mp4Path = await EncodeToMp4Async(job.TsPath, job.CameraName, ffmpegPath, job.Duration, job.Progress, job.Ct);
+
+            // Upload to Zipline
+            await using var stream = File.OpenRead(mp4Path);
+            var filename = $"{job.CameraName.Replace(' ', '_')}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.mp4";
+            Logger.Info($"[ClipService] Upload started for {job.CameraName} ({stream.Length} bytes)");
+
+            IProgress<(long sent, long total)>? uploadProgress = null;
+            if (job.Progress != null)
+            {
+                uploadProgress = new Progress<(long sent, long total)>(p =>
+                {
+                    if (p.total <= 0) return;
+                    var pct = (int)(p.sent * 100 / p.total);
+                    job.Progress.Report(new ClipProgress(ClipStage.Uploading, pct));
+                });
+            }
+
+            var url = uploadProgress != null
+                ? await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), uploadProgress, "1h", job.Ct, filename)
+                : await Zipline.Upload(stream, new MediaTypeHeaderValue("video/mp4"), "1h", job.Ct, filename);
+
+            if (url == null)
+                return $"Zipline upload returned null for {job.CameraName} clip";
+
+            Logger.Info($"[ClipService] Uploaded clip for {job.CameraName}: {url}");
+            job.Buffer.ResetBuffer(job.Cutoff);
+            return url;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"[ClipService] Clip processing failed for {job.CameraName}: {ex}");
+            return $"Failed to process clip for {job.CameraName}: {ex.Message}";
+        }
+        finally
+        {
+            lock (_queueStateLock) { _currentJobName = null; }
+            try { File.Delete(job.TsPath); } catch { /* best effort */ }
+            if (mp4Path != null)
+            {
+                try { File.Delete(mp4Path); } catch { /* best effort */ }
+            }
+        }
+    }
+
+    private static async Task<string> EncodeToMp4Async(string tsPath, string cameraName, string ffmpegPath,
+        TimeSpan duration, IProgress<ClipProgress>? progress, CancellationToken ct)
+    {
+        var id = Guid.NewGuid().ToString("N")[..8];
+        var mp4Path = Path.Combine(Path.GetTempPath(), $"clip_{cameraName.Replace(' ', '_')}_{id}.mp4");
+
+        var ffmpegArgs = $"-i \"{tsPath}\" -vf scale=-2:720 -c:v libx264 -preset veryfast -crf 26 " +
+                         $"-c:a aac -b:a 128k -threads 6 -progress pipe:1 -y \"{mp4Path}\"";
+
+        var processInfo = new ProcessStartInfo
+        {
+            FileName = ffmpegPath,
+            Arguments = ffmpegArgs,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var encode = System.Diagnostics.Process.Start(processInfo);
+        if (encode == null)
+            throw new InvalidOperationException("Failed to start FFmpeg encode");
+
+        Logger.Info($"[ClipService] Encoding {cameraName}: {ffmpegArgs}");
+
+        var totalMicroseconds = duration.TotalSeconds * 1_000_000;
+        var progressTask = Task.Run(async () =>
+        {
+            var reader = encode.StandardOutput;
+            while (await reader.ReadLineAsync(ct) is { } line)
+            {
+                if (!line.StartsWith("out_time_us=", StringComparison.Ordinal)) continue;
+                if (!long.TryParse(line.AsSpan(12), out var us) || totalMicroseconds <= 0) continue;
+                var pct = Math.Clamp(us / totalMicroseconds, 0, 1);
+                progress?.Report(new ClipProgress(ClipStage.Encoding, (int)(pct * 100)));
+            }
+        }, ct);
+
+        var stderrTask = encode.StandardError.ReadToEndAsync(ct);
+
+        using var encodeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        encodeCts.CancelAfter(TimeSpan.FromMinutes(5));
+        await encode.WaitForExitAsync(encodeCts.Token);
+        await progressTask;
+        var stderr = await stderrTask;
+
+        if (encode.ExitCode != 0)
+        {
+            try { File.Delete(mp4Path); } catch { /* best effort */ }
+            Logger.Error($"[ClipService] FFmpeg encode failed for {cameraName} (exit {encode.ExitCode}): {stderr}");
+            throw new InvalidOperationException($"FFmpeg encode failed with exit code {encode.ExitCode}");
+        }
+
+        progress?.Report(new ClipProgress(ClipStage.Encoding, 100));
+        Logger.Info($"[ClipService] Encoded {cameraName} TS -> 720p MP4 at {mp4Path}");
+        return mp4Path;
     }
 }

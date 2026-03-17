@@ -135,19 +135,37 @@ public class ClipSaveCommand : ICommand
 
         // Throttle edits to avoid spamming the server
         var lastEditPercent = -1;
-        IProgress<(long sent, long total)>? progress = null;
+        var lastStage = ClipStage.Queued;
+        IProgress<ClipProgress>? progress = null;
         if (gotUuid)
         {
-            progress = new Progress<(long sent, long total)>(p =>
+            progress = new Progress<ClipProgress>(p =>
             {
-                if (p.total <= 0) return;
-                var pct = (int)(p.sent * 100 / p.total);
-                // Only edit every 10%
-                if (pct / 10 == lastEditPercent / 10) return;
-                lastEditPercent = pct;
-                var bar = new string('█', pct / 10) + new string('░', 10 - pct / 10);
+                var label = p.Stage switch
+                {
+                    ClipStage.Queued => $"Queued (position {p.QueuePosition})",
+                    ClipStage.Encoding => "Encoding",
+                    ClipStage.Uploading => "Uploading",
+                    _ => "Processing"
+                };
+
+                // Always update on stage change; throttle within a stage to every 10%
+                if (p.Stage == lastStage && p.PercentComplete / 10 == lastEditPercent / 10)
+                    return;
+
+                lastStage = p.Stage;
+                lastEditPercent = p.PercentComplete;
+
+                if (p.Stage == ClipStage.Queued)
+                {
+                    _ = botInstance.KfClient.EditMessageAsync(sent.ChatMessageUuid!,
+                        $"Clip for {camera} queued (position {p.QueuePosition})...");
+                    return;
+                }
+
+                var bar = new string('█', p.PercentComplete / 10) + new string('░', 10 - p.PercentComplete / 10);
                 _ = botInstance.KfClient.EditMessageAsync(sent.ChatMessageUuid!,
-                    $"Uploading clip for {camera}... [{bar}] {pct}%");
+                    $"{label} clip for {camera}... [{bar}] {p.PercentComplete}%");
             });
         }
 
@@ -212,5 +230,38 @@ public class ClipCamerasCommand : ICommand
     {
         var names = string.Join(", ", FishtankCameras.Cameras.Keys);
         await botInstance.SendChatMessageAsync($"Available cameras: {names}", true);
+    }
+}
+
+public class ClipQueueCommand : ICommand
+{
+    public List<Regex> Patterns => [new Regex(@"^clip queue$")];
+    public string? HelpText => "Show the current clip encode/upload queue status";
+    public UserRight RequiredRight => UserRight.Clipper;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        var clipService = botInstance.BotServices.ClipService;
+        if (clipService == null)
+        {
+            await botInstance.SendChatMessageAsync("Clip service is not initialized", true);
+            return;
+        }
+
+        var (current, pending) = clipService.GetQueueStatus();
+        if (current == null && pending.Count == 0)
+        {
+            await botInstance.SendChatMessageAsync("Clip queue is empty", true);
+            return;
+        }
+
+        var parts = new List<string>();
+        if (current != null)
+            parts.Add($"Processing: {current}");
+        if (pending.Count > 0)
+            parts.Add($"Queued: {string.Join(", ", pending)}");
+        await botInstance.SendChatMessageAsync(string.Join(" | ", parts), true);
     }
 }
