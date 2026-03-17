@@ -194,7 +194,7 @@ public class ClipService
         if (matchedName == null)
             return $"No camera matched \"{cameraQuery}\". Use !clip cameras to see available cameras.";
 
-        var markerTime = DateTimeOffset.UtcNow - TimeSpan.FromSeconds(10);
+        var markerTime = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
         lock (_markerLock)
         {
             _markers[matchedName] = markerTime;

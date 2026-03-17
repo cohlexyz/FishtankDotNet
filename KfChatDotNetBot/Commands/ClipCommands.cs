@@ -176,16 +176,17 @@ public class ClipSaveCommand : ICommand
                 return;
             }
 
-            var age = DateTimeOffset.UtcNow - marker.Value;
-            if (age > TimeSpan.FromMinutes(8))
+            // marker = pressTime + 10s, so pressTime = marker - 10s
+            var pressAge = DateTimeOffset.UtcNow - (marker.Value - TimeSpan.FromSeconds(10));
+            if (pressAge > TimeSpan.FromMinutes(8))
             {
                 await botInstance.SendChatMessageAsync(
-                    $"Marker for {resolvedCamera} is too old ({age.Humanize(2)}). The buffer only holds 8 minutes.", true);
+                    $"Marker for {resolvedCamera} is too old ({pressAge.Humanize(2)}). The buffer only holds 8 minutes.", true);
                 clipService.ClearMarker(resolvedCamera);
                 return;
             }
 
-            trimTo = age;
+            // trimTo will be computed after waiting for stream data to arrive
             markerCameraName = resolvedCamera;
         }
         else
@@ -193,9 +194,26 @@ public class ClipSaveCommand : ICommand
             // Camera didn't match — let SaveAsync handle the fuzzy match error
         }
 
-        var trimLabel = trimTo.HasValue ? $" (last {trimTo.Value.Humanize(2)})" : "";
+        var trimLabel = markerCameraName != null ? " (from marker)" : (trimTo.HasValue ? $" (last {trimTo.Value.Humanize(2)})" : "");
         var sent = await botInstance.SendChatMessageAsync($"Saving clip for {camera}{trimLabel}...", true);
         var gotUuid = await botInstance.WaitForChatMessageAsync(sent, TimeSpan.FromSeconds(10), ctx);
+
+        // When using a marker, wait 10s for delayed stream data to arrive before snapshotting
+        if (markerCameraName != null)
+        {
+            if (gotUuid)
+                await botInstance.KfClient.EditMessageAsync(sent.ChatMessageUuid!,
+                    $"Waiting for stream data to arrive for {camera}...");
+            await Task.Delay(TimeSpan.FromSeconds(10), ctx);
+            // trimTo = time elapsed from !clip begin press to !clip save press
+            // marker = pressTime + 10s, UtcNow = saveTime + 10s → trimTo = saveTime - pressTime
+            var currentMarker = clipService.GetMarker(markerCameraName);
+            trimTo = currentMarker.HasValue
+                ? DateTimeOffset.UtcNow - currentMarker.Value
+                : TimeSpan.FromSeconds(10);
+            if (trimTo <= TimeSpan.Zero)
+                trimTo = TimeSpan.FromSeconds(2);
+        }
 
         // Throttle edits to avoid spamming the server
         var lastEditPercent = -1;
