@@ -364,25 +364,22 @@ public class ClipService
         var baseUri = new Uri(url);
         var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-        // Extract audio URI from #EXT-X-MEDIA:TYPE=AUDIO (prefer DEFAULT=YES)
-        string? audioUri = null;
-        foreach (var rawLine in lines)
+        // If the master playlist has a separate audio track, return the original master URL
+        // and let FFmpeg handle variant selection + audio muxing natively.
+        // Using two separate -i inputs for video and audio causes drift on live streams
+        // and desync when the process restarts.
+        var hasSeparateAudio = lines.Any(l =>
+            l.TrimStart().StartsWith("#EXT-X-MEDIA:", StringComparison.Ordinal) &&
+            l.Contains("TYPE=AUDIO", StringComparison.Ordinal) &&
+            l.Contains("URI=", StringComparison.Ordinal));
+
+        if (hasSeparateAudio)
         {
-            var line = rawLine.Trim();
-            if (!line.StartsWith("#EXT-X-MEDIA:", StringComparison.Ordinal)) continue;
-            if (!line.Contains("TYPE=AUDIO", StringComparison.Ordinal)) continue;
-            var uriMatch = Regex.Match(line, @"URI=""([^""]+)""");
-            if (!uriMatch.Success) continue;
-            var candidate = uriMatch.Groups[1].Value;
-            if (!candidate.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                candidate = new Uri(baseUri, candidate).ToString();
-            audioUri = candidate;
-            // Prefer DEFAULT=YES but accept first found as fallback
-            if (line.Contains("DEFAULT=YES", StringComparison.OrdinalIgnoreCase))
-                break;
+            Logger.Info($"[ClipService] Master playlist has separate audio track, using original URL for FFmpeg to handle natively");
+            return (url, null);
         }
 
-        // Pick the variant with the highest BANDWIDTH
+        // No separate audio — pick the variant with the highest BANDWIDTH
         string? bestVariantUrl = null;
         long bestBandwidth = -1;
 
@@ -404,12 +401,12 @@ public class ClipService
             bestVariantUrl = nextLine;
         }
 
-        if (bestVariantUrl == null) return (url, audioUri);
+        if (bestVariantUrl == null) return (url, null);
 
         if (!bestVariantUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             bestVariantUrl = new Uri(baseUri, bestVariantUrl).ToString();
 
-        return (bestVariantUrl, audioUri);
+        return (bestVariantUrl, null);
     }
 
     private void OnBufferDied(CameraBuffer buffer)
