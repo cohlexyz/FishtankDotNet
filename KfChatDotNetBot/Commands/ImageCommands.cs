@@ -203,6 +203,7 @@ public class ManageImageKeyCommand : ICommand
 }
 
 [AllowAdditionalMatches]
+[DontDeleteInvocationMessage]
 public class GetRandomImage : ICommand
 {
     public List<Regex> Patterns => [
