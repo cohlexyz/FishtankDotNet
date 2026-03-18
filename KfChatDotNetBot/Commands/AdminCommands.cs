@@ -346,6 +346,43 @@ public class RemoveCourtHearingCommand : ICommand
     }
 }
 
+public class ClearUserMessagesCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^admin clear @(?<username>.+) (?<num>\d+)$")
+    ];
+
+    public string? HelpText => "Delete the last <num> messages from a user";
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(30);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+        CancellationToken ctx)
+    {
+        var username = arguments["username"].Value;
+        var num = int.Parse(arguments["num"].Value);
+        if (num > 50)
+        {
+            await botInstance.SendChatMessageAsync("Can't delete more than 50 messages at a time", true);
+            return;
+        }
+
+        var toDelete = botInstance.GetRecentMessagesByUser(username).TakeLast(num).ToList();
+        if (toDelete.Count == 0)
+        {
+            await botInstance.SendChatMessageAsync($"No recent messages found for {username}", true);
+            return;
+        }
+
+        foreach (var msg in toDelete)
+        {
+            await botInstance.KfClient.DeleteMessageAsync(msg.MessageUuid);
+        }
+
+        await botInstance.SendChatMessageAsync($"Deleted {toDelete.Count} message(s) from {username}", true);
+    }
+}
+
 public class DeleteMessagesCommand : ICommand
 {
     public List<Regex> Patterns => [

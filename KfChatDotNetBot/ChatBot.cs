@@ -30,6 +30,8 @@ public class ChatBot
     public readonly List<SentMessageTrackerModel> SentMessages = [];
     internal bool GambaSeshPresent;
     internal readonly BotServices BotServices;
+    private readonly Queue<RecentChatMessageModel> _recentUserMessages = new();
+    private const int MaxRecentMessages = 50;
     private Task _kfChatPing;
     private KfTokenService _kfTokenService;
     private int _joinFailures = 0;
@@ -396,6 +398,17 @@ public class ChatBot
                 _seenMessages.Add(new SeenMessageMetadataModel { MessageUuid = message.MessageUuid, LastEdited = message.MessageEditDate });
             }
             UpdateUserLastActivityAsync(message.Author.Id, WhoWasActivityType.Message).Wait(_cancellationToken);
+            if (message.MessageEditDate == null)
+            {
+                _recentUserMessages.Enqueue(new RecentChatMessageModel
+                {
+                    AuthorId = message.Author.Id,
+                    AuthorUsername = message.Author.Username,
+                    MessageUuid = message.MessageUuid
+                });
+                while (_recentUserMessages.Count > MaxRecentMessages)
+                    _recentUserMessages.Dequeue();
+            }
             // Strip weird control characters and just allow basic punctuation + whitespace
             var kindaSanitized = new string(message.MessageRawHtmlDecoded
                 .Where(c => c == ' ' || char.IsPunctuation(c) || char.IsLetter(c) || char.IsDigit(c)).ToArray());
@@ -722,6 +735,11 @@ public class ChatBot
     public UserModel? FindUserByName(string username)
     {
         return _usersInChat.FirstOrDefault(u => u.Username.Equals(username, StringComparison.CurrentCulture));
+    }
+
+    public IEnumerable<RecentChatMessageModel> GetRecentMessagesByUser(string username)
+    {
+        return _recentUserMessages.Where(m => m.AuthorUsername.Equals(username, StringComparison.OrdinalIgnoreCase));
     }
 
     public enum LengthLimitBehavior
