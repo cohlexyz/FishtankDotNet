@@ -48,6 +48,33 @@ public class SetRoleCommand : ICommand
     }
 }
 
+public class SetMotdCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex("^admin motd set (?<motd>.+)$")
+    ];
+
+    public string? HelpText => null;
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        var motd = arguments["motd"].Value;
+        if (motd == String.Empty)
+        {
+            await botInstance.SendChatMessageAsync("MOTD can't be empty", true);
+            return;
+        }
+
+        var msg = await botInstance.SendChatMessageAsync($"{motd}", true);
+        await botInstance.KfClient.SendMessageInstantAsync("/motd " + msg.ChatMessageUuid);
+        await botInstance.KfClient.DeleteMessageAsync(message.MessageUuid);
+    }
+}
+
+
 public class CacheClearAdminCommand : ICommand
 {
     public List<Regex> Patterns => [
@@ -97,7 +124,7 @@ public class NewKickChannelCommand : ICommand
             return;
         }
 
-        var forumUser = await db.Users.FirstOrDefaultAsync(u => u.KfId == Convert.ToInt32(arguments["forum_id"].Value), cancellationToken: ctx);
+        var forumUser = await db.Users.FirstOrDefaultAsync(u => u.KfId == Convert.ToInt32(arguments[].Value), cancellationToken: ctx);
 
         var meta = JsonConvert.SerializeObject(new KickStreamMetaModel
         {

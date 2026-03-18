@@ -17,7 +17,7 @@ internal class BotCommands
 {
     private ChatBot _bot;
     private Logger _logger = LogManager.GetCurrentClassLogger();
-    private char CommandPrefix = '!'; 
+    private char CommandPrefix = '!';
     private IEnumerable<ICommand> Commands;
     private CancellationToken _cancellationToken;
 
@@ -93,7 +93,7 @@ internal class BotCommands
                         }
                     }
                 }
-                
+
                 if (user.UserRight < command.RequiredRight)
                 {
                     _bot.SendChatMessage($"@{message.Author.Username}, you do not have access to use this command. Your rank: {user.UserRight.Humanize()}; Required rank: {command.RequiredRight.Humanize()}", true);
@@ -112,6 +112,10 @@ internal class BotCommands
                     RateLimitService.AddEntry(user, command, message.MessageRawHtmlDecoded);
                 }
                 _ = ProcessMessageAsync(command, message, user, match.Groups);
+                if (!HasAttribute<DontDeleteInvocationMessage>(command))
+                {
+                    _ = _bot.KfClient.DeleteMessageAsync(message.MessageUuid);
+                }
                 if (!continueAfterProcess) break;
             }
         }
@@ -219,7 +223,7 @@ internal class BotCommands
             RateLimitService.CleanupExpiredEntries();
         }
     }
-    
+
     private static bool HasAttribute<T>(ICommand command) where T : Attribute
     {
         return Attribute.GetCustomAttribute(command.GetType(), typeof(T)) != null;
@@ -256,3 +260,10 @@ internal class KasinoCommand : Attribute;
 /// </summary>
 [AttributeUsage(AttributeTargets.Class)]
 internal class NoPrefixRequired : Attribute;
+
+
+/// <summary>
+/// Use this on commands where the message that invoked this command should not be deleted after execution
+/// </summary>
+[AttributeUsage(AttributeTargets.Class)]
+internal class DontDeleteInvocationMessage : Attribute;
