@@ -213,9 +213,9 @@ public class GetRandomImage : ICommand
     public TimeSpan Timeout => TimeSpan.FromMinutes(10);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        Window = TimeSpan.FromSeconds(30),
+        Window = TimeSpan.FromSeconds(90),
         MaxInvocations = 1,
-        Flags = RateLimitFlags.UseEntireMessage | RateLimitFlags.NoResponse
+        Flags = RateLimitFlags.Global | RateLimitFlags.NoResponse
     };
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
