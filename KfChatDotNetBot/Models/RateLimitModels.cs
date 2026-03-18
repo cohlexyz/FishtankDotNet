@@ -60,28 +60,28 @@ public enum RateLimitFlags
     /// <summary>
     /// Placeholder for the default value
     /// </summary>
-    None,
+    None = 0,
     /// <summary>
     /// Silently ignore a user when they trigger a rate limit
     /// </summary>
-    NoResponse,
+    NoResponse = 1,
     /// <summary>
     /// The default behavior is to rate limit based on command invoked.
     /// UseEntireMessage changes it to consider dissimilar messages which invoke
     /// the same command as being separate for the purposes of rate limiting.
     /// With this, only identical messages count towards the rate limit.
     /// </summary>
-    UseEntireMessage,
+    UseEntireMessage = 2,
     /// <summary>
     /// The rate limit is global instead of applying per-user
     /// </summary>
-    Global,
+    Global = 4,
     /// <summary>
     /// Exempt users with a higher than default level from rate limiting
     /// </summary>
-    ExemptPrivilegedUsers,
+    ExemptPrivilegedUsers = 8,
     /// <summary>
     /// Do not automatically clean up the cooldown response sent to a user
     /// </summary>
-    NoAutoDeleteCooldownResponse
+    NoAutoDeleteCooldownResponse = 16
 }
