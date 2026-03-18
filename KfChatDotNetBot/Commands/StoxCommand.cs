@@ -21,7 +21,7 @@ public class StoxCommand : ICommand
     ];
 
     public string? HelpText => "Get stox data";
-    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public UserRight RequiredRight => UserRight.Guest;
     // Increased timeout as it has to wait for Sneedchat to echo the message and that can be slow sometimes
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
