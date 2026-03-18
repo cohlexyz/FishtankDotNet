@@ -121,8 +121,8 @@ public class PredictionStartCommand : ICommand
 
         if (string.IsNullOrEmpty(settings[BuiltIn.Keys.BotRedisConnectionString].Value))
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, predictions are not available at this time", true,
-                autoDeleteAfter: TimeSpan.FromSeconds(15));
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, predictions are not available at this time", true
+                , whisperTo: user.KfUsername);
             return;
         }
 
@@ -136,7 +136,7 @@ public class PredictionStartCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, invalid syntax. Use: !prediction start \"description\" \"option1\" \"option2\" [\"option3\" ...]",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -160,7 +160,7 @@ public class PredictionStartCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you need a description and at least 2 options. Use: !prediction start \"description\" \"option1\" \"option2\" [\"option3\" ...]",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -171,7 +171,7 @@ public class PredictionStartCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you need at least 2 options for a prediction",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -246,7 +246,7 @@ public class PredictionBetCommand : ICommand
         if (string.IsNullOrEmpty(settings[BuiltIn.Keys.BotRedisConnectionString].Value))
         {
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, predictions are not available at this time", true,
-                autoDeleteAfter: TimeSpan.FromSeconds(15));
+                whisperTo: user.KfUsername);
             return;
         }
 
@@ -263,7 +263,7 @@ public class PredictionBetCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, invalid bet syntax",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -275,7 +275,7 @@ public class PredictionBetCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, there are no active predictions",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -299,7 +299,7 @@ public class PredictionBetCommand : ICommand
             {
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, couldn't find prediction matching '{searchTerm}'",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
 
@@ -314,7 +314,7 @@ public class PredictionBetCommand : ICommand
                 var optionsText = string.Join(", ", prediction.Options.Select(o => $"{o.Index}. {o.Text}"));
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, couldn't find option matching '{optionNamePart}'. Options: {optionsText}",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
 
@@ -323,7 +323,7 @@ public class PredictionBetCommand : ICommand
                 var optionsText = string.Join(", ", matchingOptions.Select(o => $"{o.Index}. {o.Text}"));
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, multiple options match '{optionNamePart}': {optionsText}. Please be more specific.",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
 
@@ -345,7 +345,7 @@ public class PredictionBetCommand : ICommand
                     // No option name provided
                     await botInstance.SendChatMessageAsync(
                         $"{user.FormatUsername()}, invalid bet format. Use: !bet [\"prediction name\"] <amount> <option_name>",
-                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                        true, whisperTo: user.KfUsername);
                     return;
                 }
 
@@ -365,7 +365,7 @@ public class PredictionBetCommand : ICommand
                         var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
                         await botInstance.SendChatMessageAsync(
                             $"{user.FormatUsername()}, multiple predictions active. Specify which one:[br]{listText}[br]Use: !bet \"<name>\" <amount> <option>",
-                            true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+                            true, whisperTo: user.KfUsername);
                         return;
                     }
                 }
@@ -380,7 +380,7 @@ public class PredictionBetCommand : ICommand
                         var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
                         await botInstance.SendChatMessageAsync(
                             $"{user.FormatUsername()}, couldn't find prediction matching '{predictionNamePart}'. Active predictions:[br]{listText}",
-                            true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+                            true, whisperTo: user.KfUsername);
                         return;
                     }
                 }
@@ -390,7 +390,7 @@ public class PredictionBetCommand : ICommand
                 {
                     await botInstance.SendChatMessageAsync(
                         $"{user.FormatUsername()}, prediction data is invalid",
-                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                        true, whisperTo: user.KfUsername);
                     return;
                 }
 
@@ -404,7 +404,7 @@ public class PredictionBetCommand : ICommand
                     var optionsText = string.Join(", ", prediction.Options.Select(o => $"{o.Index}. {o.Text}"));
                     await botInstance.SendChatMessageAsync(
                         $"{user.FormatUsername()}, couldn't find option matching '{optionNamePart}'. Options: {optionsText}",
-                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                        true, whisperTo: user.KfUsername);
                     return;
                 }
 
@@ -413,7 +413,7 @@ public class PredictionBetCommand : ICommand
                     var optionsText = string.Join(", ", matchingOptions.Select(o => $"{o.Index}. {o.Text}"));
                     await botInstance.SendChatMessageAsync(
                         $"{user.FormatUsername()}, multiple options match '{optionNamePart}': {optionsText}. Please be more specific.",
-                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                        true, whisperTo: user.KfUsername);
                     return;
                 }
 
@@ -423,7 +423,7 @@ public class PredictionBetCommand : ICommand
             {
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, invalid bet format. Use: !bet [\"prediction name\"] <amount> <option_name>",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
         }
@@ -432,7 +432,7 @@ public class PredictionBetCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, this prediction is not active",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -441,7 +441,7 @@ public class PredictionBetCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, betting is closed for this prediction",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -451,7 +451,7 @@ public class PredictionBetCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, invalid option. Choose from 1-{prediction.Options.Count}",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -466,7 +466,7 @@ public class PredictionBetCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this bet.",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -474,7 +474,7 @@ public class PredictionBetCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you must bet more than 0",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -484,7 +484,7 @@ public class PredictionBetCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you've already placed a bet on this prediction",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -511,7 +511,7 @@ public class PredictionBetCommand : ICommand
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, you bet {await amount.FormatKasinoCurrencyAsync()} on option {optionIndex} ({option.Text}). " +
             $"Your new balance is {await newBalance.FormatKasinoCurrencyAsync()}",
-            true, autoDeleteAfter: TimeSpan.FromSeconds(5));
+            true, whisperTo: user.KfUsername);
     }
 }
 
@@ -544,7 +544,7 @@ public class PredictionEndCommand : ICommand
         if (string.IsNullOrEmpty(settings[BuiltIn.Keys.BotRedisConnectionString].Value))
         {
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, predictions are not available at this time", true,
-                autoDeleteAfter: TimeSpan.FromSeconds(15));
+                whisperTo: user.KfUsername);
             return;
         }
 
@@ -558,7 +558,7 @@ public class PredictionEndCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, invalid syntax",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -570,7 +570,7 @@ public class PredictionEndCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, there are no active predictions",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -590,7 +590,7 @@ public class PredictionEndCommand : ICommand
             {
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, couldn't find prediction matching '{searchTerm}'",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
 
@@ -605,7 +605,7 @@ public class PredictionEndCommand : ICommand
                 var optionsText = string.Join(", ", prediction.Options.Select(o => $"{o.Index}. {o.Text}"));
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, couldn't find option matching '{optionNamePart}'. Options: {optionsText}",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
 
@@ -614,7 +614,7 @@ public class PredictionEndCommand : ICommand
                 var optionsText = string.Join(", ", matchingOptions.Select(o => $"{o.Index}. {o.Text}"));
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, multiple options match '{optionNamePart}': {optionsText}. Please be more specific.",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
 
@@ -631,7 +631,7 @@ public class PredictionEndCommand : ICommand
             {
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, prediction data is invalid",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
 
@@ -646,7 +646,7 @@ public class PredictionEndCommand : ICommand
                 var optionsText = string.Join(", ", prediction.Options.Select(o => $"{o.Index}. {o.Text}"));
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, couldn't find option matching '{argsText}'. Options: {optionsText}",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
 
@@ -655,7 +655,7 @@ public class PredictionEndCommand : ICommand
                 var optionsText = string.Join(", ", matchingOptions.Select(o => $"{o.Index}. {o.Text}"));
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, multiple options match '{argsText}': {optionsText}. Please be more specific.",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
 
@@ -697,7 +697,7 @@ public class PredictionEndCommand : ICommand
                 {
                     await botInstance.SendChatMessageAsync(
                         $"{user.FormatUsername()}, please specify the winning option. Use: !prediction end \"{prediction.Description}\" <option_name>",
-                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                        true, whisperTo: user.KfUsername);
                     return;
                 }
 
@@ -712,7 +712,7 @@ public class PredictionEndCommand : ICommand
                     var optionsText = string.Join(", ", prediction.Options.Select(o => $"{o.Index}. {o.Text}"));
                     await botInstance.SendChatMessageAsync(
                         $"{user.FormatUsername()}, couldn't find option matching '{optionNamePart}'. Options: {optionsText}",
-                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                        true, whisperTo: user.KfUsername);
                     return;
                 }
 
@@ -721,7 +721,7 @@ public class PredictionEndCommand : ICommand
                     var optionsText = string.Join(", ", matchingOptions.Select(o => $"{o.Index}. {o.Text}"));
                     await botInstance.SendChatMessageAsync(
                         $"{user.FormatUsername()}, multiple options match '{optionNamePart}': {optionsText}. Please be more specific.",
-                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                        true, whisperTo: user.KfUsername);
                     return;
                 }
 
@@ -734,7 +734,7 @@ public class PredictionEndCommand : ICommand
                 var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, couldn't parse command. Multiple predictions active:[br]{listText}[br]Use: !prediction end \"<name>\" <option_name>",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
         }
@@ -745,7 +745,7 @@ public class PredictionEndCommand : ICommand
             var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, couldn't find that prediction. Active predictions:[br]{listText}",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -753,7 +753,7 @@ public class PredictionEndCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, this prediction is not active",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
         var winningOption = prediction.Options.FirstOrDefault(o => o.Index == winningOptionIndex);
@@ -761,7 +761,7 @@ public class PredictionEndCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, invalid winning option. Choose from 1-{prediction.Options.Count}",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -860,7 +860,7 @@ public class PredictionStatusCommand : ICommand
         if (string.IsNullOrEmpty(settings[BuiltIn.Keys.BotRedisConnectionString].Value))
         {
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, predictions are not available at this time", true,
-                autoDeleteAfter: TimeSpan.FromSeconds(15));
+                whisperTo: user.KfUsername);
             return;
         }
 
@@ -873,7 +873,7 @@ public class PredictionStatusCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, there are no active predictions",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -899,7 +899,7 @@ public class PredictionStatusCommand : ICommand
                 {
                     await botInstance.SendChatMessageAsync(
                         $"{user.FormatUsername()}, couldn't find prediction matching '{searchTerm}'",
-                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                        true, whisperTo: user.KfUsername);
                     return;
                 }
             }
@@ -922,7 +922,7 @@ public class PredictionStatusCommand : ICommand
                 var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, {activePredictions.Length} active predictions:[br]{listText}[br]Use !prediction status \"<name>\" for details",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(20));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
         }
@@ -931,7 +931,7 @@ public class PredictionStatusCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, prediction data is invalid",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -996,7 +996,7 @@ public class PredictionCloseBetsCommand : ICommand
         if (string.IsNullOrEmpty(settings[BuiltIn.Keys.BotRedisConnectionString].Value))
         {
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, predictions are not available at this time", true,
-                autoDeleteAfter: TimeSpan.FromSeconds(15));
+                whisperTo: user.KfUsername);
             return;
         }
 
@@ -1009,7 +1009,7 @@ public class PredictionCloseBetsCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, there are no active predictions",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -1033,7 +1033,7 @@ public class PredictionCloseBetsCommand : ICommand
             {
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, couldn't find prediction matching '{searchTerm}'",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
         }
@@ -1051,7 +1051,7 @@ public class PredictionCloseBetsCommand : ICommand
             var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, multiple predictions active. Specify which one:[br]{listText}",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -1059,7 +1059,7 @@ public class PredictionCloseBetsCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, prediction data is invalid",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -1067,7 +1067,7 @@ public class PredictionCloseBetsCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, this prediction is not active",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -1075,7 +1075,7 @@ public class PredictionCloseBetsCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, betting is already closed on this prediction",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -1120,7 +1120,7 @@ public class PredictionCancelCommand : ICommand
         if (string.IsNullOrEmpty(settings[BuiltIn.Keys.BotRedisConnectionString].Value))
         {
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, predictions are not available at this time", true,
-                autoDeleteAfter: TimeSpan.FromSeconds(15));
+                whisperTo: user.KfUsername);
             return;
         }
 
@@ -1133,7 +1133,7 @@ public class PredictionCancelCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, there are no active predictions",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -1154,7 +1154,7 @@ public class PredictionCancelCommand : ICommand
             {
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, couldn't find prediction matching '{searchTerm}'",
-                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                    true, whisperTo: user.KfUsername);
                 return;
             }
         }
@@ -1172,7 +1172,7 @@ public class PredictionCancelCommand : ICommand
             var listText = string.Join("[br]", activeList.Select(p => $"  [{p.id}] {p.description}"));
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, multiple predictions active. Specify which one:[br]{listText}",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -1180,7 +1180,7 @@ public class PredictionCancelCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, prediction data is invalid",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -1188,7 +1188,7 @@ public class PredictionCancelCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, this prediction is not active",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, whisperTo: user.KfUsername);
             return;
         }
 

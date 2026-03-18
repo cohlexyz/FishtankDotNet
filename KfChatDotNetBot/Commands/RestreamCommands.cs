@@ -64,7 +64,7 @@ public class SelfPromoCommand : ICommand
             await botInstance.SendChatMessageAsync("You have no streams", true);
             return;
         }
-        
+
         var streamList = streams.Aggregate(string.Empty, (current, stream) => current + $"[br]- {stream.StreamUrl}");
 
         await botInstance.SendChatMessageAsync(
@@ -86,6 +86,6 @@ public class GetRestreamPlainCommand : ICommand
         CancellationToken ctx)
     {
         var url = await SettingsProvider.GetValueAsync(BuiltIn.Keys.RestreamUrl);
-        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, restream URL: [plain]{url.Value}", true);
+        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, restream URL: [plain]{url.Value}", true, whisperTo: user.KfUsername);
     }
 }

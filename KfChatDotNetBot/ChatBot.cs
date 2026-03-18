@@ -540,13 +540,13 @@ public class ChatBot
     }
 
     public async Task<List<SentMessageTrackerModel>> SendChatMessagesAsync(List<string> messages,
-        bool bypassSeshDetect = false, LengthLimitBehavior lengthLimitBehavior = LengthLimitBehavior.RefuseToSend, TimeSpan? autoDeleteAfter = null)
+        bool bypassSeshDetect = false, LengthLimitBehavior lengthLimitBehavior = LengthLimitBehavior.RefuseToSend, TimeSpan? autoDeleteAfter = null, string? whisperTo = null)
     {
         List<SentMessageTrackerModel> sentMessages = [];
 
         foreach (var message in messages)
         {
-            sentMessages.Add(await SendChatMessageAsync(message, bypassSeshDetect, lengthLimitBehavior, autoDeleteAfter: autoDeleteAfter));
+            sentMessages.Add(await SendChatMessageAsync(message, bypassSeshDetect, lengthLimitBehavior, autoDeleteAfter: autoDeleteAfter, whisperTo: whisperTo));
             // Delay sending each message, hopefully this will help the issue where messages come out of order
             await Task.Delay(TimeSpan.FromMilliseconds(100), _cancellationToken);
         }

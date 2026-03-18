@@ -52,7 +52,7 @@ public class ClipStartCommand : ICommand
 
         var camera = arguments["camera"].Value.Trim();
         var result = await clipService.StartAsync(camera, FishtankCameras.Cameras);
-        await botInstance.SendChatMessageAsync(result, true);
+        await botInstance.SendChatMessageAsync(result, true, whisperTo: user.KfUsername);
     }
 }
 
@@ -69,13 +69,13 @@ public class ClipSwitchCommand : ICommand
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)
         {
-            await botInstance.SendChatMessageAsync("Clip service is not initialized", true);
+            await botInstance.SendChatMessageAsync("Clip service is not initialized", true, whisperTo: user.KfUsername);
             return;
         }
 
         var camera = arguments["camera"].Value.Trim();
         var result = await clipService.StartAsync(camera, FishtankCameras.Cameras);
-        await botInstance.SendChatMessageAsync(result, true);
+        await botInstance.SendChatMessageAsync(result, true, whisperTo: user.KfUsername);
     }
 }
 
@@ -92,13 +92,13 @@ public class ClipStopCommand : ICommand
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)
         {
-            await botInstance.SendChatMessageAsync("Clip service is not initialized", true);
+            await botInstance.SendChatMessageAsync("Clip service is not initialized", true, whisperTo: user.KfUsername);
             return;
         }
 
         var camera = arguments["camera"].Success ? arguments["camera"].Value.Trim() : null;
         var result = await clipService.StopAsync(camera, FishtankCameras.Cameras);
-        await botInstance.SendChatMessageAsync(result, true);
+        await botInstance.SendChatMessageAsync(result, true, whisperTo: user.KfUsername);
     }
 }
 
@@ -115,13 +115,13 @@ public class ClipBeginCommand : ICommand
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)
         {
-            await botInstance.SendChatMessageAsync("Clip service is not initialized", true);
+            await botInstance.SendChatMessageAsync("Clip service is not initialized", true, whisperTo: user.KfUsername);
             return;
         }
 
         var camera = arguments["camera"].Value.Trim();
         var result = clipService.SetMarker(camera, FishtankCameras.Cameras);
-        await botInstance.SendChatMessageAsync(result, true);
+        await botInstance.SendChatMessageAsync(result, true, whisperTo: user.KfUsername);
     }
 }
 
@@ -142,13 +142,13 @@ public class ClipSaveCommand : ICommand
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)
         {
-            await botInstance.SendChatMessageAsync("Clip service is not initialized", true);
+            await botInstance.SendChatMessageAsync("Clip service is not initialized", true, whisperTo: user.KfUsername);
             return;
         }
 
         if (!await Zipline.IsZiplineEnabled())
         {
-            await botInstance.SendChatMessageAsync("Zipline is not configured", true);
+            await botInstance.SendChatMessageAsync("Zipline is not configured", true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -172,7 +172,7 @@ public class ClipSaveCommand : ICommand
             if (marker == null)
             {
                 await botInstance.SendChatMessageAsync(
-                    $"No marker set for {resolvedCamera}. Use !clip begin {resolvedCamera} first, or specify a duration (e.g. !clip save {resolvedCamera} 30s)", true);
+                    $"No marker set for {resolvedCamera}. Use !clip begin {resolvedCamera} first, or specify a duration (e.g. !clip save {resolvedCamera} 30s)", true, whisperTo: user.KfUsername);
                 return;
             }
 
@@ -181,7 +181,7 @@ public class ClipSaveCommand : ICommand
             if (pressAge > TimeSpan.FromMinutes(8))
             {
                 await botInstance.SendChatMessageAsync(
-                    $"Marker for {resolvedCamera} is too old ({pressAge.Humanize(2)}). The buffer only holds 8 minutes.", true);
+                    $"Marker for {resolvedCamera} is too old ({pressAge.Humanize(2)}). The buffer only holds 8 minutes.", true, whisperTo: user.KfUsername);
                 clipService.ClearMarker(resolvedCamera);
                 return;
             }
@@ -285,20 +285,20 @@ public class ClipListCommand : ICommand
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)
         {
-            await botInstance.SendChatMessageAsync("Clip service is not initialized", true);
+            await botInstance.SendChatMessageAsync("Clip service is not initialized", true, whisperTo: user.KfUsername);
             return;
         }
 
         var buffers = clipService.GetActiveBuffers();
         if (buffers.Count == 0)
         {
-            await botInstance.SendChatMessageAsync("No cameras are currently being buffered", true);
+            await botInstance.SendChatMessageAsync("No cameras are currently being buffered", true, whisperTo: user.KfUsername);
             return;
         }
 
         var lines = buffers.Select(b =>
             $"{b.Name}: {b.Duration.Humanize(2)} ({b.Bytes.Bytes().Humanize()})");
-        await botInstance.SendChatMessageAsync($"Active buffers: {string.Join(" | ", lines)}", true);
+        await botInstance.SendChatMessageAsync($"Active buffers: {string.Join(" | ", lines)}", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -313,7 +313,7 @@ public class ClipCamerasCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var names = string.Join(", ", FishtankCameras.Cameras.Keys);
-        await botInstance.SendChatMessageAsync($"Available cameras: {names}", true);
+        await botInstance.SendChatMessageAsync($"Available cameras: {names}", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -330,14 +330,14 @@ public class ClipQueueCommand : ICommand
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)
         {
-            await botInstance.SendChatMessageAsync("Clip service is not initialized", true);
+            await botInstance.SendChatMessageAsync("Clip service is not initialized", true, whisperTo: user.KfUsername);
             return;
         }
 
         var (current, pending) = clipService.GetQueueStatus();
         if (current == null && pending.Count == 0)
         {
-            await botInstance.SendChatMessageAsync("Clip queue is empty", true);
+            await botInstance.SendChatMessageAsync("Clip queue is empty", true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -346,6 +346,6 @@ public class ClipQueueCommand : ICommand
             parts.Add($"Processing: {current}");
         if (pending.Count > 0)
             parts.Add($"Queued: {string.Join(", ", pending)}");
-        await botInstance.SendChatMessageAsync(string.Join(" | ", parts), true);
+        await botInstance.SendChatMessageAsync(string.Join(" | ", parts), true, whisperTo: user.KfUsername);
     }
 }

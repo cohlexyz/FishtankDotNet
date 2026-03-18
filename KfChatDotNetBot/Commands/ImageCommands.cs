@@ -37,13 +37,13 @@ public class AddImageCommand : ICommand
         if (!imageKeys.Contains(key))
         {
             await botInstance.SendChatMessageAsync(
-                $"Key you specified is not supported. Available keys are: {string.Join(' ', imageKeys)}", true);
+                $"Key you specified is not supported. Available keys are: {string.Join(' ', imageKeys)}", true, whisperTo: user.KfUsername);
             return;
         }
 
         if (!niggerMode && await db.Images.AnyAsync(i => i.Key == key && i.Url == url, ctx))
         {
-            await botInstance.SendChatMessageAsync("This image already exists in the database with this key", true);
+            await botInstance.SendChatMessageAsync("This image already exists in the database with this key", true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -51,7 +51,7 @@ public class AddImageCommand : ICommand
         await db.SaveChangesAsync(ctx);
         //await botInstance.SendChatMessageAsync("Added image to database", true);
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, you added the following media to the {key} carousel\n[img]{url}[/img]", true);
+            $"{user.FormatUsername()}, you added the following media to the {key} carousel\n[img]{url}[/img]", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -78,14 +78,14 @@ public class RemoveImageCommand : ICommand
         if (!imageKeys.Contains(key))
         {
             await botInstance.SendChatMessageAsync(
-                $"Key you specified is not supported. Available keys are: {string.Join(' ', imageKeys)}", true);
+                $"Key you specified is not supported. Available keys are: {string.Join(' ', imageKeys)}", true, whisperTo: user.KfUsername);
             return;
         }
 
         var image = await db.Images.FirstOrDefaultAsync(i => i.Key == key && i.Url == url, ctx);
         if (image == null)
         {
-            await botInstance.SendChatMessageAsync("This image isn't in the database with this key", true);
+            await botInstance.SendChatMessageAsync("This image isn't in the database with this key", true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -93,7 +93,7 @@ public class RemoveImageCommand : ICommand
         await db.SaveChangesAsync(ctx);
         // await botInstance.SendChatMessageAsync("Removed image from database", true);
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, you removed the following media from the {key} carousel\n[img]{url}[/img]", true);
+            $"{user.FormatUsername()}, you removed the following media from the {key} carousel\n[img]{url}[/img]", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -119,7 +119,7 @@ public class ListImageCommand : ICommand
         if (!imageKeys.Contains(key))
         {
             await botInstance.SendChatMessageAsync(
-                $"Key you specified is not supported. Available keys are: {string.Join(' ', imageKeys)}", true);
+                $"Key you specified is not supported. Available keys are: {string.Join(' ', imageKeys)}", true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -133,7 +133,7 @@ public class ListImageCommand : ICommand
             }
 
             var paste = await Zipline.Upload(content, new MediaTypeHeaderValue("text/plain"), "1d", ctx);
-            await botInstance.SendChatMessageAsync($"List of images for {key}: {paste}", true);
+            await botInstance.SendChatMessageAsync($"List of images for {key}: {paste}", true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -147,7 +147,7 @@ public class ListImageCommand : ICommand
         }
 
         await botInstance.SendChatMessagesAsync(result.FancySplitMessage(partSeparator: "[br]"),
-            bypassSeshDetect: true);
+            bypassSeshDetect: true, whisperTo: user.KfUsername);
     }
 }
 
@@ -178,26 +178,26 @@ public class ManageImageKeyCommand : ICommand
         {
             if (imageKeys.Contains(key))
             {
-                await botInstance.SendChatMessageAsync($"Key \"{key}\" is already in the acceptable keys list", true);
+                await botInstance.SendChatMessageAsync($"Key \"{key}\" is already in the acceptable keys list", true, whisperTo: user.KfUsername);
                 return;
             }
             imageKeys.Add(key);
             await SettingsProvider.SetValueAsync(BuiltIn.Keys.BotImageAcceptableKeys, JsonSerializer.Serialize(imageKeys));
             await botInstance.SendChatMessageAsync(
-                $"Added key \"{key}\" to acceptable image keys. Current keys: {string.Join(' ', imageKeys)}", true);
+                $"Added key \"{key}\" to acceptable image keys. Current keys: {string.Join(' ', imageKeys)}", true, whisperTo: user.KfUsername);
         }
         else
         {
             if (!imageKeys.Contains(key))
             {
                 await botInstance.SendChatMessageAsync(
-                    $"Key \"{key}\" is not in the acceptable keys list. Current keys: {string.Join(' ', imageKeys)}", true);
+                    $"Key \"{key}\" is not in the acceptable keys list. Current keys: {string.Join(' ', imageKeys)}", true, whisperTo: user.KfUsername);
                 return;
             }
             imageKeys.Remove(key);
             await SettingsProvider.SetValueAsync(BuiltIn.Keys.BotImageAcceptableKeys, JsonSerializer.Serialize(imageKeys));
             await botInstance.SendChatMessageAsync(
-                $"Removed key \"{key}\" from acceptable image keys. Current keys: {string.Join(' ', imageKeys)}", true);
+                $"Removed key \"{key}\" from acceptable image keys. Current keys: {string.Join(' ', imageKeys)}", true, whisperTo: user.KfUsername);
         }
     }
 }
@@ -247,7 +247,7 @@ public class GetRandomImage : ICommand
             if (scored.Count == 0 || scored[0].Score < 50)
             {
                 RateLimitService.RemoveMostRecentEntry(user, this);
-                await botInstance.SendChatMessageAsync($"No image in {key} matched \"{searchTerm}\"", true);
+                await botInstance.SendChatMessageAsync($"No image in {key} matched \"{searchTerm}\"", true, whisperTo: user.KfUsername);
                 return;
             }
             var bestScore = scored[0].Score;

@@ -28,7 +28,7 @@ public class HelpCommand : ICommand
     };
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
-        await botInstance.SendChatMessageAsync("Bot usage guide: https://fishtank.observer/bot/", true);
+        await botInstance.SendChatMessageAsync("Bot usage guide: https://fishtank.observer/bot/", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -86,7 +86,7 @@ public class GetVersionCommand : ICommand
                 true);
             return;
         }
-        await botInstance.SendChatMessageAsync($"Bot compiled against {version.Split('+')[1]}", true);
+        await botInstance.SendChatMessageAsync($"Bot compiled against {version.Split('+')[1]}", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -102,7 +102,7 @@ public class SourceCommand : ICommand
     public RateLimitOptionsModel? RateLimitOptions => null;
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
-        await botInstance.SendChatMessageAsync("Source: https://github.com/cohlexyz/FishtankDotNet");
+        await botInstance.SendChatMessageAsync("Source: https://github.com/cohlexyz/FishtankDotNet", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -119,7 +119,7 @@ public class ShareXClippingCommand : ICommand
     public RateLimitOptionsModel? RateLimitOptions => null;
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
-        await botInstance.SendChatMessageAsync("Clipping with ShareX: https://kiwifarms.st/threads/189850");
+        await botInstance.SendChatMessageAsync("Clipping with ShareX: https://kiwifarms.st/threads/189850", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -143,7 +143,7 @@ public class GetLastActivity : ICommand
         var lastActive = await SettingsProvider.GetValueAsync(BuiltIn.Keys.BossmanLastSighting);
         if (lastActive.Value == null)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, I don't know.", true);
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, I don't know.", true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -169,6 +169,6 @@ public class PPVCommand : ICommand
         CancellationToken ctx)
     {
         var url = await SettingsProvider.GetValueAsync(BuiltIn.Keys.RestreamUrl);
-        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, restream URL: https://old.ppv.to/ft | MPV playlist: https://api.fishtank.rip/fishtank.m3u | Camera multiview: https://kiwifarms.st/posts/23970064", true);
+        await botInstance.SendChatMessageAsync($"Restream URL: https://old.ppv.to/ft | MPV playlist: https://api.fishtank.rip/fishtank.m3u | Camera multiview: https://kiwifarms.st/posts/23970064", true, whisperTo: user.KfUsername);
     }
 }
