@@ -41,7 +41,7 @@ public class DiceCommand : ICommand
         {
             var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, dice is currently disabled.",
+                $" dice is currently disabled.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -51,7 +51,7 @@ public class DiceCommand : ICommand
         if (!arguments.TryGetValue("amount", out var amount))
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, not enough arguments. !dice <wager>",
+                $" not enough arguments. !dice <wager>",
                 true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
@@ -63,7 +63,7 @@ public class DiceCommand : ICommand
         if (gambler.Balance < wager)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
+                $" your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
                 true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
@@ -72,7 +72,7 @@ public class DiceCommand : ICommand
         if (wager == 0)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you have to wager more than {await wager.FormatKasinoCurrencyAsync()}", true,
+                $" you have to wager more than {await wager.FormatKasinoCurrencyAsync()}", true,
                 whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
@@ -92,7 +92,7 @@ public class DiceCommand : ICommand
             var effect = wager;
             newBalance = await Money.NewWagerAsync(gambler.Id, wager, effect, WagerGame.Dice, ct: ctx);
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you rolled a {rolled * 100:N2} and [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value}]WON![/COLOR][/B] " +
+                $" you rolled a {rolled * 100:N2} and [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value}]WON![/COLOR][/B] " +
                 $"You won {await effect.FormatKasinoCurrencyAsync()} and your balance is now {await newBalance.FormatKasinoCurrencyAsync()}",
                 true, whisperTo: user.KfUsername);
         }
@@ -101,7 +101,7 @@ public class DiceCommand : ICommand
             // you lose dice
             newBalance = await Money.NewWagerAsync(gambler.Id, wager, -wager, WagerGame.Dice, ct: ctx);
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you rolled a {rolled * 100:N2} and [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]LOST![/COLOR][/B] " +
+                $" you rolled a {rolled * 100:N2} and [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]LOST![/COLOR][/B] " +
                 $"Your balance is now {await newBalance.FormatKasinoCurrencyAsync()}",
                 true, whisperTo: user.KfUsername);
         }

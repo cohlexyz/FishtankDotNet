@@ -45,7 +45,7 @@ public class CoinflipCommand : ICommand
         {
             var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, coinflip is currently disabled.",
+                $"coinflip is currently disabled.",
                 true, autoDeleteAfter: gameDisabledCleanupDelay, whisperTo: user.KfUsername);
             return;
         }
@@ -55,7 +55,7 @@ public class CoinflipCommand : ICommand
         if (!arguments.TryGetValue("amount", out var amount))
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, not enough arguments. !coinflip <wager> <heads|tails>",
+                $"not enough arguments. !coinflip <wager> <heads|tails>",
                 true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
@@ -64,7 +64,7 @@ public class CoinflipCommand : ICommand
         if (!arguments.TryGetValue("choice", out var choice))
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, not enough arguments. !coinflip <wager> <heads|tails>",
+                $"not enough arguments. !coinflip <wager> <heads|tails>",
                 true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
@@ -75,7 +75,7 @@ public class CoinflipCommand : ICommand
         if (wager <= 0)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, your wager must be greater than zero.",
+                $"your wager must be greater than zero.",
                 true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
@@ -88,7 +88,7 @@ public class CoinflipCommand : ICommand
         if (gambler.Balance < wager)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
+                $"your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
                 true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
@@ -112,7 +112,7 @@ public class CoinflipCommand : ICommand
             var effect = wager;
             newBalance = await Money.NewWagerAsync(gambler.Id, wager, effect, WagerGame.CoinFlip, ct: ctx);
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value}]WON![/COLOR][/B] " +
+                $"you [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value}]WON![/COLOR][/B] " +
                 $"You won {await effect.FormatKasinoCurrencyAsync()} and your balance is now {await newBalance.FormatKasinoCurrencyAsync()}",
                 true, whisperTo: user.KfUsername);
             return;
@@ -127,7 +127,7 @@ public class CoinflipCommand : ICommand
 
         newBalance = await Money.NewWagerAsync(gambler.Id, wager, -wager, WagerGame.CoinFlip, ct: ctx);
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, you [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]LOST![/COLOR][/B] " +
+            $"you [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]LOST![/COLOR][/B] " +
             $"Your balance is now {await newBalance.FormatKasinoCurrencyAsync()}",
             true, whisperTo: user.KfUsername);
     }

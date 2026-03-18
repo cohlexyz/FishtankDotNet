@@ -29,7 +29,7 @@ public class GetBalanceCommand : ICommand
     {
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, your balance is {await gambler!.Balance.FormatKasinoCurrencyAsync()}", true, whisperTo: user.KfUsername);
+            $" your balance is {await gambler!.Balance.FormatKasinoCurrencyAsync()}", true, whisperTo: user.KfUsername);
 
         if (botInstance.BotServices.KasinoShop != null)
         {
@@ -62,7 +62,7 @@ public class GetExclusionCommand : ICommand
         var exclusion = await Money.GetActiveExclusionAsync(gambler.Id, ct: ctx);
         if (exclusion == null)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you are currently not excluded.", true, whisperTo: user.KfUsername);
+            await botInstance.SendChatMessageAsync($" you are currently not excluded.", true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -73,7 +73,7 @@ public class GetExclusionCommand : ICommand
             (exclusion.Expires - DateTimeOffset.UtcNow).Humanize(precision: 2, minUnit: TimeUnit.Second,
                 maxUnit: TimeUnit.Day);
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, your exclusion for {duration} expires in {expires}", true, whisperTo: user.KfUsername);
+            $" your exclusion for {duration} expires in {expires}", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -103,20 +103,20 @@ public class SendJuiceCommand : ICommand
         }
         if (gambler.Balance < amount)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you don't have enough money to juice this much.", true, whisperTo: user.KfUsername);
+            await botInstance.SendChatMessageAsync($" you don't have enough money to juice this much.", true, whisperTo: user.KfUsername);
             return;
         }
 
         if (targetUser == null)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, the user ID you gave doesn't exist.", true, whisperTo: user.KfUsername);
+            await botInstance.SendChatMessageAsync($" the user ID you gave doesn't exist.", true, whisperTo: user.KfUsername);
             return;
         }
 
         var targetGambler = await Money.GetGamblerEntityAsync(targetUser.Id, ct: ctx);
         if (targetGambler == null)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you can't juice a banned user", true, whisperTo: user.KfUsername);
+            await botInstance.SendChatMessageAsync($" you can't juice a banned user", true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -124,8 +124,8 @@ public class SendJuiceCommand : ICommand
             $"Juice sent to {targetUser.KfUsername}", ct: ctx);
         await Money.ModifyBalanceAsync(targetGambler.Id, amount, TransactionSourceEventType.Juicer, $"Juice from {user.KfUsername}",
             gambler.Id, ctx);
-        await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, {await amount.FormatKasinoCurrencyAsync()} has been sent to {targetUser.FormatUsername()}", true, whisperTo: user.KfUsername);
-        await botInstance.SendChatMessageAsync($"{targetUser.FormatUsername()} you received {await amount.FormatKasinoCurrencyAsync()} from {user.FormatUsername()}", true, whisperTo: targetUser.KfUsername);
+        await botInstance.SendChatMessageAsync($"{await amount.FormatKasinoCurrencyAsync()} has been sent to {targetUser.KfUsername}", true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync($"you received {await amount.FormatKasinoCurrencyAsync()} from {user.KfUsername}", true, whisperTo: targetUser.KfUsername);
         //KasinoShop stuff --------------------------------------------------------------------------------
         if (botInstance.BotServices.KasinoShop != null)
         {
@@ -176,7 +176,7 @@ public class RakebackCommand : ICommand
         if (wagers.Count == 0)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you haven't wagered since your last rakeback.", true, whisperTo: user.KfUsername);
+                $" you haven't wagered since your last rakeback.", true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -185,12 +185,12 @@ public class RakebackCommand : ICommand
         var minimumRakeback = settings[BuiltIn.Keys.MoneyRakebackMinimumAmount].ToType<decimal>();
         if (rakeback < minimumRakeback)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, your rakeback payout of {await rakeback.FormatKasinoCurrencyAsync()} is below the minimum amount of {await minimumRakeback.FormatKasinoCurrencyAsync()}", true, whisperTo: user.KfUsername);
+            await botInstance.SendChatMessageAsync($" your rakeback payout of {await rakeback.FormatKasinoCurrencyAsync()} is below the minimum amount of {await minimumRakeback.FormatKasinoCurrencyAsync()}", true, whisperTo: user.KfUsername);
             return;
         }
         await Money.ModifyBalanceAsync(gambler.Id, rakeback, TransactionSourceEventType.Rakeback, "Rakeback claimed by gambler",
             ct: ctx);
-        await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, the hostess has given you {await rakeback.FormatKasinoCurrencyAsync()} rakeback", true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync($" the hostess has given you {await rakeback.FormatKasinoCurrencyAsync()} rakeback", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -234,7 +234,7 @@ public class LossbackCommand : ICommand
         if (wagers.Count == 0)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you don't have any losses to juice back.", true, whisperTo: user.KfUsername);
+                $" you don't have any losses to juice back.", true, whisperTo: user.KfUsername);
             return;
         }
         logger.Info($"{user.KfUsername} has {wagers.Count} wagers to lossback");
@@ -244,12 +244,12 @@ public class LossbackCommand : ICommand
         var minimumLossback = settings[BuiltIn.Keys.MoneyLossbackMinimumAmount].ToType<decimal>();
         if (lossback < minimumLossback)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, your lossback payout of {await lossback.FormatKasinoCurrencyAsync()} is below the minimum amount of {await minimumLossback.FormatKasinoCurrencyAsync()}", true, whisperTo: user.KfUsername);
+            await botInstance.SendChatMessageAsync($" your lossback payout of {await lossback.FormatKasinoCurrencyAsync()} is below the minimum amount of {await minimumLossback.FormatKasinoCurrencyAsync()}", true, whisperTo: user.KfUsername);
             return;
         }
         await Money.ModifyBalanceAsync(gambler.Id, lossback, TransactionSourceEventType.Lossback, "Lossback claimed by gambler",
             ct: ctx);
-        await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, the hostess has given you {await lossback.FormatKasinoCurrencyAsync()} lossback", true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync($" the hostess has given you {await lossback.FormatKasinoCurrencyAsync()} lossback", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -274,7 +274,7 @@ public class AbandonKasinoCommand : ICommand
     {
         if (!message.MessageRawHtmlDecoded.EndsWith("abandon confirm"))
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, are you sure you wish to abandon your Keno Kasino™ account?[br]" +
+            await botInstance.SendChatMessageAsync($" are you sure you wish to abandon your Keno Kasino™ account?[br]" +
                                                    $"This will reset your wager statistics, balance, and temporary exclusions.[br]" +
                                                    $"You will lose all perks such as VIP levels and custom titles.[br]" +
                                                    $"To confirm, reply with: !abandon confirm", true, whisperTo: user.KfUsername);
@@ -289,7 +289,7 @@ public class AbandonKasinoCommand : ICommand
         db.Attach(gambler);
         gambler!.State = GamblerState.Abandoned;
         await db.SaveChangesAsync(ctx);
-        await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, Kasino account with ID {gambler.Id} has been marked as abandoned.", true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync($" Kasino account with ID {gambler.Id} has been marked as abandoned.", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -315,7 +315,7 @@ public class PocketWatchCommand : ICommand
             if (chatUser == null)
             {
                 await botInstance.SendChatMessageAsync(
-                    $"{user.FormatUsername()}, couldn't find that user in chat. They must be present in chat to look up by username.",
+                    $" couldn't find that user in chat. They must be present in chat to look up by username.",
                     true, whisperTo: user.KfUsername);
                 return;
             }
@@ -327,18 +327,18 @@ public class PocketWatchCommand : ICommand
         }
         if (targetUser == null)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, the user ID you gave doesn't exist.", true, whisperTo: user.KfUsername);
+            await botInstance.SendChatMessageAsync($" the user ID you gave doesn't exist.", true, whisperTo: user.KfUsername);
             return;
         }
 
         var targetGambler = await Money.GetGamblerEntityAsync(targetUser.Id, ct: ctx);
         if (targetGambler == null)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, this user is excluded from the kasino", true, whisperTo: user.KfUsername);
+            await botInstance.SendChatMessageAsync($" this user is excluded from the kasino", true, whisperTo: user.KfUsername);
             return;
         }
 
-        await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, {targetUser.KfUsername} has {await targetGambler.Balance.FormatKasinoCurrencyAsync()}", true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync($" {targetUser.KfUsername} has {await targetGambler.Balance.FormatKasinoCurrencyAsync()}", true, whisperTo: user.KfUsername);
     }
 }
 
@@ -442,7 +442,7 @@ public class GetDailyDollarCommand : ICommand
         ]);
         if (!settings[BuiltIn.Keys.KasinoDailyDollarEnabled].ToBoolean())
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, daily dollar has been disabled :(", true,
+            await botInstance.SendChatMessageAsync($" daily dollar has been disabled :(", true,
                 whisperTo: user.KfUsername);
             return;
         }
@@ -450,7 +450,7 @@ public class GetDailyDollarCommand : ICommand
         if (gambler!.Created.Date == DateTime.UtcNow.Date)
         {
             // await botInstance.SendChatMessageAsync(
-            //     $"{user.FormatUsername()}, new accounts cannot redeem a daily dollar. You have a starting balance.", true,
+            //     $" new accounts cannot redeem a daily dollar. You have a starting balance.", true,
             //     whisperTo: user.KfUsername);
             // return;
         }
@@ -465,7 +465,7 @@ public class GetDailyDollarCommand : ICommand
             {
                 var span = rolloverTime.AddDays(1) - DateTimeOffset.UtcNow;
                 await botInstance.SendChatMessageAsync(
-                    $"{user.FormatUsername()}, your next daily dollar will be available in {span.Humanize(maxUnit: TimeUnit.Hour, minUnit: TimeUnit.Second)}",
+                    $" your next daily dollar will be available in {span.Humanize(maxUnit: TimeUnit.Hour, minUnit: TimeUnit.Second)}",
                     true, whisperTo: user.KfUsername);
                 return;
             }
@@ -474,7 +474,7 @@ public class GetDailyDollarCommand : ICommand
         var amount = settings[BuiltIn.Keys.KasinoDailyDollarAmount].ToType<decimal>();
         await Money.ModifyBalanceAsync(gambler!.Id, amount, TransactionSourceEventType.DailyDollar,
             "Daily dollar redemption", ct: ctx);
-        await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you redeemed {await amount.FormatKasinoCurrencyAsync()}", true,
+        await botInstance.SendChatMessageAsync($" you redeemed {await amount.FormatKasinoCurrencyAsync()}", true,
             whisperTo: user.KfUsername);
     }
 }

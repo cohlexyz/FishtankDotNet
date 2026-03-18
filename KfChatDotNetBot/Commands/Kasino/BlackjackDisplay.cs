@@ -36,7 +36,7 @@ internal static class BlackjackDisplay
     {
         var parts = new List<string> { "[B]hit[/B]", "[B]stand[/B]" };
         if (canDouble) parts.Add("[B]double[/B] ✦");
-        if (canSplit)  parts.Add("[B]split[/B] ✂");
+        if (canSplit) parts.Add("[B]split[/B] ✂");
         return "!bj: " + string.Join(" · ", parts);
     }
 
@@ -53,7 +53,7 @@ internal static class BlackjackDisplay
         bool canSplit, string redHex)
     {
         return
-            $"🃏 [B]{user.FormatUsername()}[/B] · {await wager.FormatKasinoCurrencyAsync()} — " +
+            $"🃏 {await wager.FormatKasinoCurrencyAsync()} — " +
             $"[B]You:[/B] {FmtHand(playerHand, redHex)} ({playerValue}) " +
             $"[I]vs[/I] [B]Dealer:[/B] {FmtHand(dealerHand, redHex, hideFirst: true)}[br]" +
             ActionHints(canDouble: true, canSplit: canSplit);
@@ -71,7 +71,7 @@ internal static class BlackjackDisplay
         string handLabel, string redHex)
     {
         return
-            $"{user.FormatUsername()}{handLabel} drew {FmtCard(drawnCard, redHex)} — " +
+            $"{handLabel} drew {FmtCard(drawnCard, redHex)} — " +
             $"[B]You:[/B] {FmtHand(currentHand, redHex)} ({handValue}) " +
             $"[I]vs[/I] [B]Dealer:[/B] {FmtHand(dealerHand, redHex, hideFirst: true)}[br]" +
             ActionHints();
@@ -83,7 +83,7 @@ internal static class BlackjackDisplay
     // ─────────────────────────────────────────────────────────────────────────
 
     public static async Task<string> DoubledDown(UserDbModel user, decimal newTotalWager) =>
-        $"{user.FormatUsername()} doubled down · Wager: [B]{await newTotalWager.FormatKasinoCurrencyAsync()}[/B]";
+        $" doubled down · Wager: [B]{await newTotalWager.FormatKasinoCurrencyAsync()}[/B]";
 
     // ─────────────────────────────────────────────────────────────────────────
     // Split: initial deal display
@@ -97,7 +97,7 @@ internal static class BlackjackDisplay
         string redHex)
     {
         return
-            $"{user.FormatUsername()} split · Wager: [B]{await totalWager.FormatKasinoCurrencyAsync()}[/B][br]" +
+            $" split · Wager: [B]{await totalWager.FormatKasinoCurrencyAsync()}[/B][br]" +
             $"[B]H1:[/B] {FmtHand(hand1, redHex)} ({value1}) · [B]H2:[/B] {FmtHand(hand2, redHex)} ({value2})[br]" +
             $"Playing [B]H1[/B] — {ActionHints()}";
     }
@@ -147,7 +147,7 @@ internal static class BlackjackDisplay
             // ── Single hand: hand + dealer + result all on one line ──────────
             var r = results[0];
             sb.Append(
-                $"🃏 [B]{user.FormatUsername()}[/B] · " +
+                $"🃏" +
                 $"[B]You:[/B] {FmtHand(r.Hand, redHex)} ({r.PlayerValue}) " +
                 $"[I]vs[/I] [B]Dealer:[/B] {FmtHand(dealerHand, redHex)} ({dealerValue}) — " +
                 $"{await FormatOutcomeTag(r, greenHex, redHex)}[br]" +
@@ -156,7 +156,7 @@ internal static class BlackjackDisplay
         else
         {
             // ── Split game: header, then both hands on one line, dealer + net ─
-            sb.Append($"🃏 [B]{user.FormatUsername()}[/B][br]");
+            sb.Append($"🃏 ");
 
             var handParts = new List<string>();
             foreach (var r in results)
@@ -186,12 +186,12 @@ internal static class BlackjackDisplay
         decimal handWager)
     {
         if (playerBlackjack && dealerBlackjack) return (HandOutcome.Push, 0);
-        if (playerBlackjack)                    return (HandOutcome.Blackjack, handWager * 1.5m);
-        if (dealerBlackjack)                    return (HandOutcome.DealerBlackjack, -handWager);
-        if (playerValue > 21)                   return (HandOutcome.Bust, -handWager);
-        if (dealerValue > 21)                   return (HandOutcome.DealerBust, handWager);
-        if (playerValue > dealerValue)          return (HandOutcome.Win, handWager);
-        if (playerValue < dealerValue)          return (HandOutcome.Lose, -handWager);
+        if (playerBlackjack) return (HandOutcome.Blackjack, handWager * 1.5m);
+        if (dealerBlackjack) return (HandOutcome.DealerBlackjack, -handWager);
+        if (playerValue > 21) return (HandOutcome.Bust, -handWager);
+        if (dealerValue > 21) return (HandOutcome.DealerBust, handWager);
+        if (playerValue > dealerValue) return (HandOutcome.Win, handWager);
+        if (playerValue < dealerValue) return (HandOutcome.Lose, -handWager);
         return (HandOutcome.Push, 0);
     }
 
@@ -200,14 +200,14 @@ internal static class BlackjackDisplay
         var amt = await Math.Abs(r.Effect).FormatKasinoCurrencyAsync();
         return r.Outcome switch
         {
-            HandOutcome.Blackjack       => $"[B][COLOR={greenHex}]BLACKJACK! +{amt}[/COLOR][/B]",
-            HandOutcome.Win             => $"[B][COLOR={greenHex}]WIN! +{amt}[/COLOR][/B]",
-            HandOutcome.DealerBust      => $"[B][COLOR={greenHex}]DEALER BUST! +{amt}[/COLOR][/B]",
-            HandOutcome.Lose            => $"[B][COLOR={redHex}]LOSE! -{amt}[/COLOR][/B]",
-            HandOutcome.Bust            => $"[B][COLOR={redHex}]BUST! -{amt}[/COLOR][/B]",
+            HandOutcome.Blackjack => $"[B][COLOR={greenHex}]BLACKJACK! +{amt}[/COLOR][/B]",
+            HandOutcome.Win => $"[B][COLOR={greenHex}]WIN! +{amt}[/COLOR][/B]",
+            HandOutcome.DealerBust => $"[B][COLOR={greenHex}]DEALER BUST! +{amt}[/COLOR][/B]",
+            HandOutcome.Lose => $"[B][COLOR={redHex}]LOSE! -{amt}[/COLOR][/B]",
+            HandOutcome.Bust => $"[B][COLOR={redHex}]BUST! -{amt}[/COLOR][/B]",
             HandOutcome.DealerBlackjack => $"[B][COLOR={redHex}]DEALER BLACKJACK! -{amt}[/COLOR][/B]",
-            HandOutcome.Push            => "[B][COLOR=orange]PUSH[/COLOR][/B]",
-            _                           => "?"
+            HandOutcome.Push => "[B][COLOR=orange]PUSH[/COLOR][/B]",
+            _ => "?"
         };
     }
 }

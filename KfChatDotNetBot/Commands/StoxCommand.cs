@@ -131,7 +131,7 @@ public class StoxBuyCommand : ICommand
     {
         if (!await StoxMarket.IsOpenAsync())
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, the stox market is currently closed.",
+            await botInstance.SendChatMessageAsync($"the stox market is currently closed.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -141,14 +141,14 @@ public class StoxBuyCommand : ICommand
 
         if (symbol.Contains("?"))
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, can't buy stox of unrevealed fish.",
+            await botInstance.SendChatMessageAsync($"can't buy stox of unrevealed fish.",
                 true, whisperTo: user.KfUsername);
             return;
         }
 
         if (amount <= 0)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, amount must be greater than 0.",
+            await botInstance.SendChatMessageAsync($"amount must be greater than 0.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -158,7 +158,7 @@ public class StoxBuyCommand : ICommand
         var response = await httpClient.GetAsync(endpoint, ctx);
         if (!response.IsSuccessStatusCode)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, failed to fetch stox prices.",
+            await botInstance.SendChatMessageAsync($"failed to fetch stox prices.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -171,14 +171,14 @@ public class StoxBuyCommand : ICommand
         {
             var available = stoxData?.Stocks.Select(s => s.Symbol) ?? [];
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, unknown symbol \"{symbol}\". Available: {string.Join(", ", available)}",
+                $"unknown symbol \"{symbol}\". Available: {string.Join(", ", available)}",
                 true, whisperTo: user.KfUsername);
             return;
         }
 
         if (stock.CurrentPrice <= 0)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, {symbol} is currently not for sale.",
+            await botInstance.SendChatMessageAsync($"{symbol} is currently not for sale.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -191,7 +191,7 @@ public class StoxBuyCommand : ICommand
         if (gambler.Balance < cost)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough to buy {amount:0.####}x {symbol} at ₣{stock.CurrentPrice} each (total: {await cost.FormatKasinoCurrencyAsync()}[plain])[/plain].",
+                $"your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough to buy {amount:0.####}x {symbol} at ₣{stock.CurrentPrice} each (total: {await cost.FormatKasinoCurrencyAsync()}[plain])[/plain].",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -200,7 +200,7 @@ public class StoxBuyCommand : ICommand
         if (connectionString.Value == null)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, stox trading is currently unavailable (Redis not configured).",
+                $"stox trading is currently unavailable (Redis not configured).",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -220,7 +220,7 @@ public class StoxBuyCommand : ICommand
             $"Bought {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}", ct: ctx);
 
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, bought {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await cost.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. You now hold {portfolio[symbol]:0.####}x {symbol}.",
+            $"bought {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await cost.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. You now hold {portfolio[symbol]:0.####}x {symbol}.",
             true, whisperTo: user.KfUsername);
     }
 }
@@ -245,7 +245,7 @@ public class StoxSellCommand : ICommand
     {
         if (!await StoxMarket.IsOpenAsync())
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, the stox market is currently closed.",
+            await botInstance.SendChatMessageAsync($"the stox market is currently closed.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -255,7 +255,7 @@ public class StoxSellCommand : ICommand
 
         if (amount <= 0)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, amount must be greater than 0.",
+            await botInstance.SendChatMessageAsync($"amount must be greater than 0.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -268,7 +268,7 @@ public class StoxSellCommand : ICommand
         if (connectionString.Value == null)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, stox trading is currently unavailable (Redis not configured).",
+                $"stox trading is currently unavailable (Redis not configured).",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
@@ -285,7 +285,7 @@ public class StoxSellCommand : ICommand
         if (held < amount)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you only hold {held:0.####}x {symbol} and can't sell {amount:0.####}x.",
+                $"you only hold {held:0.####}x {symbol} and can't sell {amount:0.####}x.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -295,7 +295,7 @@ public class StoxSellCommand : ICommand
         var response = await httpClient.GetAsync(endpoint, ctx);
         if (!response.IsSuccessStatusCode)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, failed to fetch stox prices.",
+            await botInstance.SendChatMessageAsync($"failed to fetch stox prices.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -307,7 +307,7 @@ public class StoxSellCommand : ICommand
         if (stock == null)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, unknown symbol \"{symbol}\".",
+                $"unknown symbol \"{symbol}\".",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -325,7 +325,7 @@ public class StoxSellCommand : ICommand
             ? $". You still hold {rem:0.####}x {symbol}."
             : $". You no longer hold any {symbol}.";
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, sold {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await proceeds.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
+            $"sold {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await proceeds.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
             true, whisperTo: user.KfUsername);
     }
 }
@@ -357,7 +357,7 @@ public class StoxPortfolioCommand : ICommand
         if (connectionString.Value == null)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, stox trading is currently unavailable (Redis not configured).",
+                $"stox trading is currently unavailable (Redis not configured).",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -380,7 +380,7 @@ public class StoxPortfolioCommand : ICommand
         if (portfolio.Count == 0 && shorts.Count == 0)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you don't hold any stocks. Use !stox buy <symbol> <amount> or !stox short <symbol> <amount> to get started.",
+                $"you don't hold any stocks. Use !stox buy <symbol> <amount> or !stox short <symbol> <amount> to get started.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -390,7 +390,7 @@ public class StoxPortfolioCommand : ICommand
         var response = await httpClient.GetAsync(endpoint, ctx);
         if (!response.IsSuccessStatusCode)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, failed to fetch stox prices.",
+            await botInstance.SendChatMessageAsync($"failed to fetch stox prices.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -461,7 +461,7 @@ public class StoxShortCommand : ICommand
     {
         if (!await StoxMarket.IsOpenAsync())
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, the stox market is currently closed.",
+            await botInstance.SendChatMessageAsync($"the stox market is currently closed.",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
@@ -471,14 +471,14 @@ public class StoxShortCommand : ICommand
 
         if (symbol.Contains("?"))
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, can't short unrevealed fish.",
+            await botInstance.SendChatMessageAsync($"can't short unrevealed fish.",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
 
         if (amount <= 0)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, amount must be greater than 0.",
+            await botInstance.SendChatMessageAsync($"amount must be greater than 0.",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
@@ -488,7 +488,7 @@ public class StoxShortCommand : ICommand
         var response = await httpClient.GetAsync(endpoint, ctx);
         if (!response.IsSuccessStatusCode)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, failed to fetch stox prices.",
+            await botInstance.SendChatMessageAsync($"failed to fetch stox prices.",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
@@ -501,7 +501,7 @@ public class StoxShortCommand : ICommand
         {
             var available = stoxData?.Stocks.Select(s => s.Symbol) ?? new List<string>();
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, unknown symbol \"{symbol}\". Available: {string.Join(", ", available)}",
+                $"unknown symbol \"{symbol}\". Available: {string.Join(", ", available)}",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -514,7 +514,7 @@ public class StoxShortCommand : ICommand
         if (gambler.Balance < collateral)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you need {await collateral.FormatKasinoCurrencyAsync()} collateral to short {amount:0.####}x {symbol} at ₣{stock.CurrentPrice} each, but only have {await gambler.Balance.FormatKasinoCurrencyAsync()}.",
+                $"you need {await collateral.FormatKasinoCurrencyAsync()} collateral to short {amount:0.####}x {symbol} at ₣{stock.CurrentPrice} each, but only have {await gambler.Balance.FormatKasinoCurrencyAsync()}.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -523,7 +523,7 @@ public class StoxShortCommand : ICommand
         if (connectionString.Value == null)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, stox trading is currently unavailable (Redis not configured).",
+                $"stox trading is currently unavailable (Redis not configured).",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -554,7 +554,7 @@ public class StoxShortCommand : ICommand
 
         var pos = shorts[symbol];
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, opened short of {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}. Collateral locked: {await collateral.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. Total short: {pos.Quantity:0.####}x {symbol} (avg entry: ₣{pos.EntryPrice:0.##}[plain])[/plain].",
+            $"opened short of {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}. Collateral locked: {await collateral.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. Total short: {pos.Quantity:0.####}x {symbol} (avg entry: ₣{pos.EntryPrice:0.##}[plain])[/plain].",
             true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
@@ -579,7 +579,7 @@ public class StoxCoverCommand : ICommand
     {
         if (!await StoxMarket.IsOpenAsync())
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, the stox market is currently closed.",
+            await botInstance.SendChatMessageAsync($"the stox market is currently closed.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -589,7 +589,7 @@ public class StoxCoverCommand : ICommand
 
         if (amount <= 0)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, amount must be greater than 0.",
+            await botInstance.SendChatMessageAsync($"amount must be greater than 0.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -602,7 +602,7 @@ public class StoxCoverCommand : ICommand
         if (connectionString.Value == null)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, stox trading is currently unavailable (Redis not configured).",
+                $"stox trading is currently unavailable (Redis not configured).",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -619,7 +619,7 @@ public class StoxCoverCommand : ICommand
         {
             var held = shorts.TryGetValue(symbol, out var p) ? p.Quantity : 0m;
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you only have {held:0.####}x {symbol} shorted and can't cover {amount:0.####}x.",
+                $"you only have {held:0.####}x {symbol} shorted and can't cover {amount:0.####}x.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -629,7 +629,7 @@ public class StoxCoverCommand : ICommand
         var response = await httpClient.GetAsync(endpoint, ctx);
         if (!response.IsSuccessStatusCode)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, failed to fetch stox prices.",
+            await botInstance.SendChatMessageAsync($"failed to fetch stox prices.",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -641,7 +641,7 @@ public class StoxCoverCommand : ICommand
         if (stock == null)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, unknown symbol \"{symbol}\".",
+                $"unknown symbol \"{symbol}\".",
                 true, whisperTo: user.KfUsername);
             return;
         }
@@ -668,7 +668,7 @@ public class StoxCoverCommand : ICommand
             ? $". You still short {rem.Quantity:0.####}x {symbol}."
             : $". No remaining short position in {symbol}.";
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, covered {amount:0.####}x {symbol} short. Entry: ₣{entryPrice:0.##}, close: ₣{stock.CurrentPrice}. P&L: {pnlStr}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
+            $"covered {amount:0.####}x {symbol} short. Entry: ₣{entryPrice:0.##}, close: ₣{stock.CurrentPrice}. P&L: {pnlStr}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
             true, whisperTo: user.KfUsername);
     }
 }
@@ -729,7 +729,7 @@ public class StoxRenameSymbolCommand : ICommand
 
         if (oldSymbol == newSymbol)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, old and new symbols are the same.",
+            await botInstance.SendChatMessageAsync($"old and new symbols are the same.",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
@@ -738,7 +738,7 @@ public class StoxRenameSymbolCommand : ICommand
         if (connectionString.Value == null)
         {
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, stox trading is currently unavailable (Redis not configured).",
+                $"stox trading is currently unavailable (Redis not configured).",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
             return;
         }
@@ -791,7 +791,7 @@ public class StoxRenameSymbolCommand : ICommand
         }
 
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, renamed stox symbol {oldSymbol} → {newSymbol}. Updated {portfoliosUpdated} long portfolio(s) and {shortsUpdated} short position(s).",
+            $"renamed stox symbol {oldSymbol} → {newSymbol}. Updated {portfoliosUpdated} long portfolio(s) and {shortsUpdated} short position(s).",
             true, autoDeleteAfter: TimeSpan.FromSeconds(30));
     }
 }
