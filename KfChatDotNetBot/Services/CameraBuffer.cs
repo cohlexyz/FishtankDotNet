@@ -44,6 +44,12 @@ public class CameraBuffer : IAsyncDisposable
     /// </summary>
     public Action<CameraBuffer>? OnDied { get; set; }
 
+    /// <summary>
+    /// Called when FFmpeg crashes and a restart is about to be attempted for the first time
+    /// (i.e. not on subsequent backoff retries). The second parameter is the exit code.
+    /// </summary>
+    public Action<CameraBuffer, int>? OnCrashed { get; set; }
+
     private readonly string _ffmpegPath;
     private readonly string? _audioUrl;
     private readonly CancellationTokenSource _cts;
@@ -341,6 +347,11 @@ public class CameraBuffer : IAsyncDisposable
             OnDied?.Invoke(this);
             return;
         }
+
+        // Notify on the first crash (attempt 0) so the chat gets one message per incident,
+        // not one per backoff retry.
+        if (_restartAttempt == 0)
+            OnCrashed?.Invoke(this, exitCode);
 
         // Exponential backoff: 5, 10, 20, 40, 60 seconds (capped)
         var delaySeconds = Math.Min(5 * (1 << _restartAttempt), 60);

@@ -31,6 +31,7 @@ public class ClipService
     private readonly Lock _lock = new();
     private readonly CancellationToken _ct;
     private readonly Dictionary<string, string> _cameras;
+    private readonly ChatBot _chatBot;
     private readonly Channel<ClipJob> _clipQueue = Channel.CreateUnbounded<ClipJob>();
     private readonly Task _queueWorker;
 
@@ -53,10 +54,11 @@ public class ClipService
         IProgress<ClipProgress>? Progress,
         TaskCompletionSource<string> Result);
 
-    public ClipService(CancellationToken ct, Dictionary<string, string> cameras)
+    public ClipService(CancellationToken ct, Dictionary<string, string> cameras, ChatBot chatBot)
     {
         _ct = ct;
         _cameras = cameras;
+        _chatBot = chatBot;
         _queueWorker = Task.Run(() => ProcessQueueAsync(ct), ct);
     }
 
@@ -87,6 +89,7 @@ public class ClipService
         Logger.Info($"[ClipService] Resolved stream URL for {matchedName}: {resolvedVideoUrl}{(resolvedAudioUrl != null ? $" (audio: {resolvedAudioUrl})" : "")}");
         var buffer = new CameraBuffer(matchedName, resolvedVideoUrl, ffmpegPath, _ct, resolvedAudioUrl);
         buffer.OnDied = OnBufferDied;
+        buffer.OnCrashed = OnBufferCrashed;
 
         string? evictedName = null;
         lock (_lock)
@@ -409,9 +412,16 @@ public class ClipService
         return (bestVariantUrl, null);
     }
 
+    private void OnBufferCrashed(CameraBuffer buffer, int exitCode)
+    {
+        Logger.Error($"[ClipService] Camera buffer for {buffer.CameraName} crashed (exit code {exitCode}), will attempt restart");
+        _chatBot.SendChatMessage($"[ClipService] {buffer.CameraName} buffer crashed (exit {exitCode}), attempting restart", bypassSeshDetect: true);
+    }
+
     private void OnBufferDied(CameraBuffer buffer)
     {
         Logger.Error($"[ClipService] Camera buffer for {buffer.CameraName} died (max retries exhausted), removing from active list");
+        _chatBot.SendChatMessage($"[ClipService] {buffer.CameraName} buffer permanently died after max restart attempts — use !clip start ${buffer.CameraName} to resume", bypassSeshDetect: true);
         lock (_lock)
         {
             _activeBuffers.Remove(buffer);
@@ -474,6 +484,7 @@ public class ClipService
             return;
 
         Logger.Info($"[ClipService] Restoring {cameraNames.Count} camera buffer(s) from previous session");
+        var restored = new List<string>();
         foreach (var name in cameraNames)
         {
             if (!_cameras.ContainsKey(name))
@@ -483,7 +494,12 @@ public class ClipService
             }
             var result = await StartAsync(name, _cameras);
             Logger.Info($"[ClipService] Restore result for '{name}': {result}");
+            if (result.StartsWith("Now buffering", StringComparison.Ordinal))
+                restored.Add(name);
         }
+
+        if (restored.Count > 0)
+            _chatBot.SendChatMessage($"[ClipService] Restored {restored.Count} buffer(s) from last session: {string.Join(", ", restored)}", bypassSeshDetect: true);
     }
 
     private async Task ProcessQueueAsync(CancellationToken ct)

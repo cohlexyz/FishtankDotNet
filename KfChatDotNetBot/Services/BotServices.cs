@@ -65,7 +65,7 @@ public class BotServices
         TemporarilyBypassGambaSeshForDiscord =
             SettingsProvider.GetValueAsync(BuiltIn.Keys.DiscordTemporarilyBypassGambaSeshInitialValue).Result.ToBoolean();
 
-        ClipService = new ClipService(_cancellationToken, FishtankCameras.Cameras);
+        ClipService = new ClipService(_cancellationToken, FishtankCameras.Cameras, _chatBot);
         _logger.Info("Bot services ready to initialize!");
     }
 
