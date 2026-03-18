@@ -710,3 +710,88 @@ public class StoxCloseMarketCommand : ICommand
             true, autoDeleteAfter: TimeSpan.FromSeconds(30));
     }
 }
+
+public class StoxRenameSymbolCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^stox rename (?<oldSymbol>\w+) (?<newSymbol>\w+)$", RegexOptions.IgnoreCase)
+    ];
+    public string? HelpText => null;
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(30);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+        CancellationToken ctx)
+    {
+        var oldSymbol = arguments["oldSymbol"].Value.ToUpper();
+        var newSymbol = arguments["newSymbol"].Value.ToUpper();
+
+        if (oldSymbol == newSymbol)
+        {
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, old and new symbols are the same.",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
+        var connectionString = await SettingsProvider.GetValueAsync(BuiltIn.Keys.BotRedisConnectionString);
+        if (connectionString.Value == null)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, stox trading is currently unavailable (Redis not configured).",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
+        using var redis = await ConnectionMultiplexer.ConnectAsync(connectionString.Value);
+        var db = redis.GetDatabase();
+        var server = redis.GetServer(redis.GetEndPoints().First());
+
+        int portfoliosUpdated = 0;
+        int shortsUpdated = 0;
+
+        // Migrate long positions
+        await foreach (var key in server.KeysAsync(pattern: "Stox.Portfolio.*"))
+        {
+            var json = await db.StringGetAsync(key);
+            if (!json.HasValue) continue;
+
+            var portfolio = JsonSerializer.Deserialize<Dictionary<string, decimal>>(json.ToString()) ?? [];
+            if (!portfolio.TryGetValue(oldSymbol, out var qty)) continue;
+
+            portfolio.Remove(oldSymbol);
+            portfolio[newSymbol] = portfolio.GetValueOrDefault(newSymbol, 0m) + qty;
+            await db.StringSetAsync(key, JsonSerializer.Serialize(portfolio));
+            portfoliosUpdated++;
+        }
+
+        // Migrate short positions
+        await foreach (var key in server.KeysAsync(pattern: "Stox.Shorts.*"))
+        {
+            var json = await db.StringGetAsync(key);
+            if (!json.HasValue) continue;
+
+            var shorts = JsonSerializer.Deserialize<Dictionary<string, StoxShortPosition>>(json.ToString()) ?? [];
+            if (!shorts.TryGetValue(oldSymbol, out var pos)) continue;
+
+            shorts.Remove(oldSymbol);
+            if (shorts.TryGetValue(newSymbol, out var existing))
+            {
+                // Weighted average entry price
+                var totalQty = existing.Quantity + pos.Quantity;
+                var avgEntry = (existing.Quantity * existing.EntryPrice + pos.Quantity * pos.EntryPrice) / totalQty;
+                shorts[newSymbol] = new StoxShortPosition { Quantity = totalQty, EntryPrice = avgEntry };
+            }
+            else
+            {
+                shorts[newSymbol] = pos;
+            }
+            await db.StringSetAsync(key, JsonSerializer.Serialize(shorts));
+            shortsUpdated++;
+        }
+
+        await botInstance.SendChatMessageAsync(
+            $"{user.FormatUsername()}, renamed stox symbol {oldSymbol} → {newSymbol}. Updated {portfoliosUpdated} long portfolio(s) and {shortsUpdated} short position(s).",
+            true, autoDeleteAfter: TimeSpan.FromSeconds(30));
+    }
+}
