@@ -649,8 +649,7 @@ public class BotServices
             motd += $" | {customText}";
 
         // Try to edit existing message, otherwise send a new one
-        var existingUuid = _stoxMotdTracker?.ChatMessageUuid
-                           ?? settings[BuiltIn.Keys.StoxMotdMessageUuid].Value;
+        var existingUuid = settings[BuiltIn.Keys.StoxMotdMessageUuid].Value;
 
         if (!string.IsNullOrEmpty(existingUuid))
         {
@@ -673,6 +672,7 @@ public class BotServices
         }
         else
         {
+            _logger.Info("No existing MOTD message UUID found, sending new MOTD message");
             var tracker = await _chatBot.SendChatMessageAsync(motd, bypassSeshDetect: true);
             if (await _chatBot.WaitForChatMessageAsync(tracker, TimeSpan.FromSeconds(15), _cancellationToken))
             {
