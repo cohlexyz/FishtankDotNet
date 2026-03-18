@@ -41,7 +41,7 @@ public class XeetEmbedCommand : ICommand
         MaxInvocations = 3,
         Window = TimeSpan.FromSeconds(30),
         // Really don't want to get rate-limited by FxTwitter hence global rate-limits
-        Flags = RateLimitFlags.Global
+        Flags = RateLimitFlags.Global | RateLimitFlags.NoResponse
     };
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
