@@ -68,7 +68,7 @@ public class SetMotdCommand : ICommand
             return;
         }
 
-        await botInstance.SendChatMessageAsync($"‎{motd}", true);
+        await botInstance.SendChatMessageAsync($"❗{motd}", true);
     }
 }
 
