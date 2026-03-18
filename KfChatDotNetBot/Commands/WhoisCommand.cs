@@ -2,12 +2,14 @@ using System.Text.RegularExpressions;
 using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
+using KfChatDotNetBot.Services;
 using KfChatDotNetWsClient.Models.Events;
 using Microsoft.EntityFrameworkCore;
 using Raffinert.FuzzySharp;
 
 namespace KfChatDotNetBot.Commands;
 
+[DontDeleteInvocationMessage]
 public class WhoisCommand : ICommand
 {
     public List<Regex> Patterns => [
