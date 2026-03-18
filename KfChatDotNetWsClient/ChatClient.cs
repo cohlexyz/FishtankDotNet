@@ -238,7 +238,7 @@ public class ChatClient
         }
         else
         {
-            await _wsClient.SendInstant($"/w @{whisperTo} {message}");
+            await _wsClient.SendInstant($"/w @{whisperTo}, {message}");
         }
     }
 

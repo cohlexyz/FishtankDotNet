@@ -9,7 +9,6 @@ using Raffinert.FuzzySharp;
 
 namespace KfChatDotNetBot.Commands;
 
-[DontDeleteInvocationMessage]
 public class WhoisCommand : ICommand
 {
     public List<Regex> Patterns => [
