@@ -19,6 +19,7 @@ using SixLabors.ImageSharp.Processing;
 namespace KfChatDotNetBot.Commands;
 
 [NoPrefixRequired]
+[DontDeleteInvocationMessage]
 public class XeetEmbedCommand : ICommand
 {
     private static string LoadingGif = "[img]https://i.ddos.lgbt/u/3sKyHs.webp[/img]";
