@@ -307,8 +307,8 @@ public class ChatBot
 
             if (message.Author.Username == settings[BuiltIn.Keys.KiwiFarmsUsername].Value && message.Message.StartsWith("MOTD: "))
             {
+                KfClient.EditMessageAsync(message.MessageUuid, message.Message.Substring(6)).Wait(_cancellationToken);
                 KfClient.SendMessageInstantAsync("/motd " + message.MessageUuid).Wait(_cancellationToken);
-                KfClient.DeleteMessageAsync(message.MessageUuid).Wait(_cancellationToken);
             }
 
             // Update last edit timestamp
