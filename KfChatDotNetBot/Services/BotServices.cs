@@ -712,6 +712,7 @@ public class BotServices
 
         if (!string.IsNullOrEmpty(existingUuid))
         {
+            _logger.Info("Existing MOTD message UUID found, editing it");
             await _chatBot.KfClient.EditMessageAsync(existingUuid, motd);
             // Ensure in-memory tracker is populated for future edits
             if (_stoxMotdTracker == null)
