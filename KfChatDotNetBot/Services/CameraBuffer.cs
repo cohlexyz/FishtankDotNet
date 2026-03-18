@@ -393,18 +393,23 @@ public class CameraBuffer : IAsyncDisposable
         _process?.Dispose();
         _process = null;
 
-        // Clear the buffer — old TS data has different internal timestamps from the
-        // new FFmpeg session and concatenating them causes audio/video desync.
-        lock (_bufferLock)
+        // On a real crash, clear the buffer — corrupt TS data with broken packets will
+        // cause audio/video desync when concatenated with fresh data.
+        // On a clean exit (exit 0) keep the buffer — the TS data ends properly and the
+        // new session's PAT/PMT tables act as a natural resync point for the demuxer.
+        if (!isCleanExit)
         {
-            _buffer.Clear();
-            _totalBytes = 0;
+            lock (_bufferLock)
+            {
+                _buffer.Clear();
+                _totalBytes = 0;
+            }
         }
 
         try
         {
             SpawnProcess();
-            Logger.Info($"[CameraBuffer:{CameraName}] Successfully restarted (buffer cleared)");
+            Logger.Info($"[CameraBuffer:{CameraName}] Successfully restarted{(isCleanExit ? "" : " (buffer cleared)")}");
         }
         catch (Exception ex)
         {
