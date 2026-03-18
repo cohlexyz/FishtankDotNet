@@ -339,9 +339,24 @@ public class CameraBuffer : IAsyncDisposable
 
         var exitCode = -1;
         try { exitCode = _process.ExitCode; } catch { /* process may be disposed */ }
-        Logger.Error($"[CameraBuffer:{CameraName}] FFmpeg died unexpectedly (exit code {exitCode})");
 
-        if (_restartAttempt >= MaxRestartAttempts)
+        // Exit code 0 means FFmpeg exited cleanly — for a live HLS stream this happens when
+        // the server closes the connection or the playlist signals EXT-X-ENDLIST. This is a
+        // normal stream interruption, not a crash: reconnect quickly without alarming chat
+        // or burning through retry attempts.
+        var isCleanExit = exitCode == 0;
+
+        if (isCleanExit)
+        {
+            Logger.Info($"[CameraBuffer:{CameraName}] FFmpeg exited cleanly (stream ended or server disconnected), reconnecting in 3s");
+            _restartAttempt = 0;
+        }
+        else
+        {
+            Logger.Error($"[CameraBuffer:{CameraName}] FFmpeg died unexpectedly (exit code {exitCode})");
+        }
+
+        if (!isCleanExit && _restartAttempt >= MaxRestartAttempts)
         {
             Logger.Error($"[CameraBuffer:{CameraName}] Max restart attempts ({MaxRestartAttempts}) reached, giving up");
             OnDied?.Invoke(this);
@@ -349,14 +364,22 @@ public class CameraBuffer : IAsyncDisposable
         }
 
         // Notify on the first crash (attempt 0) so the chat gets one message per incident,
-        // not one per backoff retry.
-        if (_restartAttempt == 0)
+        // not one per backoff retry. Clean exits are silent.
+        if (!isCleanExit && _restartAttempt == 0)
             OnCrashed?.Invoke(this, exitCode);
 
-        // Exponential backoff: 5, 10, 20, 40, 60 seconds (capped)
-        var delaySeconds = Math.Min(5 * (1 << _restartAttempt), 60);
-        Logger.Info($"[CameraBuffer:{CameraName}] Restarting in {delaySeconds}s (attempt {_restartAttempt + 1}/{MaxRestartAttempts})");
-        _restartAttempt++;
+        // Clean exits get a short fixed delay; real crashes use exponential backoff
+        int delaySeconds;
+        if (isCleanExit)
+        {
+            delaySeconds = 3;
+        }
+        else
+        {
+            delaySeconds = Math.Min(5 * (1 << _restartAttempt), 60);
+            Logger.Info($"[CameraBuffer:{CameraName}] Restarting in {delaySeconds}s (attempt {_restartAttempt + 1}/{MaxRestartAttempts})");
+            _restartAttempt++;
+        }
 
         await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
         if (_stopping) return;
