@@ -511,7 +511,7 @@ public class PredictionBetCommand : ICommand
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, you bet {await amount.FormatKasinoCurrencyAsync()} on option {optionIndex} ({option.Text}). " +
             $"Your new balance is {await newBalance.FormatKasinoCurrencyAsync()}",
-            true, autoDeleteAfter: TimeSpan.FromSeconds(15));
+            true, autoDeleteAfter: TimeSpan.FromSeconds(5));
     }
 }
 

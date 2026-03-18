@@ -48,6 +48,39 @@ public class SetRoleCommand : ICommand
     }
 }
 
+public class MotdTaskToggleCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex("^admin motd (start|stop)$")
+    ];
+
+    public string? HelpText => null;
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+
+    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        if (botInstance.BotServices.StoxMotdUpdater == null)
+        {
+            await botInstance.SendChatMessageAsync("StoxMotdUpdater is not initialized", true);
+            return;
+        }
+        var action = arguments[1].Value;
+        if (action == "start")
+        {
+            await SettingsProvider.SetValueAsync(BuiltIn.Keys.StoxMotdEnabled, "true");
+            await botInstance.SendChatMessageAsync("Started the MOTD updater task", true);
+        }
+        else if (action == "stop")
+        {
+            await SettingsProvider.SetValueAsync(BuiltIn.Keys.StoxMotdEnabled, "false");
+            await botInstance.SendChatMessageAsync("Stopped the MOTD updater task", true);
+        }
+    }
+}
+
+
 public class SetMotdCommand : ICommand
 {
     public List<Regex> Patterns => [
@@ -62,13 +95,8 @@ public class SetMotdCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var motd = arguments["motd"].Value;
-        if (motd == String.Empty)
-        {
-            await botInstance.SendChatMessageAsync("MOTD can't be empty", true);
-            return;
-        }
-
-        await botInstance.SendChatMessageAsync($"❗{motd}", true);
+        await SettingsProvider.SetValueAsync(BuiltIn.Keys.StoxMotdCustomText, motd);
+        await botInstance.BotServices.UpdateStoxMotdAsync();
     }
 }
 

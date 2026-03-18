@@ -565,6 +565,12 @@ public static class BuiltIn
         public static string OpenAiModerationEnabled = "OpenAI.ModerationEnabled";
         [BuiltInSetting("Whether the stox market is open for trading (buy/sell/short/cover)", SettingValueType.Boolean, "true", BooleanRegex, cacheDurationSeconds: 0)]
         public static string StoxMarketOpen = "Stox.MarketOpen";
+        [BuiltInSetting("Whether the stox MOTD updater is enabled", SettingValueType.Boolean, "true", BooleanRegex, cacheDurationSeconds: 0)]
+        public static string StoxMotdEnabled = "Stox.Motd.Enabled";
+        [BuiltInSetting("Custom text to append to the stox MOTD", SettingValueType.Text, "", cacheDurationSeconds: 0)]
+        public static string StoxMotdCustomText = "Stox.Motd.CustomText";
+        [BuiltInSetting("UUID of the current stox MOTD message for editing across restarts", SettingValueType.Text, cacheDurationSeconds: 0)]
+        public static string StoxMotdMessageUuid = "Stox.Motd.MessageUuid";
         [BuiltInSetting("Bossman's current VIP level on .us for reducing GraphQL hits", SettingValueType.Text, "PLATINUM_1")]
         public static string ShuffleDotUsBmjVipLevel = "ShuffleDotUs.BmjVipLevel";
         [BuiltInSetting("Bossman's super secret user ID on .us", SettingValueType.Text, "e2faee09-8ebb-4a22-8793-59aefc8191e5")]

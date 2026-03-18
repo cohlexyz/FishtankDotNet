@@ -21,7 +21,7 @@ public class StoxCommand : ICommand
     ];
 
     public string? HelpText => "Get stox data";
-    public UserRight RequiredRight => UserRight.Loser;
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
     // Increased timeout as it has to wait for Sneedchat to echo the message and that can be slow sometimes
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
@@ -221,7 +221,7 @@ public class StoxBuyCommand : ICommand
 
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, bought {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await cost.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. You now hold {portfolio[symbol]:0.####}x {symbol}.",
-            true, autoDeleteAfter: TimeSpan.FromSeconds(30));
+            true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
 
@@ -286,7 +286,7 @@ public class StoxSellCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you only hold {held:0.####}x {symbol} and can't sell {amount:0.####}x.",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, autoDeleteAfter: TimeSpan.FromSeconds(5));
             return;
         }
 
@@ -308,7 +308,7 @@ public class StoxSellCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, unknown symbol \"{symbol}\".",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, autoDeleteAfter: TimeSpan.FromSeconds(5));
             return;
         }
 
@@ -326,7 +326,7 @@ public class StoxSellCommand : ICommand
             : $". You no longer hold any {symbol}.";
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, sold {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await proceeds.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
-            true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            true, autoDeleteAfter: TimeSpan.FromSeconds(5));
     }
 }
 
@@ -358,7 +358,7 @@ public class StoxPortfolioCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, stox trading is currently unavailable (Redis not configured).",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                true, autoDeleteAfter: TimeSpan.FromSeconds(5));
             return;
         }
         using var redis = await ConnectionMultiplexer.ConnectAsync(connectionString.Value);
@@ -437,7 +437,7 @@ public class StoxPortfolioCommand : ICommand
 
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}'s stox portfolio:\n{string.Join("\n", outputLines)}",
-            true, autoDeleteAfter: TimeSpan.FromSeconds(30));
+            true, autoDeleteAfter: TimeSpan.FromSeconds(15));
     }
 }
 
@@ -555,7 +555,7 @@ public class StoxShortCommand : ICommand
         var pos = shorts[symbol];
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, opened short of {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}. Collateral locked: {await collateral.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. Total short: {pos.Quantity:0.####}x {symbol} (avg entry: ₣{pos.EntryPrice:0.##}[plain])[/plain].",
-            true, autoDeleteAfter: TimeSpan.FromSeconds(30));
+            true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
 

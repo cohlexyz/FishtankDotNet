@@ -48,6 +48,8 @@ public class BotServices
 
     private Task? _websocketWatchdog;
     private Task? _howlggGetUserTimer;
+    public Task? StoxMotdUpdater;
+    private SentMessageTrackerModel? _stoxMotdTracker;
 
     private string? _bmjTwitchUsername;
     private bool _twitchDisabled;
@@ -115,6 +117,7 @@ public class BotServices
         _logger.Info("Starting websocket watchdog and Howl.gg user stats timer");
         _websocketWatchdog = WebsocketWatchdog();
         _howlggGetUserTimer = HowlggGetUserTimer();
+        StoxMotdUpdater = StoxMotdUpdaterTask();
 
         _ = Task.Run(() => ClipService!.RestoreActiveBuffersAsync(), _cancellationToken);
     }
@@ -571,6 +574,115 @@ public class BotServices
             if (_howlgg == null || !_howlgg.IsConnected()) continue;
             var bmjUserId = await SettingsProvider.GetValueAsync(BuiltIn.Keys.HowlggBmjUserId);
             _howlgg.GetUserInfo(bmjUserId.Value!);
+        }
+    }
+
+    private async Task StoxMotdUpdaterTask()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
+        while (await timer.WaitForNextTickAsync(_cancellationToken))
+        {
+            if (_chatBot.InitialStartCooldown) continue;
+            try
+            {
+                await UpdateStoxMotdAsync();
+            }
+            catch (Exception e)
+            {
+                _logger.Error("Stox MOTD updater failed, exception follows");
+                _logger.Error(e);
+            }
+        }
+    }
+
+    public async Task UpdateStoxMotdAsync()
+    {
+        var settings = await SettingsProvider.GetMultipleValuesAsync([
+            BuiltIn.Keys.StoxMotdEnabled,
+            BuiltIn.Keys.StoxMotdCustomText,
+            BuiltIn.Keys.StoxMotdMessageUuid
+        ]);
+
+        if (!settings[BuiltIn.Keys.StoxMotdEnabled].ToBoolean())
+            return;
+
+        // Fetch stock data
+        using var httpClient = new HttpClient();
+        var response = await httpClient.GetAsync("https://api.fishtank.live/v1/stocks");
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.Error($"Failed to fetch stox prices for MOTD: {response.StatusCode}");
+            return;
+        }
+
+        var json = await response.Content.ReadAsStringAsync();
+        var stoxData = JsonSerializer.Deserialize<StoxData>(json);
+        if (stoxData == null || stoxData.Stocks.Count == 0)
+        {
+            _logger.Error("No stox data available for MOTD");
+            return;
+        }
+
+        // Sort by price descending, pick top 2 and bottom 2
+        var sorted = stoxData.Stocks.OrderByDescending(s => s.CurrentPrice).ToList();
+        var top2 = sorted.Take(2).ToList();
+        var bottom2 = sorted.TakeLast(2).ToList();
+
+        // Build stock portion
+        var topStr = string.Join(" ", top2.Select(s => $"{s.Symbol} ₣{s.CurrentPrice}"));
+        var botStr = string.Join(" ", bottom2.Select(s => $"{s.Symbol} ₣{s.CurrentPrice}"));
+
+        // Calculate fishtank day and FTT time
+        var fishtankStart = new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc);
+        var nowUtc = DateTime.UtcNow;
+        var day = nowUtc > fishtankStart ? (int)Math.Ceiling((nowUtc - fishtankStart).TotalDays) : 0;
+
+        var estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+        var nowEst = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, estZone);
+        var timeStr = nowEst.ToString("h:mmtt").ToLower();
+
+        // Build MOTD
+        var motd = $"❗▲{topStr} ▼{botStr} | Day {day} {timeStr}";
+
+        var customText = settings[BuiltIn.Keys.StoxMotdCustomText].Value;
+        if (!string.IsNullOrWhiteSpace(customText))
+            motd += $" | {customText}";
+
+        // Try to edit existing message, otherwise send a new one
+        var existingUuid = _stoxMotdTracker?.ChatMessageUuid
+                           ?? settings[BuiltIn.Keys.StoxMotdMessageUuid].Value;
+
+        if (!string.IsNullOrEmpty(existingUuid))
+        {
+            await _chatBot.KfClient.EditMessageAsync(existingUuid, motd);
+            // Ensure in-memory tracker is populated for future edits
+            if (_stoxMotdTracker == null)
+            {
+                _stoxMotdTracker = new SentMessageTrackerModel
+                {
+                    Reference = "stox-motd",
+                    Message = motd,
+                    Status = SentMessageTrackerStatus.ResponseReceived,
+                    ChatMessageUuid = existingUuid
+                };
+            }
+            else
+            {
+                _stoxMotdTracker.Message = motd;
+            }
+        }
+        else
+        {
+            var tracker = await _chatBot.SendChatMessageAsync(motd, bypassSeshDetect: true);
+            if (await _chatBot.WaitForChatMessageAsync(tracker, TimeSpan.FromSeconds(15), _cancellationToken))
+            {
+                _stoxMotdTracker = tracker;
+                await SettingsProvider.SetValueAsync(BuiltIn.Keys.StoxMotdMessageUuid, tracker.ChatMessageUuid!);
+            }
+            else
+            {
+                _logger.Error("Failed to get UUID for stox MOTD message");
+            }
         }
     }
 
