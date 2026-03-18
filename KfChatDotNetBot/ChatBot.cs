@@ -438,7 +438,7 @@ public class ChatBot
     /// <param name="lengthLimit">Length limit to enforce in bytes</param>
     /// <param name="autoDeleteAfter">Length of time until the message is auto deleted, null to disable. Starts counting from when the message is echoed by Sneedchat</param>
     /// <returns>An object you can use to check the status of the message and get its ID for editing/deleting later</returns>
-    public async Task<SentMessageTrackerModel> SendChatMessageAsync(string message, bool bypassSeshDetect = false, LengthLimitBehavior lengthLimitBehavior = LengthLimitBehavior.TruncateNicely, int lengthLimit = 2048, TimeSpan? autoDeleteAfter = null)
+    public async Task<SentMessageTrackerModel> SendChatMessageAsync(string message, bool bypassSeshDetect = false, LengthLimitBehavior lengthLimitBehavior = LengthLimitBehavior.TruncateNicely, int lengthLimit = 2048, TimeSpan? autoDeleteAfter = null, string? whisperTo = null)
     {
         var settings = await SettingsProvider
             .GetMultipleValuesAsync([
@@ -501,8 +501,8 @@ public class ChatBot
         messageTracker.SentAt = DateTimeOffset.UtcNow;
         _logger.Debug($"Message is {messageTracker.Message.Utf8LengthBytes()} bytes");
         SentMessages.Add(messageTracker);
-        await KfClient.SendMessageInstantAsync(messageTracker.Message);
-        if (autoDeleteAfter != null)
+        await KfClient.SendMessageInstantAsync(messageTracker.Message, whisperTo);
+        if (autoDeleteAfter != null && whisperTo == null)
         {
             ScheduleMessageAutoDelete(messageTracker, autoDeleteAfter.Value);
         }

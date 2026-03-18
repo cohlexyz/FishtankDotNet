@@ -56,7 +56,7 @@ public class BlackjackCommand : ICommand
             var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, blackjack is currently disabled.",
-                true, autoDeleteAfter: gameDisabledCleanupDelay);
+                true, autoDeleteAfter: gameDisabledCleanupDelay, whisperTo: user.KfUsername);
             return;
         }
 
@@ -102,7 +102,7 @@ public class BlackjackCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you have to wager more than {await wager.FormatKasinoCurrencyAsync()}",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -111,7 +111,7 @@ public class BlackjackCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -137,7 +137,7 @@ public class BlackjackCommand : ICommand
                 logger.Error(e);
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, somehow your previous blackjack game state got messed up. Please try again",
-                    true, autoDeleteAfter: cleanupDelay);
+                    true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
                 existingGame.IsComplete = true;
                 await _dbContext.SaveChangesAsync(ctx);
                 throw;
@@ -152,7 +152,7 @@ public class BlackjackCommand : ICommand
 
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you already have an active blackjack game. Use !bj hit or !bj stand to continue.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             return;
         }
 
@@ -200,7 +200,7 @@ public class BlackjackCommand : ICommand
 
         await botInstance.SendChatMessageAsync(
             await BlackjackDisplay.GameStart(user, wager, playerHand, playerValue, dealerHand, canSplit, colors.Red),
-            true, autoDeleteAfter: cleanupDelay);
+            true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
     }
 
 
@@ -231,7 +231,7 @@ public class BlackjackCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you don't have an active blackjack game. Start one with !bj <amount>",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -241,7 +241,7 @@ public class BlackjackCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, your game data is corrupted. Please start a new game.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             activeWager.IsComplete = true;
             await _dbContext.SaveChangesAsync(ctx);
@@ -281,7 +281,7 @@ public class BlackjackCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, game error: no cards left in deck. Game forfeited.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             await ForfeitGame(botInstance, user, gambler, wager, cleanupDelay, ctx);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
@@ -304,7 +304,7 @@ public class BlackjackCommand : ICommand
             await _dbContext.SaveChangesAsync(ctx);
             await botInstance.SendChatMessageAsync(
                 BlackjackDisplay.HitInProgress(user, card, currentHand, playerValue, gameState.DealerHand, handLabel, colors.Red),
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             return;
         }
 
@@ -340,7 +340,7 @@ public class BlackjackCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you can only double down on your first action.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             return;
         }
 
@@ -348,7 +348,7 @@ public class BlackjackCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you cannot double down after splitting.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             return;
         }
 
@@ -356,7 +356,7 @@ public class BlackjackCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you don't have enough balance to double down.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             return;
         }
 
@@ -373,7 +373,7 @@ public class BlackjackCommand : ICommand
         // through silently to ResolveGame — just two total messages: this + the result.
         await botInstance.SendChatMessageAsync(
             await BlackjackDisplay.DoubledDown(user, wager.WagerAmount),
-            true, autoDeleteAfter: cleanupDelay);
+            true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
 
         await HandleHit(botInstance, user, gambler, wager, gameState, colors, cleanupDelay, ctx);
     }
@@ -389,7 +389,7 @@ public class BlackjackCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you can only split with two cards of the same rank.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -398,7 +398,7 @@ public class BlackjackCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you can only split once per game.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -407,7 +407,7 @@ public class BlackjackCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you don't have enough balance to split.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -416,7 +416,7 @@ public class BlackjackCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, not enough cards in deck to split.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -445,7 +445,7 @@ public class BlackjackCommand : ICommand
 
         await botInstance.SendChatMessageAsync(
             await BlackjackDisplay.SplitDeal(user, wager.WagerAmount, hand1, value1, hand2, value2, colors.Red),
-            true, autoDeleteAfter: cleanupDelay);
+            true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
     }
 
 
@@ -559,7 +559,7 @@ public class BlackjackCommand : ICommand
             await BlackjackDisplay.FinalResult(
                 user, results, gameState.DealerHand, dealerValue,
                 totalEffect, newBalance, isSplitGame, colors.Green, colors.Red),
-            true, autoDeleteAfter: cleanupDelay);
+            true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
     }
 
 
@@ -571,6 +571,6 @@ public class BlackjackCommand : ICommand
 
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, your blackjack game timed out and you forfeited {await wager.WagerAmount.FormatKasinoCurrencyAsync()}",
-            true, autoDeleteAfter: cleanupDelay);
+            true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfUsername);
     }
 }

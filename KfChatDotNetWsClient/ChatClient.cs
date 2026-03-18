@@ -228,11 +228,18 @@ public class ChatClient
         _wsClient.Send(message);
     }
 
-    public async Task SendMessageInstantAsync(string message)
+    public async Task SendMessageInstantAsync(string message, string? whisperTo = null)
     {
         _logger.Debug($"Sending '{message}', bypassing the queue");
         if (_wsClient == null) throw new WebSocketNotInitializedException();
-        await _wsClient.SendInstant(message);
+        if (string.IsNullOrEmpty(whisperTo))
+        {
+            await _wsClient.SendInstant(message);
+        }
+        else
+        {
+            await _wsClient.SendInstant($"/w @{whisperTo} {message}");
+        }
     }
 
     public void DeleteMessage(int messageId)
