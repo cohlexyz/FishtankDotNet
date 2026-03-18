@@ -18,7 +18,11 @@ public class PrayerTimerCommand : ICommand
     public string? HelpText => "Get time until next Islam prayer in Georgia (US) time";
     public UserRight RequiredRight => UserRight.Guest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
-    public RateLimitOptionsModel? RateLimitOptions = null;
+    public RateLimitOptionsModel? RateLimitOptions => new()
+    {
+        MaxInvocations = 1,
+        Window = TimeSpan.FromSeconds(30)
+    };
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private const string CacheKey = "PrayerTimings:Atlanta";
