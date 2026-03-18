@@ -124,7 +124,7 @@ public class NewKickChannelCommand : ICommand
             return;
         }
 
-        var forumUser = await db.Users.FirstOrDefaultAsync(u => u.KfId == Convert.ToInt32(arguments[].Value), cancellationToken: ctx);
+        var forumUser = await db.Users.FirstOrDefaultAsync(u => u.KfId == Convert.ToInt32(arguments["forum_id"].Value), cancellationToken: ctx);
 
         var meta = JsonConvert.SerializeObject(new KickStreamMetaModel
         {
