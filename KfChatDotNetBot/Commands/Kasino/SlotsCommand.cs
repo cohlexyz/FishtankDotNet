@@ -44,146 +44,17 @@ public class SlotsCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, MessageModel messagen, UserDbModel user,
         GroupCollection arguments, CancellationToken ctx)
     {
-        
+
         var settings = await SettingsProvider.GetMultipleValuesAsync([
             BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay, BuiltIn.Keys.KasinoSlotsEnabled
         ]);
-        
+
         // Check if slots is enabled
-        var slotsEnabled = (settings[BuiltIn.Keys.KasinoSlotsEnabled]).ToBoolean();
-        if (!slotsEnabled)
-        {
-            var gameDisabledCleanupDelay= TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
-            await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, slots is currently disabled.", 
-                true, autoDeleteAfter: gameDisabledCleanupDelay);
-            return;
-        }
-        
-        if (!arguments.TryGetValue("amount", out var amount)) //if user just enters !keno
-        {
-            await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you need to bet something to play. !slots [bet]",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(30));
-            RateLimitService.RemoveMostRecentEntry(user, this);
-            return;
-        }
-
-        int spins = 0;
-        if (!arguments.TryGetValue("spins", out var spinsArg)) spins = 1;
-        else spins = Convert.ToInt32(spinsArg.Value);
-
-        if (spins < 1 || spins > 10)
-        {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()} you can only do between 1 and 10 spins.", true, autoDeleteAfter: TimeSpan.FromSeconds(30));
-            RateLimitService.RemoveMostRecentEntry(user, this);
-            return;
-        }
-        
-
-        var wager = Convert.ToDecimal(amount.Value);
-        if (wager < (decimal)0.01){
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()} you must bet a minimum of $0.01 KKK", true, autoDeleteAfter: TimeSpan.FromSeconds(30));
-            RateLimitService.RemoveMostRecentEntry(user, this);
-            return;
-        }
-        var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
-        if (gambler == null)
-            throw new InvalidOperationException($"Caught a null when retrieving gambler for {user.KfUsername}");
-        if (gambler.Balance < wager * spins)
-        {
-            await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(30));
-            RateLimitService.RemoveMostRecentEntry(user, this);
-            return;
-        }
-        //KasinoShop stuff -------------------------------------------------------------------------
-        if (botInstance.BotServices.KasinoShop != null)
-        {
-            await GlobalShopFunctions.CheckProfile(botInstance, user, gambler);
-            HOUSE_EDGE += botInstance.BotServices.KasinoShop.Gambler_Profiles[user.KfId].HouseEdgeModifier;
-        }
-        //------------------------------------------------------------------------------------------
-        char rigged = '0';
-        decimal rigCheck = (decimal)Money.GetRandomDouble(gambler);
-        if (HOUSE_EDGE > 1)
-        {
-            if (HOUSE_EDGE - rigCheck > 1) rigged = 'W';
-        }
-        else
-        {
-            if (rigCheck - HOUSE_EDGE > 0) rigged = 'L';
-        }
-        
-        
-        decimal winnings;
-        double delayHSec = 0;
-        using (var board = new KiwiSlotBoard(wager))
-        {
-            board.LoadAssets();
-            board.ExecuteGameLoop(spins, 0, rigged);
-            using (var finalImageStream = board.ExportAndCleanup())
-            {
-                if (finalImageStream == null)
-                {
-                    throw new InvalidOperationException("board.ExportAndCleanup returned null");
-                }
-                var imageUrl = await Zipline.Upload(finalImageStream, new MediaTypeHeaderValue("image/webp"), "1h", ctx);
-                await botInstance.SendChatMessageAsync($"[img]{imageUrl}[/img]", true,
-                    autoDeleteAfter: TimeSpan.FromSeconds(60)); // delay till slots graphic deletion.
-            }
-
-            winnings = (decimal)board.RunningTotalDisplay;
-            // We skip index 0 if it's the blank placeholder frame
-            for (int i = 1; i < board.AnimatedImage.Frames.Count; i++)
-            {
-                delayHSec += board.AnimatedImage.Frames[i].Metadata.GetWebpMetadata().FrameDelay;
-            }
-        }
-        await Task.Delay(TimeSpan.FromSeconds(delayHSec));//adds delay to stop message showing gambling win/loss too early based on total frame count of the animated image 
-        var colors =
-            await SettingsProvider.GetMultipleValuesAsync([
-                BuiltIn.Keys.KiwiFarmsGreenColor, BuiltIn.Keys.KiwiFarmsRedColor
-            ]);
-        decimal newBalance;
-        string spinText = spins == 1 ? "" : $" from {spins} spins worth {await wager.FormatKasinoCurrencyAsync()}";
-        
-        if (winnings == 0) //dud spin(s)
-        {
-            newBalance = await Money.NewWagerAsync(gambler.Id, wager*spins, -wager*spins, WagerGame.Slots, ct: ctx);
-            var totalWager = wager * spins;
-            await Task.Delay(TimeSpan.FromSeconds(spins));
-            await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()} you [color={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]lost[/color] {await totalWager.FormatKasinoCurrencyAsync()} with {spins} spins. Current balance: {await newBalance.FormatKasinoCurrencyAsync()}",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(30));
-            //Kasino Shop stuff----------------------------------------------------------------------
-            if (botInstance.BotServices.KasinoShop != null)
-            {
-                await GlobalShopFunctions.CheckProfile(botInstance, user, gambler);
-                await botInstance.BotServices.KasinoShop.ProcessWagerTracking(gambler, WagerGame.Slots, wager*spins, -wager*spins, newBalance);
-            }
-            //---------------------------------------------------------------------------------------
-            return;
-        }
-
-        decimal rawWinnings = winnings;
-        
-        winnings -= wager*spins;
-        bool netwin = winnings > 0;
-        string winstr = netwin ? "" : "-";
-        newBalance = await Money.NewWagerAsync(gambler.Id, wager*spins, winnings, WagerGame.Slots, ct: ctx);
-        winnings = Math.Abs(winnings);
-        //Kasino Shop stuff----------------------------------------------------------------------
-        if (botInstance.BotServices.KasinoShop != null)
-        {
-            await GlobalShopFunctions.CheckProfile(botInstance, user, gambler);
-            await botInstance.BotServices.KasinoShop.ProcessWagerTracking(gambler, WagerGame.Slots, wager*spins, winnings, newBalance);
-        }
-        //---------------------------------------------------------------------------------------
-        await Task.Delay(TimeSpan.FromSeconds(spins * 2));
+        var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, you [color={colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value}]won[/color] {await rawWinnings.FormatKasinoCurrencyAsync()} from {spins} spins worth {await wager.FormatKasinoCurrencyAsync()}! Net: {winstr}{await winnings.FormatKasinoCurrencyAsync()} Current balance: {await newBalance.FormatKasinoCurrencyAsync()}", true, autoDeleteAfter: TimeSpan.FromSeconds(30));
+            $"{user.FormatUsername()}, slots is currently disabled.",
+            true, autoDeleteAfter: gameDisabledCleanupDelay);
+        return;
     }
     public class WinDetail
     {
@@ -254,7 +125,8 @@ public class SlotsCommand : ICommand
                 throw new InvalidOperationException("_font or _headerImg was null");
             }
             using var frame = new Image<Rgba32>(600, 800);
-            frame.Mutate(ctx => {
+            frame.Mutate(ctx =>
+            {
                 ctx.Fill(Color.Black);
 
                 // --- SIDEBAR SECTION ---
@@ -262,7 +134,8 @@ public class SlotsCommand : ICommand
                 int[] tiers = [3, 4, 5];
                 int[] yCoords = [150, 300, 450];
 
-                for (var i = 0; i < 3; i++) {
+                for (var i = 0; i < 3; i++)
+                {
                     var t = tiers[i];
                     var y = yCoords[i];
                     if (_showGoldCircle && _activeFeatureTier == t)
@@ -281,21 +154,26 @@ public class SlotsCommand : ICommand
                 ctx.DrawImage(_headerImg, new Point(mainX, 0), 1f);
 
                 var boardRect = new Rectangle(mainX, 200, 500, 500);
-                ctx.Clip(new RectangularPolygon(boardRect), clipCtx => {
+                ctx.Clip(new RectangularPolygon(boardRect), clipCtx =>
+                {
                     var occupied = new bool[5, 5];
                     float animationY = (500 - dropOffset);
 
-                    for (var j = 0; j < 5; j++) {
-                        for (var i = 0; i < 5; i++) {
+                    for (var j = 0; j < 5; j++)
+                    {
+                        for (var i = 0; i < 5; i++)
+                        {
                             if (occupied[i, j]) continue;
                             var sym = _board[i, j];
                             var x = mainX + (j * 100);
                             var y = (200 + (i * 100)) - (int)animationY;
-                                
-                            if (sym == EXPANDER || _multiTable.ContainsKey(sym)) {
+
+                            if (sym == EXPANDER || _multiTable.ContainsKey(sym))
+                            {
                                 var h = 0;
                                 for (var k = i; k < 5; k++) if (_board[k, j] == sym) h++; else break;
-                                if (_expanderImgs.TryGetValue(h, out var tex)) {
+                                if (_expanderImgs.TryGetValue(h, out var tex))
+                                {
                                     clipCtx.DrawImage(tex, new Point(x, y), 1f);
                                     if (_multiTable.TryGetValue(sym, out var mVal))
                                         clipCtx.DrawText($"x{mVal}", _font, Color.Yellow, new PointF(x + 50, y + (h * 50)));
@@ -306,8 +184,10 @@ public class SlotsCommand : ICommand
                         }
                     }
 
-                    if (activeWins != null) {
-                        foreach (var win in activeWins) {
+                    if (activeWins != null)
+                    {
+                        foreach (var win in activeWins)
+                        {
                             var points = win.Path.Select(p => new PointF(mainX + (p.col * 100 + 50), 200 + (p.row * 100) + 50 - animationY)).ToArray();
                             clipCtx.Draw(new SolidPen(Color.White, 8f), new SixLabors.ImageSharp.Drawing.Path(new LinearLineSegment(points)));
 
@@ -327,7 +207,8 @@ public class SlotsCommand : ICommand
 
                 var largeFont = SystemFonts.CreateFont("Arial", 35, FontStyle.Bold);
 
-                void DrawAutoScaledText(string text, Font font, Color color, RectangleF targetArea) {
+                void DrawAutoScaledText(string text, Font font, Color color, RectangleF targetArea)
+                {
                     var textOptions = new TextOptions(font);
                     var size = TextMeasurer.MeasureSize(text, textOptions);
                     var scale = 1.0f;
@@ -339,13 +220,14 @@ public class SlotsCommand : ICommand
                     var yPos = targetArea.Y + (targetArea.Height - finalSize.Height) / 2;
                     var xPos = targetArea.X + (targetArea.Width - finalSize.Width) / 2;
                     ctx.DrawText(text, finalFont, color, new PointF(xPos, yPos));
-                        
+
                 }
 
                 DrawAutoScaledText($"BET: ${_userBet.FormatKasinoCurrencyAsync(wrapInPlainBbCode: false).Result}", largeFont, Color.White, new RectangleF(20, 700, 180, 100));
                 DrawAutoScaledText($"WIN: ${RunningTotalDisplay.FormatKasinoCurrencyAsync(wrapInPlainBbCode: false).Result}", largeFont, Color.Gold, new RectangleF(380, 700, 200, 100));
 
-                if (_currentFeatureSpin > 0 && _currentlyInFeature) {
+                if (_currentFeatureSpin > 0 && _currentlyInFeature)
+                {
                     var total = _activeFeatureTier switch { 3 => 3, 4 => 5, 5 => 10, _ => 0 };
                     DrawAutoScaledText($"SPIN {_currentFeatureSpin}/{total}", largeFont, Color.SkyBlue, new RectangleF(210, 700, 160, 100));
                 }
@@ -355,17 +237,17 @@ public class SlotsCommand : ICommand
             frame.Frames.RootFrame.Metadata.GetWebpMetadata().FrameDelay = 2;
             AnimatedImage.Frames.AddFrame(frame.Frames.RootFrame);
         }
-        
+
         private void AddPause(int hundredthsOfASecond)
         {
             // Render the current state as a static frame
-            RenderFrame(); 
-    
+            RenderFrame();
+
             // Modify the delay of the very last frame we just added
             var lastFrame = AnimatedImage.Frames[^1];
             lastFrame.Metadata.GetWebpMetadata().FrameDelay = (ushort)hundredthsOfASecond;
         }
-        
+
         public MemoryStream? ExportAndCleanup()
         {
             if (AnimatedImage.Frames.Count <= 1) return null;
@@ -373,7 +255,7 @@ public class SlotsCommand : ICommand
             var ms = new MemoryStream();
             // Remove the blank placeholder frame
             AnimatedImage.Frames.RemoveFrame(0);
-            
+
             AnimatedImage.Save(ms, new WebpEncoder { Quality = 80 });
             ms.Position = 0;
 
@@ -392,23 +274,26 @@ public class SlotsCommand : ICommand
         {
             for (int sp = 0; sp < spins; sp++)
             {
-                
+
                 GeneratePreBoard(featureSpins, rigged);
                 var fCount = 0;
                 for (var i = 0; i < 5; i++) for (var j = 0; j < 5; j++) if (_preboard[i, j] == FEATURE) fCount++;
 
-                if (featureSpins == 0) {
+                if (featureSpins == 0)
+                {
                     _activeFeatureTier = fCount >= 5 ? 5 : (fCount >= 3 ? fCount : 0);
                     _showGoldCircle = _activeFeatureTier >= 3; _currentFeatureSpin = 0;
                     _currentlyInFeature = false;
-                } else {
+                }
+                else
+                {
                     _showGoldCircle = true; _currentFeatureSpin = featureSpins; _currentlyInFeature = true;
                 }
 
                 ProcessReelsAndWins();
                 var total = _activeFeatureTier switch { 3 => 3, 4 => 5, 5 => 10, _ => 0 };
                 if (total > 0 || featureSpins != 0 || spins > 1) AddPause(50);
-                if (featureSpins == 0) for (var s = 1; s <= total; s++) ExecuteGameLoop(1,s, rigged);
+                if (featureSpins == 0) for (var s = 1; s <= total; s++) ExecuteGameLoop(1, s, rigged);
             }
         }
 
@@ -417,9 +302,12 @@ public class SlotsCommand : ICommand
             _board = (char[,])_preboard.Clone();
             for (var o = 0; o <= 500; o += 50) RenderFrame(o);
             List<char> multis = new(_multiTable.Keys);
-            for (var j = 0; j < 5; j++) {
-                for (var i = 0; i < 5; i++) {
-                    if (_preboard[i, j] == EXPANDER) {
+            for (var j = 0; j < 5; j++)
+            {
+                for (var i = 0; i < 5; i++)
+                {
+                    if (_preboard[i, j] == EXPANDER)
+                    {
                         var hitWild = false;
                         for (var c = i; c < 5; c++) if (_preboard[c, j] == WILD) hitWild = true;
                         var mSym = hitWild ? multis[_rand.Next(multis.Count)] : EXPANDER;
@@ -430,7 +318,8 @@ public class SlotsCommand : ICommand
             }
             var winners = GetWinningLinesCoordsWithPayouts();
             var target = RunningTotalDisplay + winners.Sum(w => w.Amount);
-            foreach (var win in winners) {
+            foreach (var win in winners)
+            {
                 var inc = win.Amount / (decimal)10.0;
                 for (var f = 0; f < 10; f++) { RunningTotalDisplay += inc; RenderFrame(500, [win]); }
             }
@@ -440,23 +329,32 @@ public class SlotsCommand : ICommand
         private List<WinDetail> GetWinningLinesCoordsWithPayouts()
         {
             List<WinDetail> res = [];
-            foreach (var line in _payoutLines) {
+            foreach (var line in _payoutLines)
+            {
                 var ch = '0'; var count = 0; double m = 0; var spec = true;
-                foreach (var (r, c) in line) {
+                foreach (var (r, c) in line)
+                {
                     var cell = _board[r, c];
                     if (cell != WILD && cell != FEATURE && cell != EXPANDER && !ExpanderWild.Contains(cell)) { ch = cell; spec = false; break; }
                 }
-                if (!spec) {
-                    foreach (var (r, c) in line) {
+                if (!spec)
+                {
+                    foreach (var (r, c) in line)
+                    {
                         var cell = _board[r, c];
-                        if (cell == ch || cell == WILD || cell == FEATURE || ExpanderWild.Contains(cell) || cell == EXPANDER) {
+                        if (cell == ch || cell == WILD || cell == FEATURE || ExpanderWild.Contains(cell) || cell == EXPANDER)
+                        {
                             count++; if (ExpanderWild.Contains(cell)) m += _multiTable[cell];
-                        } else if (count < 3) { count = 0; break; } else break;
+                        }
+                        else if (count < 3) { count = 0; break; } else break;
                     }
-                } else { ch = _board[line[0].row, line[0].col]; count = 5; foreach (var (r, c) in line) if (ExpanderWild.Contains(_board[r, c])) m += _multiTable[_board[r, c]]; }
-                if (count >= 3) {
+                }
+                else { ch = _board[line[0].row, line[0].col]; count = 5; foreach (var (r, c) in line) if (ExpanderWild.Contains(_board[r, c])) m += _multiTable[_board[r, c]]; }
+                if (count >= 3)
+                {
                     if (m == 0) m = 1;
-                    if (_payoutTable.TryGetValue($"{ch}{count}", out var baseW)) {
+                    if (_payoutTable.TryGetValue($"{ch}{count}", out var baseW))
+                    {
                         var path = new (int, int)[count]; Array.Copy(line, path, count);
                         res.Add(new WinDetail { Path = path, Amount = _userBet * (decimal)baseW * (decimal)m });
                     }
@@ -468,7 +366,8 @@ public class SlotsCommand : ICommand
         private void GeneratePreBoard(int f = 0, char rigged = '0')
         {
             var fc = 0; HashSet<int> ex = [];
-            for (var i = 0; i < 5; i++) {
+            for (var i = 0; i < 5; i++)
+            {
                 for (var j = 0; j < 5; j++)
                 {
                     var r = _rand.NextDouble() * 100.6;
@@ -494,8 +393,8 @@ public class SlotsCommand : ICommand
                         }
                     }
 
-                    
-                    
+
+
                     /*if (r < 22) _preboard[i, j] = 'A';
                     else if (r < 44) _preboard[i, j] = 'B';
                     else if (r < 52) _preboard[i, j] = 'C';
@@ -513,10 +412,11 @@ public class SlotsCommand : ICommand
                     _preboard[i, j] = PickSlotSymbol(r, i, j);
                     switch (_preboard[i, j])
                     {
-                        case EXPANDER: ex.Add(j);
+                        case EXPANDER:
+                            ex.Add(j);
                             break;
                     }
-                    
+
                     /*if (rigged == 'L') //guarantee random losing board
                     {
                         //if i==0 and j==0 pick a random one, aka do nothing
@@ -615,9 +515,15 @@ public class SlotsCommand : ICommand
                 else if (r < 97) return 'J';
                 else if (r < 98.5) return WILD;
                 else if (r < (j <= 2 ? 99 : 99.5)) { if (!ex.Contains(j)) { return EXPANDER; } else return WILD; }
-                else { if (fc < 5) { fc++;
-                    return FEATURE;
-                } else return WILD; }
+                else
+                {
+                    if (fc < 5)
+                    {
+                        fc++;
+                        return FEATURE;
+                    }
+                    else return WILD;
+                }
             }
             void RigSlotBoard()
             {
@@ -691,7 +597,7 @@ public class SlotsCommand : ICommand
                                 if (loopCounter > 10000) throw new Exception($"Failed to rig slot board after 10000 attempts. Got stuck on row {row} col {col}.");
                             }
                         }
-                        if (row > 0  && col == 2)
+                        if (row > 0 && col == 2)
                         {
                             //check both diagonals above for 1 space and 2 spaces behind
                             while (_preboard[row - 1, col - 1] == _preboard[row, col] ||
@@ -712,8 +618,8 @@ public class SlotsCommand : ICommand
             }
         }
 
-        
-        
+
+
         public void Dispose()
         {
             _headerImg?.Dispose();

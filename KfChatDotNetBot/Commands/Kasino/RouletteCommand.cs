@@ -25,7 +25,7 @@ namespace KfChatDotNetBot.Commands.Kasino;
 public class RouletteCommand : ICommand
 {
     private static int _nextRoundId = 1;
-    
+
     public List<Regex> Patterns => [
         new Regex(@"^roulette (?<amount>\d+(?:\.\d+)?) (?<bet>.+)$", RegexOptions.IgnoreCase),
         new Regex(@"^rl (?<amount>\d+(?:\.\d+)?) (?<bet>.+)$", RegexOptions.IgnoreCase),
@@ -48,10 +48,10 @@ public class RouletteCommand : ICommand
     private ApplicationDbContext _dbContext = new();
 
     // European Roulette wheel configuration
-    private static readonly HashSet<int> BlackNumbers = new() 
+    private static readonly HashSet<int> BlackNumbers = new()
         { 1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36 };
-    
-    private static readonly HashSet<int> RedNumbers = new() 
+
+    private static readonly HashSet<int> RedNumbers = new()
         { 2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35 };
 
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
@@ -63,7 +63,7 @@ public class RouletteCommand : ICommand
             BuiltIn.Keys.KasinoRouletteCountdownDuration,
             BuiltIn.Keys.BotRedisConnectionString
         ]);
-        
+
         // Check if roulette is enabled
         var rouletteEnabled = settings[BuiltIn.Keys.KasinoRouletteEnabled].ToBoolean();
         if (!rouletteEnabled)
@@ -71,11 +71,11 @@ public class RouletteCommand : ICommand
             var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(
                 settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, roulette is currently disabled.", 
-                true, autoDeleteAfter: gameDisabledCleanupDelay);
+                $"{user.FormatUsername()}, roulette is currently disabled.",
+                true, whisperTo: user.KfUsername);
             return;
         }
-        
+
         if (string.IsNullOrEmpty(settings[BuiltIn.Keys.BotRedisConnectionString].Value))
         {
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, roulette is not available at this time", true,
@@ -85,10 +85,10 @@ public class RouletteCommand : ICommand
 
         var redis = await ConnectionMultiplexer.ConnectAsync(settings[BuiltIn.Keys.BotRedisConnectionString].Value!);
         _redisDb = redis.GetDatabase();
-        
+
         var countdownDuration = TimeSpan.FromSeconds(
             settings[BuiltIn.Keys.KasinoRouletteCountdownDuration].ToType<int>());
-        
+
         // Handle actions (refund/cancel)
         if (arguments.TryGetValue("action", out var actionGroup))
         {
@@ -133,12 +133,12 @@ public class RouletteCommand : ICommand
         var logger = LogManager.GetCurrentClassLogger();
         var wager = Convert.ToDecimal(amountStr);
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
-        
+
         if (gambler == null)
         {
             throw new InvalidOperationException($"Caught a null when retrieving gambler for {user.KfUsername}");
         }
-        
+
         // Check if user has enough balance
         if (gambler.Balance < wager)
         {
@@ -148,7 +148,7 @@ public class RouletteCommand : ICommand
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
-        
+
         if (wager == 0)
         {
             await botInstance.SendChatMessageAsync(
@@ -172,7 +172,7 @@ public class RouletteCommand : ICommand
         int roundId;
         bool isFirstBet = false;
         var activeRound = await GetRound();
-        
+
         // Check if there's an active round
         if (activeRound == null)
         {
@@ -209,8 +209,8 @@ public class RouletteCommand : ICommand
 
         var newWager = await _dbContext.Wagers
             .OrderBy(x => x.Id)
-            .LastOrDefaultAsync(w => w.Gambler.Id == gambler.Id && 
-                                      w.Game == WagerGame.Roulette && 
+            .LastOrDefaultAsync(w => w.Gambler.Id == gambler.Id &&
+                                      w.Game == WagerGame.Roulette &&
                                       !w.IsComplete,
                 cancellationToken: ctx);
 
@@ -236,7 +236,7 @@ public class RouletteCommand : ICommand
         await SaveRound(activeRound);
 
         logger.Info($"User {user.KfUsername} placed roulette bet: {wager} on {betInfo.Value.BetType} {betInfo.Value.BetValue}");
-        
+
         // If this is the first bet, start the countdown
         if (isFirstBet)
         {
@@ -250,16 +250,16 @@ public class RouletteCommand : ICommand
     private async Task RunCountdown(ChatBot botInstance, TimeSpan countdownDuration)
     {
         var logger = LogManager.GetCurrentClassLogger();
-        
+
         try
         {
             var endTime = DateTimeOffset.UtcNow.Add(countdownDuration);
-            
+
             // Send initial countdown message
             var initialMessage = await FormatCountdownMessage(endTime);
             var countdownMessage = await botInstance.SendChatMessageAsync(initialMessage, true);
             var activeRound = await GetRound();
-            
+
             if (activeRound != null)
             {
                 activeRound.CountdownMessageId = countdownMessage.ChatMessageUuid;
@@ -284,15 +284,15 @@ public class RouletteCommand : ICommand
             {
                 var remaining = endTime - DateTimeOffset.UtcNow;
                 if (remaining.TotalSeconds <= 0) break;
-                
+
                 // Wait 1 second between updates
                 await Task.Delay(TimeSpan.FromSeconds(1));
-                
+
                 try
                 {
                     var updatedMessage = await FormatCountdownMessage(endTime);
                     await botInstance.KfClient.EditMessageAsync(countdownMessage.ChatMessageUuid!, updatedMessage);
-                    
+
                     var timeSinceLastUpdate = DateTimeOffset.UtcNow - lastUpdate;
                     logger.Debug($"Countdown updated (elapsed: {timeSinceLastUpdate.TotalSeconds:F1}s, remaining: {remaining.TotalSeconds:F0}s)");
                     lastUpdate = DateTimeOffset.UtcNow;
@@ -339,7 +339,7 @@ public class RouletteCommand : ICommand
         if (activeRound != null && activeRound.Bets.Count > 0)
         {
             message += "[B]Current Bets:[/B][br]";
-            
+
             // Group bets by user
             var betsByUser = activeRound.Bets
                 .GroupBy(b => b.Username)
@@ -351,7 +351,7 @@ public class RouletteCommand : ICommand
                 var userBets = userGroup.Select(b => $"{b.Amount:F2} on {FormatBetDisplay(b.BetType, b.BetValue)}");
                 message += string.Join(", ", userBets) + "[br]";
             }
-            
+
             message += $"[br][B]Total bets:[/B] {activeRound.Bets.Count}";
             return message;
         }
@@ -384,12 +384,12 @@ public class RouletteCommand : ICommand
             // Generate winning number using first gambler's seed
             var firstGambler = await _dbContext.Gamblers
                 .FirstOrDefaultAsync(g => g.Id == round.Bets[0].GamblerId);
-            
+
             if (firstGambler == null)
             {
                 throw new InvalidOperationException("Could not find first gambler for roulette round");
             }
-            
+
             var winningNumber = Money.GetRandomNumber(firstGambler, 0, 36);
             logger.Info($"Roulette round {round.RoundId} winning number: {winningNumber}");
 
@@ -402,8 +402,8 @@ public class RouletteCommand : ICommand
             logger.Info("Uploading animation to Zipline");
             using var animationStream = new MemoryStream(animationBytes);
             var animationUrl = await Zipline.Upload(
-                animationStream, 
-                new MediaTypeHeaderValue("image/webp"), 
+                animationStream,
+                new MediaTypeHeaderValue("image/webp"),
                 expiration: "1h");
 
             if (string.IsNullOrEmpty(animationUrl))
@@ -419,7 +419,7 @@ public class RouletteCommand : ICommand
                 var spinningMessage = $"🎰 [B]SPINNING THE WHEEL...[/B] 🎰[br][br]" +
                                      "Watch the animation below!";
                 await botInstance.KfClient.EditMessageAsync(
-                    round.CountdownMessageId, 
+                    round.CountdownMessageId,
                     spinningMessage);
             }
 
@@ -437,7 +437,7 @@ public class RouletteCommand : ICommand
         catch (Exception ex)
         {
             logger.Error(ex, $"Error spinning roulette wheel for round {round.RoundId}");
-            
+
             // Cancel the round and refund all bets
             await CancelRoundDueToError(botInstance, round, ex.Message);
         }
@@ -502,7 +502,7 @@ public class RouletteCommand : ICommand
     {
         var logger = LogManager.GetCurrentClassLogger();
         var colors = await SettingsProvider.GetMultipleValuesAsync([
-            BuiltIn.Keys.KiwiFarmsGreenColor, 
+            BuiltIn.Keys.KiwiFarmsGreenColor,
             BuiltIn.Keys.KiwiFarmsRedColor
         ]);
 
@@ -539,8 +539,8 @@ public class RouletteCommand : ICommand
                 // Update balance
                 var balanceAdjustment = payout;
                 await Money.ModifyBalanceAsync(
-                    wager.Gambler.Id, 
-                    balanceAdjustment, 
+                    wager.Gambler.Id,
+                    balanceAdjustment,
                     TransactionSourceEventType.Gambling,
                     $"Roulette outcome from wager {wager.Id}");
 
@@ -549,15 +549,15 @@ public class RouletteCommand : ICommand
                 {
                     winnersByUser[bet.Username] = (0, new List<string>());
                 }
-                
+
                 var userData = winnersByUser[bet.Username];
                 userData.netWin += effect;
-                
+
                 if (isWin)
                 {
                     userData.winningBets.Add($"{FormatBetDisplay(bet.BetType, bet.BetValue)} (+{await effect.FormatKasinoCurrencyAsync()})");
                 }
-                
+
                 winnersByUser[bet.Username] = userData;
 
                 logger.Info($"Processed bet {bet.WagerId}: {bet.Username} bet {bet.Amount} on {bet.BetType} {bet.BetValue}, " +
@@ -573,17 +573,17 @@ public class RouletteCommand : ICommand
         resultMessage += "[B]Results:[/B][br]";
         foreach (var (username, (netWin, winningBets)) in winnersByUser.OrderByDescending(x => x.Value.netWin))
         {
-            var winColor = netWin >= 0 
-                ? colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value 
+            var winColor = netWin >= 0
+                ? colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value
                 : colors[BuiltIn.Keys.KiwiFarmsRedColor].Value;
-            
+
             resultMessage += $"[B]{username}:[/B] [COLOR={winColor}]{(netWin >= 0 ? "+" : "")}{await netWin.FormatKasinoCurrencyAsync()}[/COLOR]";
-            
+
             if (winningBets.Count > 0)
             {
                 resultMessage += $" ({string.Join(", ", winningBets)})";
             }
-            
+
             resultMessage += "[br]";
         }
 
@@ -610,8 +610,8 @@ public class RouletteCommand : ICommand
 
         // Find all incomplete roulette wagers for this user
         var userWagers = await _dbContext.Wagers
-            .Where(w => w.Gambler.Id == gambler.Id && 
-                       w.Game == WagerGame.Roulette && 
+            .Where(w => w.Gambler.Id == gambler.Id &&
+                       w.Game == WagerGame.Roulette &&
                        !w.IsComplete)
             .ToListAsync(cancellationToken: ctx);
 
@@ -624,7 +624,7 @@ public class RouletteCommand : ICommand
         }
 
         decimal totalRefund = 0;
-        
+
         foreach (var wager in userWagers)
         {
             wager.IsComplete = true;
@@ -943,11 +943,11 @@ public static class RouletteAnimationGenerator
         // Set the "Journey"
         float endWheelRotation = 720f + Random.Shared.Next(0, 360);
         float sliceAngle = 360f / 37f;
-        
+
         // The pocket index 'i' is located at (i * sliceAngle) degrees relative to wheel zero.
         // Our '0' pocket was drawn at -90 degrees.
         float pocketOffsetOnWheel = (winningIndex * sliceAngle) - 90;
-        
+
         // This is where the ball MUST be at the end of the video
         float finalBallAngle = endWheelRotation + pocketOffsetOnWheel;
 
@@ -959,14 +959,15 @@ public static class RouletteAnimationGenerator
 
             // Wheel rotates Clockwise (Adding degrees)
             float currentWheelAngle = endWheelRotation * ease;
-            
+
             // Ball rotates Counter-Clockwise (Starting high and subtracting)
             // We start with 5 extra laps (1800 degrees) and "go back" to the final angle
             float startBallAngle = finalBallAngle + 1800f;
             float currentBallAngle = startBallAngle - ((startBallAngle - finalBallAngle) * ease);
 
             var frame = new Image<Rgba32>(500, 500);
-            frame.Mutate(ctx => {
+            frame.Mutate(ctx =>
+            {
                 // Draw Wheel
                 using var rotatedBoard = board.Clone(b => b.Rotate(currentWheelAngle));
                 int ox = 250 - (rotatedBoard.Width / 2);
@@ -976,11 +977,11 @@ public static class RouletteAnimationGenerator
                 // Ball Radius (Physics)
                 float dropT = MathF.Max(0, (progress - 0.7f) / 0.3f);
                 float radius = 230 - (45 * MathF.Pow(dropT, 2));
-                
+
                 float rads = currentBallAngle * MathF.PI / 180;
                 float bx = 250 + (radius * MathF.Cos(rads));
                 float by = 250 + (radius * MathF.Sin(rads));
-                
+
                 ctx.Fill(Color.White, new EllipsePolygon(bx, by, 14));
             });
 
@@ -992,7 +993,7 @@ public static class RouletteAnimationGenerator
         animation.Frames.RemoveFrame(0);
         using var ms = new MemoryStream();
         animation.SaveAsWebp(ms, new WebpEncoder { FileFormat = WebpFileFormatType.Lossy, Quality = 50 });
-        
+
         return (duration, ms.ToArray());
     }
 
@@ -1000,38 +1001,44 @@ public static class RouletteAnimationGenerator
     {
         var img = new Image<Rgba32>(500, 500);
         float centerX = 250, centerY = 250, outerRadius = 245, innerRadius = 170, step = 360f / 37f;
-        
-        img.Mutate(ctx => {
-            for (int i = 0; i < 37; i++) {
+
+        img.Mutate(ctx =>
+        {
+            for (int i = 0; i < 37; i++)
+            {
                 float startAngle = i * step - (step / 2) - 90;
                 var color = WheelNumbers[i] == 0 ? Color.Green : (i % 2 == 0 ? Color.DarkRed : Color.Black);
                 var path = new PathBuilder().AddArc(centerX, centerY, outerRadius, outerRadius, 0, startAngle, step)
                     .AddArc(centerX, centerY, innerRadius, innerRadius, 0, startAngle + step, -step).Build();
                 ctx.Fill(color, path);
                 ctx.Draw(Color.Gold, 1, path);
-                
+
                 string text = WheelNumbers[i].ToString();
                 float textAngle = (startAngle + (step / 2)) * MathF.PI / 180;
                 float tx = centerX + ((outerRadius + innerRadius) / 2) * MathF.Cos(textAngle);
                 float ty = centerY + ((outerRadius + innerRadius) / 2) * MathF.Sin(textAngle);
-                
-                try {
+
+                try
+                {
                     var font = SystemFonts.CreateFont("Arial", 14, FontStyle.Bold);
                     ctx.DrawText(
-                        new DrawingOptions { 
-                            Transform = Matrix3x2Extensions.CreateRotationDegrees(startAngle + (step / 2) + 90, new PointF(tx, ty)) 
-                        }, 
-                        text, 
-                        font, 
-                        Color.White, 
+                        new DrawingOptions
+                        {
+                            Transform = Matrix3x2Extensions.CreateRotationDegrees(startAngle + (step / 2) + 90, new PointF(tx, ty))
+                        },
+                        text,
+                        font,
+                        Color.White,
                         new PointF(tx - 6, ty - 9));
-                } catch { 
+                }
+                catch
+                {
                     // Font loading failed, skip text rendering
                 }
             }
             ctx.Fill(Color.DarkSlateGray, new EllipsePolygon(centerX, centerY, innerRadius - 5));
         });
-        
+
         return img;
     }
 }

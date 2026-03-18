@@ -28,18 +28,18 @@ public class RainCommand : ICommand
             BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay, BuiltIn.Keys.KasinoRainCountdownDuration,
             BuiltIn.Keys.KasinoRainEnabled
         ]);
-        
+
         // Check if rain is enabled
         var rainEnabled = (settings[BuiltIn.Keys.KasinoRainEnabled]).ToBoolean();
         if (!rainEnabled)
         {
-            var gameDisabledCleanupDelay= TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
+            var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, rain is currently disabled.", 
-                true, autoDeleteAfter: gameDisabledCleanupDelay);
+                $"{user.FormatUsername()}, rain is currently disabled.",
+                true, whisperTo: user.KfUsername);
             return;
         }
-        
+
         var cleanupDelay = TimeSpan.FromSeconds(30);
         if (botInstance.BotServices.KasinoRain == null || !botInstance.BotServices.KasinoRain.IsInitialized())
         {
@@ -101,7 +101,7 @@ public class RainCommand : ICommand
                 true, autoDeleteAfter: cleanupDelay);
             return;
         }
-        
+
         decimal decAmount = Convert.ToDecimal(amount.Value);
         if (decAmount <= 0)
         {

@@ -50,19 +50,19 @@ public class Planes : ICommand
             BuiltIn.Keys.KasinoPlanesCleanupDelay, BuiltIn.Keys.KasinoPlanesRandomRiggeryEnabled,
             BuiltIn.Keys.KasinoPlanesTargetedRiggeryEnabled, BuiltIn.Keys.KasinoPlanesTargetedRiggeryVictims
         ]);
-        
+
         // Check if planes is enabled
         var planesEnabled = (settings[BuiltIn.Keys.KasinoPlanesEnabled]).ToBoolean();
         if (!planesEnabled)
         {
-            var gameDisabledCleanupDelay= TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
+            var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, planes is currently disabled.", 
-                true, autoDeleteAfter: gameDisabledCleanupDelay);
+                $"{user.FormatUsername()}, planes is currently disabled.",
+                true, whisperTo: user.KfUsername);
             return;
         }
         var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoPlanesCleanupDelay].ToType<int>());
-        
+
         var logger = LogManager.GetCurrentClassLogger();
         if (!arguments.TryGetValue("amount", out var amount))
         {
@@ -83,7 +83,7 @@ public class Planes : ICommand
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
-        
+
         if (wager == 0)
         {
             await botInstance.SendChatMessageAsync(
@@ -92,7 +92,7 @@ public class Planes : ICommand
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
-        
+
         //KasinoShop stuff -------------------------------------------------------------------------
         if (botInstance.BotServices.KasinoShop != null)
         {
@@ -115,8 +115,8 @@ public class Planes : ICommand
                 _riggedWin = true;
             }
         }
-        
-        var planesBoard = CreatePlanesBoard(gambler,0);
+
+        var planesBoard = CreatePlanesBoard(gambler, 0);
         var planesBoard2 = CreatePlanesBoard(gambler);
         var planesBoard3 = CreatePlanesBoard(gambler);
         List<int[,]> planesBoards = [planesBoard, planesBoard2, planesBoard3];
@@ -143,7 +143,7 @@ public class Planes : ICommand
         do
         {
             var counter = (fullCounter - 3) % 24;
-            
+
             await Task.Delay(TimeSpan.FromMilliseconds(frameLength / 3), ctx);
 
             if (fullCounter >= 3)
@@ -158,7 +158,7 @@ public class Planes : ICommand
                 planesDisplay += $"Winnings: {await winnings.FormatKasinoCurrencyAsync()}";
                 await botInstance.KfClient.EditMessageAsync(msgId.ChatMessageUuid, planesDisplay);
             }
-            
+
             var neutral = false;
             var frameCounter = 0;
             if (fullCounter < 3)
@@ -186,11 +186,11 @@ public class Planes : ICommand
                          * USE BOARD 2: never used for game determinations only displays
                          */
                         //if (fullCounter == 3) logger.Info($"Generating first plane impact outcome. Framecounter: {frameCounter} | FullCounter: {fullCounter} | Counter: {counter}");
-                        
+
                         //else logger.Info($"Failed to select proper gameboard for gameplay outcome. UseBoard: {1} | FullCounter: {fullCounter} | Counter: {counter} | Height: {plane.Height} | FrameCounter: {frameCounter}");
                         switch (planesBoards[1][plane.Height, counter])
                         {
-                          
+
                             case 0: //do nothing plane hit neutral space
                                 neutral = true;
                                 //if (fullCounter == 3) logger.Info($"Generated first plane impact outcome. Framecounter: {frameCounter} | FullCounter: {fullCounter} | Counter: {counter} | Outcome: neutral");
@@ -371,7 +371,7 @@ public class Planes : ICommand
     {
         var output = "";
         // worldXPlane is the absolute distance the plane has traveled from the start.
-        int worldXPlane = fullCounter - 3; 
+        int worldXPlane = fullCounter - 3;
 
         for (var row = 0; row < 8; row++)
         {
@@ -413,7 +413,7 @@ public class Planes : ICommand
                 else
                 {
                     // Calculate which BOARD the tile belongs to (0, 1, 2, 3...)
-                    int boardNumber = worldXTile / 24; 
+                    int boardNumber = worldXTile / 24;
                     int localX = worldXTile % 24;
 
                     // Map the boardNumber to our sliding window (List of 3 boards).
@@ -446,8 +446,8 @@ public class Planes : ICommand
 
     private int[,] CreatePlanesBoard(GamblerDbModel gambler, int forceTiles = -1)
     {
-        var board = new int [6, 24];
-        
+        var board = new int[6, 24];
+
         for (var row = 0; row < 6; row++)
         {
             for (var column = 0; column < 24; column++)

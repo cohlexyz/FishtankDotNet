@@ -28,23 +28,23 @@ public class GuessWhatNumberCommand : ICommand
             BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay, BuiltIn.Keys.KasinoGuessWhatNumberCleanupDelay,
             BuiltIn.Keys.KasinoGuessWhatNumberEnabled
         ]);
-        
+
         // Check if guesswhatnumber is enabled
         var guessWhatNumberEnabled = (settings[BuiltIn.Keys.KasinoGuessWhatNumberEnabled]).ToBoolean();
         if (!guessWhatNumberEnabled)
         {
-            var gameDisabledCleanupDelay= TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
+            var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, guess what number is currently disabled.", 
-                true, autoDeleteAfter: gameDisabledCleanupDelay);
+                $"{user.FormatUsername()}, guess what number is currently disabled.",
+                true, whisperTo: user.KfUsername);
             return;
         }
-        
+
         var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGuessWhatNumberCleanupDelay].ToType<int>());
-        
+
         if (!arguments.TryGetValue("amount", out var amount))
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, not enough arguments. !guess <wager> <number between 1 and 10>", true, autoDeleteAfter: cleanupDelay);
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, not enough arguments. !guess <wager> <number between 1 and 10>", true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -53,7 +53,7 @@ public class GuessWhatNumberCommand : ICommand
         var guess = Convert.ToInt32(arguments["number"].Value);
         if (guess is < 1 or > 10)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, your guess must be between 1 and 10", true, autoDeleteAfter: cleanupDelay);
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, your guess must be between 1 and 10", true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -64,15 +64,15 @@ public class GuessWhatNumberCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
             return;
         }
-        
+
         if (wager == 0)
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you have to wager more than {await wager.FormatKasinoCurrencyAsync()}", true,
-                autoDeleteAfter: cleanupDelay);
+                whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -89,13 +89,13 @@ public class GuessWhatNumberCommand : ICommand
             newBalance = await Money.NewWagerAsync(gambler.Id, wager, effect, WagerGame.GuessWhatNumber, ct: ctx);
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, [color={colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value}]correct![/color] You won {await effect.FormatKasinoCurrencyAsync()} and your balance is now {await newBalance.FormatKasinoCurrencyAsync()}",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
             return;
         }
 
         newBalance = await Money.NewWagerAsync(gambler.Id, wager, -wager, WagerGame.GuessWhatNumber, ct: ctx);
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, [color={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]wrong![/color] I was thinking of {answer}. Your balance is now {await newBalance.FormatKasinoCurrencyAsync()}",
-            true, autoDeleteAfter: cleanupDelay);
+            true, whisperTo: user.KfUsername);
     }
 }

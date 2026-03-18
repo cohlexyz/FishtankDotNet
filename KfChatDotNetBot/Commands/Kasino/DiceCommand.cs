@@ -39,20 +39,20 @@ public class DiceCommand : ICommand
         var diceEnabled = (settings[BuiltIn.Keys.KasinoDiceEnabled]).ToBoolean();
         if (!diceEnabled)
         {
-            var gameDisabledCleanupDelay= TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
+            var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, dice is currently disabled.", 
-                true, autoDeleteAfter: gameDisabledCleanupDelay);
+                $"{user.FormatUsername()}, dice is currently disabled.",
+                true, whisperTo: user.KfUsername);
             return;
         }
-        
+
         var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoDiceCleanupDelay].ToType<int>());
-        
+
         if (!arguments.TryGetValue("amount", out var amount))
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, not enough arguments. !dice <wager>",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -64,27 +64,27 @@ public class DiceCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
-        
+
         if (wager == 0)
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you have to wager more than {await wager.FormatKasinoCurrencyAsync()}", true,
-                autoDeleteAfter: cleanupDelay);
+                whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
-        
+
         var rolled = Money.GetRandomDouble(gambler);
         var colors =
             await SettingsProvider.GetMultipleValuesAsync([
                 BuiltIn.Keys.KiwiFarmsGreenColor, BuiltIn.Keys.KiwiFarmsRedColor
             ]);
         // print dice game slider
-        await botInstance.SendChatMessageAsync($"{ConstructDiceGameOutput(rolled)}",true, autoDeleteAfter: cleanupDelay);
+        await botInstance.SendChatMessageAsync($"{ConstructDiceGameOutput(rolled)}", true, whisperTo: user.KfUsername);
         decimal newBalance;
         if (rolled > 0.5 + _houseEdge)
         {
@@ -94,7 +94,7 @@ public class DiceCommand : ICommand
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you rolled a {rolled * 100:N2} and [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value}]WON![/COLOR][/B] " +
                 $"You won {await effect.FormatKasinoCurrencyAsync()} and your balance is now {await newBalance.FormatKasinoCurrencyAsync()}",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
         }
         else
         {
@@ -103,7 +103,7 @@ public class DiceCommand : ICommand
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you rolled a {rolled * 100:N2} and [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]LOST![/COLOR][/B] " +
                 $"Your balance is now {await newBalance.FormatKasinoCurrencyAsync()}",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
         }
     }
 
@@ -149,7 +149,7 @@ public class DiceCommand : ICommand
             diceMeter += $"[COLOR={DICE_METER_RIGHT_COLOR}]";
             diceMeter += String.Concat(Enumerable.Repeat(DICE_METER_RIGHT, DICE_METER_LENGTH / 2)); // --------
             diceMeter += "[/COLOR][/B]";
-            
+
         }
         return $"{diceDisplayShifted}\n{diceMeter}";
     }

@@ -21,25 +21,25 @@ public class PlinkoCommand : ICommand
     public string? HelpText => "!plinko <bet amount> <optional number of balls 1 - 10, default 1 if nothing entered>";
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(30);
-    
+
     public RateLimitOptionsModel? RateLimitOptions => new RateLimitOptionsModel
     {
         MaxInvocations = 2,
         Window = TimeSpan.FromSeconds(10)
     };
 
-    private const string NULLSPACE =   "⚫";
-    private const string EMPTYSPACE =  "⚪";
-    private const string BALL =        "🟠";
-    private const string LOSESPACE =   "🔻";
+    private const string NULLSPACE = "⚫";
+    private const string EMPTYSPACE = "⚪";
+    private const string BALL = "🟠";
+    private const string LOSESPACE = "🔻";
     private const string SMALLWINSPACE = "🟢";
     private const string MIDWINSPACE = "🍀";
     private const string BIGWINSPACE = "💲";
-    
+
     private const int DIFFICULTY = 8;//maybe plan to allow user to change difficulty of plinko in future updates, would need to change the payout logic though
     private static double VACUUM = 0.25;
     private decimal HOUSE_EDGE = (decimal)0.98;
-    
+
     private static Dictionary<decimal, string> PAYOUTSTOSTRING = new Dictionary<decimal, string>()
     {
         {69, BIGWINSPACE},
@@ -47,7 +47,7 @@ public class PlinkoCommand : ICommand
         {9, SMALLWINSPACE},
         {(decimal)0.1, LOSESPACE}
     };
-    
+
     private static readonly Dictionary<int, decimal> PlinkoPayoutBoard = new()
     {
         {0, 69},
@@ -58,20 +58,20 @@ public class PlinkoCommand : ICommand
         {10, 9},
         {12, (decimal)42.069},
         {14, 69}
-        
+
     };
 
     private static List<(int row, int col)> validPositions = [];
-    
+
     private static Dictionary<int, List<int>> validColumnsForRow = new();
-    
+
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         VACUUM += 1 - (double)HOUSE_EDGE;
-        validPositions = new List<(int row, int col)>() { (0, DIFFICULTY-1) };
-        validColumnsForRow = new Dictionary<int, List<int>>(){{0, new List<int>(){DIFFICULTY-1}}};
-        
+        validPositions = new List<(int row, int col)>() { (0, DIFFICULTY - 1) };
+        validColumnsForRow = new Dictionary<int, List<int>>() { { 0, new List<int>() { DIFFICULTY - 1 } } };
+
         //calculate all the valid positions for the difficulty
         for (int i = 1; i < DIFFICULTY; i++)
         {
@@ -88,17 +88,17 @@ public class PlinkoCommand : ICommand
                 if (!validPositions.Contains(rightChild)) validPositions.Add(rightChild);
             }
         }
-        
+
         //calculate all the valid columns for any particular row
         foreach (var position in validPositions)
         {
-            if (!validColumnsForRow.ContainsKey(position.row)) validColumnsForRow.Add(position.row, new List<int>(){position.col});
+            if (!validColumnsForRow.ContainsKey(position.row)) validColumnsForRow.Add(position.row, new List<int>() { position.col });
             else validColumnsForRow[position.row].Add(position.col);
-            
+
         }
-        
-        
-        
+
+
+
         decimal payout = 0;
         decimal currentPayout = 0;
         var settings = await SettingsProvider.GetMultipleValuesAsync([
@@ -108,10 +108,10 @@ public class PlinkoCommand : ICommand
 
         if (!settings[BuiltIn.Keys.KasinoPlinkoEnabled].ToBoolean())
         {
-            var gameDisabledCleanupDelay= TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
+            var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, plinko is currently disabled.", 
-                true, autoDeleteAfter: gameDisabledCleanupDelay);
+                $"{user.FormatUsername()}, plinko is currently disabled.",
+                true, whisperTo: user.KfUsername);
             return;
         }
         var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoPlinkoCleanupDelay].ToType<int>());
@@ -132,7 +132,7 @@ public class PlinkoCommand : ICommand
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
         if (gambler == null)
             throw new InvalidOperationException($"Caught a null when retrieving gambler for {user.KfUsername}");
-        
+
         //KasinoShop stuff -------------------------------------------------------------------------
         if (botInstance.BotServices.KasinoShop != null)
         {
@@ -140,7 +140,7 @@ public class PlinkoCommand : ICommand
             HOUSE_EDGE += botInstance.BotServices.KasinoShop.Gambler_Profiles[user.KfId].HouseEdgeModifier;
         }
         //------------------------------------------------------------------------------------------
-        
+
         int numberOfBalls = 0;
         if (!arguments.TryGetValue("number", out var number))
         {
@@ -163,7 +163,7 @@ public class PlinkoCommand : ICommand
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
-        
+
         if (wager == 0)
         {
             await botInstance.SendChatMessageAsync(
@@ -172,7 +172,7 @@ public class PlinkoCommand : ICommand
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
-        
+
         List<PlinkoBall> ballsNotInPlay = new List<PlinkoBall>();
         List<PlinkoBall> ballsInPlay = new List<PlinkoBall>();
         for (int i = 0; i < numberOfBalls; i++)
@@ -182,11 +182,13 @@ public class PlinkoCommand : ICommand
         //game starts here
         int breakCounter = 0;
         var plinkoMessageID = await botInstance.SendChatMessageAsync(PlinkoBoardDisplay(ballsInPlay), true, autoDeleteAfter: cleanupDelay);
-        while (plinkoMessageID.ChatMessageUuid == null && breakCounter < 1000) { 
+        while (plinkoMessageID.ChatMessageUuid == null && breakCounter < 1000)
+        {
             await Task.Delay(100, ctx);
             breakCounter++;
         }
-        if (breakCounter >= 999){
+        if (breakCounter >= 999)
+        {
             throw new Exception("game broke while waiting for chat message id");
         }
         breakCounter = 0;
@@ -232,13 +234,13 @@ public class PlinkoCommand : ICommand
             await Task.Delay(300, ctx);
 
         }
-        var newBalance = await Money.NewWagerAsync(gambler.Id, wager*numberOfBalls, payout-(wager*numberOfBalls), WagerGame.Plinko, ct: ctx);
+        var newBalance = await Money.NewWagerAsync(gambler.Id, wager * numberOfBalls, payout - (wager * numberOfBalls), WagerGame.Plinko, ct: ctx);
         await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, [u]you won {await payout.FormatKasinoCurrencyAsync()} from {numberOfBalls} plinko balls worth ${wager} KKK. Balance: {await newBalance.FormatKasinoCurrencyAsync()}", true, autoDeleteAfter: cleanupDelay);
         //Kasino Shop stuff----------------------------------------------------------------------
         if (botInstance.BotServices.KasinoShop != null)
         {
             await GlobalShopFunctions.CheckProfile(botInstance, user, gambler);
-            await botInstance.BotServices.KasinoShop.ProcessWagerTracking(gambler, WagerGame.Plinko, wager*numberOfBalls, payout-(wager*numberOfBalls), newBalance);
+            await botInstance.BotServices.KasinoShop.ProcessWagerTracking(gambler, WagerGame.Plinko, wager * numberOfBalls, payout - (wager * numberOfBalls), newBalance);
         }
         //---------------------------------------------------------------------------------------
     }
@@ -248,10 +250,10 @@ public class PlinkoCommand : ICommand
         string board = "";
         bool spaceIsBall = false;
         bool spaceIsValid = false;
-        
+
         for (int row = 0; row < DIFFICULTY; row++)
         {
-            for (int col = 0; col < DIFFICULTY*2-1; col++)
+            for (int col = 0; col < DIFFICULTY * 2 - 1; col++)
             {
                 spaceIsBall = false;
                 spaceIsValid = false;
@@ -274,7 +276,7 @@ public class PlinkoCommand : ICommand
                         {
                             if (row == DIFFICULTY - 1)
                             {
-                                foreach (var num in new List<int>(){0,2,4,6,8,10,12,14}) 
+                                foreach (var num in new List<int>() { 0, 2, 4, 6, 8, 10, 12, 14 })
                                     if (col == num) board += PAYOUTSTOSTRING[PlinkoPayoutBoard[num]];
                             }
                             else board += EMPTYSPACE;
@@ -298,17 +300,17 @@ public class PlinkoCommand : ICommand
         public PlinkoBall()
         {
             POSITION = validPositions[0];
-            
+
         }
         public void Iterate()
         {
             double rng = RAND.NextDouble();
             bool evenrow = POSITION.row % 2 == 0;
-            if (POSITION.col < DIFFICULTY-1)
+            if (POSITION.col < DIFFICULTY - 1)
             {
                 rng -= VACUUM;
             }
-            else if (POSITION.col > DIFFICULTY-1)
+            else if (POSITION.col > DIFFICULTY - 1)
             {
                 rng += VACUUM;
             }
@@ -317,7 +319,7 @@ public class PlinkoCommand : ICommand
                 case >= 0.5:
                     POSITION.col--;
                     break;
-                    
+
                 case < 0.5:
                     POSITION.col++;
                     break;
@@ -329,5 +331,5 @@ public class PlinkoCommand : ICommand
         }
     }
 
-    
+
 }

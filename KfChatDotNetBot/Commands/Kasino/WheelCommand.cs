@@ -31,7 +31,7 @@ public class WheelCommand : ICommand
         Window = TimeSpan.FromSeconds(15)
     };
     //private static double _houseEdge = 0.015; // house edge hack?
-    
+
     // game assets
     private const string LOW_DIFFICULTY_WHEEL = "🟢⚪⚪⚪⚫⚪⚪⚪⚪⚫🟢⚪⚪⚪⚫⚪⚪⚪⚪⚫";
     private const string MEDIUM_DIFFICULTY_WHEEL = "🟢⚫🟡⚫🟡⚫🟡⚫🟢⚫🟣⚫⚪⚫🟡⚫🟡⚫🟡⚫";
@@ -68,18 +68,18 @@ public class WheelCommand : ICommand
             BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay, BuiltIn.Keys.KasinoWheelCleanupDelay,
             BuiltIn.Keys.KasinoWheelEnabled
         ]);
-        
+
         // Check if wheel is enabled
         var wheelEnabled = (settings[BuiltIn.Keys.KasinoWheelEnabled]).ToBoolean();
         if (!wheelEnabled)
         {
-            var gameDisabledCleanupDelay= TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
+            var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, wheel is currently disabled.", 
-                true, autoDeleteAfter: gameDisabledCleanupDelay);
+                $"{user.FormatUsername()}, wheel is currently disabled.",
+                true, whisperTo: user.KfUsername);
             return;
         }
-        
+
         var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoWheelCleanupDelay].ToType<int>());
         if (!arguments.TryGetValue("amount", out var amount))
         {
@@ -90,7 +90,7 @@ public class WheelCommand : ICommand
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
         if (gambler == null)
             throw new InvalidOperationException($"Caught a null when retrieving gambler for {user.KfUsername}");
-        var difficulty = arguments["difficulty"].Success ? Convert.ToString(arguments["difficulty"].Value) : new[] {"low", "medium", "high"}[Money.GetRandomNumber(gambler, 0,2)];
+        var difficulty = arguments["difficulty"].Success ? Convert.ToString(arguments["difficulty"].Value) : new[] { "low", "medium", "high" }[Money.GetRandomNumber(gambler, 0, 2)];
         if (difficulty.ToLower() is not ("l" or "low" or "m" or "medium" or "h" or "high"))
         {
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, unrecognized difficulty selection, please choose between: low, medium, high", true, autoDeleteAfter: cleanupDelay);
@@ -107,7 +107,7 @@ public class WheelCommand : ICommand
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
-        
+
         if (wager == 0)
         {
             await botInstance.SendChatMessageAsync(
@@ -116,7 +116,7 @@ public class WheelCommand : ICommand
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
-        
+
         var colors =
             await SettingsProvider.GetMultipleValuesAsync([
                 BuiltIn.Keys.KiwiFarmsGreenColor, BuiltIn.Keys.KiwiFarmsRedColor
@@ -131,7 +131,7 @@ public class WheelCommand : ICommand
         if (wheel == null)
             throw new InvalidOperationException($"Something went horribly wrong, couldn't initialize wheel based on difficulty selection");
         // choose target to land on after wheelspin
-        var target = wheel.GetWheelElements()[Money.GetRandomNumber(gambler,0, wheel.GetWheelElements().Count)];
+        var target = wheel.GetWheelElements()[Money.GetRandomNumber(gambler, 0, wheel.GetWheelElements().Count)];
         var stepsToTarget = wheel.ComputeGameStepsToTarget(target);
         var wheelDisplayMessage = await botInstance.SendChatMessageAsync(wheel.ConvertWheelToOvalString(),
             true, autoDeleteAfter: cleanupDelay);
@@ -143,15 +143,15 @@ public class WheelCommand : ICommand
         for (int i = 0; i < stepsToTarget; i++)
         {
             double t = (double)i / Math.Max(stepsToTarget - 1, 1);
-            
+
             // Combine sine wave for smooth deceleration with exponential ease-out
             double sineEase = Math.Sin(t * Math.PI / 2); // 0 to 1, smooth acceleration
             double expEase = 1 - Math.Pow(1 - t, 4);      // Quartic ease-out for dramatic slow-down
-            
+
             // Blend both curves: start follows sine, end follows exponential
             double blendFactor = t * t; // Quadratic blend - more exp influence as we progress
             double easeOut = (1 - blendFactor) * sineEase + blendFactor * expEase;
-            
+
             // Early spins are fast, late spins are slow 
             int delay = (int)(MIN_WHEELSPIN_DELAY + easeOut * (MAX_WHEELSPIN_DELAY - MIN_WHEELSPIN_DELAY));
             await Task.Delay(delay, ctx);
@@ -159,7 +159,7 @@ public class WheelCommand : ICommand
             await botInstance.KfClient.EditMessageAsync(wheelDisplayMessage.ChatMessageUuid!,
                 wheel.ConvertWheelToOvalString());
         }
-        
+
         // payout logics
         var multi = -1.0m;
         if (wheel.GetDifficulty() == 0) multi = LOW_DIFF_MULTIS[target];
@@ -168,7 +168,7 @@ public class WheelCommand : ICommand
         if (multi == -1.0m)
             throw new InvalidOperationException($"Could not derrive multi from target: {target} on wheel diff {wheel.GetDifficulty()}");
         var win = multi != 0.00m;
-        
+
         string wheelResultMessage;
         decimal newBalance;
         if (win)
@@ -183,7 +183,7 @@ public class WheelCommand : ICommand
             newBalance = await Money.NewWagerAsync(gambler.Id, wager, -wager, WagerGame.Wheel, ct: ctx);
             wheelResultMessage = $"{user.FormatUsername()}, you spun a {multi}x and [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]LOST[/COLOR][/B]" +
                                  $", better luck next time. Your balance is  {await newBalance.FormatKasinoCurrencyAsync()}";
-            
+
         }
         await botInstance.SendChatMessageAsync(wheelResultMessage, true, autoDeleteAfter: cleanupDelay);
     }
@@ -204,13 +204,13 @@ public class Wheel
             throw new ArgumentException("Wheel must be exactly 20 elements.");
         _middleFill = middleFill;
         _difficulty = difficulty;
-        
+
         RandomizeInitialState(); // start wheel in random state
     }
 
     public List<string> GetWheelElements() => _wheelElements;
     public int GetDifficulty() => _difficulty;
-    
+
     // Extract grapheme clusters, safe for emojis, stolen from AI
     private static List<string> ExtractTextElements(string rawWheel)
     {

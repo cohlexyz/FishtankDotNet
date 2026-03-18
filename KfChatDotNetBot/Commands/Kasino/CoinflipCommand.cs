@@ -46,7 +46,7 @@ public class CoinflipCommand : ICommand
             var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, coinflip is currently disabled.",
-                true, autoDeleteAfter: gameDisabledCleanupDelay);
+                true, autoDeleteAfter: gameDisabledCleanupDelay, whisperTo: user.KfUsername);
             return;
         }
 
@@ -56,7 +56,7 @@ public class CoinflipCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, not enough arguments. !coinflip <wager> <heads|tails>",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -65,7 +65,7 @@ public class CoinflipCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, not enough arguments. !coinflip <wager> <heads|tails>",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -76,7 +76,7 @@ public class CoinflipCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, your wager must be greater than zero.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -89,7 +89,7 @@ public class CoinflipCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -106,7 +106,7 @@ public class CoinflipCommand : ICommand
             // won
             var coinflipAnimation = GetCoinFlipAnimationUrl(choiceStr);
 
-            await botInstance.SendChatMessageAsync($"[IMG]{coinflipAnimation}[/IMG]", true, autoDeleteAfter: cleanupDelay);
+            await botInstance.SendChatMessageAsync($"[IMG]{coinflipAnimation}[/IMG]", true, whisperTo: user.KfUsername);
             await Task.Delay(1500, ctx);
 
             var effect = wager;
@@ -114,7 +114,7 @@ public class CoinflipCommand : ICommand
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value}]WON![/COLOR][/B] " +
                 $"You won {await effect.FormatKasinoCurrencyAsync()} and your balance is now {await newBalance.FormatKasinoCurrencyAsync()}",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
             return;
         }
 
@@ -122,14 +122,14 @@ public class CoinflipCommand : ICommand
         bool isJacky = rolled > 0.5; // would've won without house edge
         var coinflipAnimationURL = GetCoinFlipAnimationUrl("heads" == choiceStr ? "tails" : "heads", isJacky);
 
-        await botInstance.SendChatMessageAsync($"[IMG]{coinflipAnimationURL}[/IMG]", true, autoDeleteAfter: cleanupDelay);
+        await botInstance.SendChatMessageAsync($"[IMG]{coinflipAnimationURL}[/IMG]", true, whisperTo: user.KfUsername);
         await Task.Delay(1500, ctx);
 
         newBalance = await Money.NewWagerAsync(gambler.Id, wager, -wager, WagerGame.CoinFlip, ct: ctx);
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, you [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]LOST![/COLOR][/B] " +
             $"Your balance is now {await newBalance.FormatKasinoCurrencyAsync()}",
-            true, autoDeleteAfter: cleanupDelay);
+            true, whisperTo: user.KfUsername);
     }
 
     private static string GetCoinFlipAnimationUrl(string choiceStr, bool isJacky = false)

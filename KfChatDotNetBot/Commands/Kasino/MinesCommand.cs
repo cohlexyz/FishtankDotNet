@@ -28,15 +28,15 @@ public class MinesCommand : ICommand
         //continue game with coordinate string (must contain comma)
         new Regex(@"^mines\s+(?<betString>\d+,\d+(?:\s+\d+,\d+)*)(?:\s+(?<cashout>cashout))?$", RegexOptions.IgnoreCase),                              
         //get info
-        new Regex(@"^mines$", RegexOptions.IgnoreCase)                                                                                                                     
+        new Regex(@"^mines$", RegexOptions.IgnoreCase)
     ];
     public string? HelpText => "!mines <bet> <board size> <number of mines> <picks> to play simple mines. !mines <bet> <board size> <number of mines> <betString> for advanced mines. Tool: https://i.ddos.lgbt/raw/baV63V.html";
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(30);
-    
+
     private const string BetPattern = @"(?<row>\d+),(?<col>\d+)";
     private const string ToolUrl = "https://i.ddos.lgbt/raw/baV63V.html";
-    
+
     public RateLimitOptionsModel? RateLimitOptions => new RateLimitOptionsModel
     {
         MaxInvocations = 3,
@@ -48,8 +48,8 @@ public class MinesCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
-        
-        
+
+
         var settings = await SettingsProvider.GetMultipleValuesAsync([
             BuiltIn.Keys.KasinoMinesCleanupDelay, BuiltIn.Keys.KiwiFarmsGreenColor, BuiltIn.Keys.KiwiFarmsRedColor,
             BuiltIn.Keys.KasinoMinesEnabled, BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay
@@ -57,13 +57,12 @@ public class MinesCommand : ICommand
         var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoMinesCleanupDelay].ToType<int>());
         if (!settings[BuiltIn.Keys.KasinoMinesEnabled].ToBoolean())
         {
-            var gameDisabledCleanupDelay= TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, mines is currently disabled.", 
-                true, autoDeleteAfter: gameDisabledCleanupDelay);
+                $"{user.FormatUsername()}, mines is currently disabled.",
+                true, whisperTo: user.KfUsername);
             return;
         }
-        
+
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
         if (gambler == null)
             throw new InvalidOperationException($"Caught a null when retrieving gambler for {user.KfUsername}");
@@ -79,16 +78,16 @@ public class MinesCommand : ICommand
                 }
                 KasinoMines.ActiveGames.Clear();
                 await KasinoMines.SaveActiveGames(gambler.Id);
-                await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, cleared all mines games.", true, autoDeleteAfter: cleanupDelay);
+                await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, cleared all mines games.", true, whisperTo: user.KfUsername);
                 return;
             }
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you don't have permission to clear saved games.", true, autoDeleteAfter: cleanupDelay);
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you don't have permission to clear saved games.", true, whisperTo: user.KfUsername);
             return;
         }
         bool cashout = false;
-        if (arguments.TryGetValue("cashout", out var cashOut) && cashOut.Success && !string.IsNullOrWhiteSpace(cashOut.Value)) 
+        if (arguments.TryGetValue("cashout", out var cashOut) && cashOut.Success && !string.IsNullOrWhiteSpace(cashOut.Value))
             cashout = true;
-        
+
         if (!Regex.IsMatch(message.Message, @"\d") && cashout) //if the message has no ints its a cashout attempt
         {
             if (KasinoMines.ActiveGames.ContainsKey(gambler.Id))
@@ -97,11 +96,11 @@ public class MinesCommand : ICommand
                 return;
             }
 
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you don't have a game running to cash out.", true, autoDeleteAfter: cleanupDelay);
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you don't have a game running to cash out.", true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
-        
+
         //check if user has an existing game already
         if (!KasinoMines.ActiveGames.ContainsKey(gambler.Id))
         {
@@ -109,7 +108,7 @@ public class MinesCommand : ICommand
             {
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, you tried to refresh but don't have a game running. !mines <bet> <board size> <number of mines> <picks> to play simple mines. !mines <bet> <board size> <number of mines> <betString> for advanced mines. Tool: {ToolUrl}",
-                    true, autoDeleteAfter: cleanupDelay);
+                    true, whisperTo: user.KfUsername);
                 return;
             }
             //if there is no game currently running
@@ -117,7 +116,7 @@ public class MinesCommand : ICommand
             {
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, not enough arguments(bet+). !mines <bet> <board size> <number of mines> <picks> to play simple mines. !mines <bet> <board size> <number of mines> <betString> for advanced mines. Tool: {ToolUrl}",
-                    true, autoDeleteAfter: cleanupDelay);
+                    true, whisperTo: user.KfUsername);
                 RateLimitService.RemoveMostRecentEntry(user, this);
                 return;
             }
@@ -125,7 +124,7 @@ public class MinesCommand : ICommand
             if (gambler.Balance < wager)
             {
                 await botInstance.SendChatMessageAsync(
-                    $"{user.FormatUsername()}, your balance is too low. Balance: {gambler.Balance.FormatKasinoCurrencyAsync()}", true, autoDeleteAfter: cleanupDelay);
+                    $"{user.FormatUsername()}, your balance is too low. Balance: {gambler.Balance.FormatKasinoCurrencyAsync()}", true, whisperTo: user.KfUsername);
                 RateLimitService.RemoveMostRecentEntry(user, this);
                 return;
             }
@@ -133,7 +132,7 @@ public class MinesCommand : ICommand
             if (wager <= 0)
             {
                 await botInstance.SendChatMessageAsync(
-                    $"{user.FormatUsername()}, you have to bet something to play mines.", true, autoDeleteAfter: cleanupDelay);
+                    $"{user.FormatUsername()}, you have to bet something to play mines.", true, whisperTo: user.KfUsername);
                 RateLimitService.RemoveMostRecentEntry(user, this);
                 return;
             }
@@ -141,7 +140,7 @@ public class MinesCommand : ICommand
             {
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, not enough arguments(mines and or size+). !mines <bet> <board size> <number of mines> <picks> to play simple mines. !mines <bet> <board size> <number of mines> <betString> for advanced mines. Tool: {ToolUrl}",
-                    true, autoDeleteAfter: cleanupDelay);
+                    true, whisperTo: user.KfUsername);
                 RateLimitService.RemoveMostRecentEntry(user, this);
                 return;
             }
@@ -158,7 +157,7 @@ public class MinesCommand : ICommand
                 if (matches.Count == 0) //if invalid bet string
                 {
                     await botInstance.SendChatMessageAsync(
-                        $"{user.FormatUsername()}, invalid bet string. Example: !mines 100 10 10 1,3 1,5 2,6 - or use the tool: {ToolUrl}", true, autoDeleteAfter: cleanupDelay);
+                        $"{user.FormatUsername()}, invalid bet string. Example: !mines 100 10 10 1,3 1,5 2,6 - or use the tool: {ToolUrl}", true, whisperTo: user.KfUsername);
                     return;
                 }
                 foreach (Match match in matches)
@@ -170,23 +169,23 @@ public class MinesCommand : ICommand
             {
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, not enough arguments(picks or betstring). !mines <bet> <board size> <number of mines> <picks> to play simple mines. !mines <bet> <board size> <number of mines> <betString> for advanced mines. Tool: {ToolUrl}",
-                    true, autoDeleteAfter: cleanupDelay);
+                    true, whisperTo: user.KfUsername);
                 RateLimitService.RemoveMostRecentEntry(user, this);
                 return;
             }
             int boardSize = Convert.ToInt32(size.Value);
             if (boardSize < 2 || boardSize > 8)
             {
-                await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, board size must be between 2 and 9.",true, autoDeleteAfter: cleanupDelay);
+                await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, board size must be between 2 and 9.", true, whisperTo: user.KfUsername);
                 RateLimitService.RemoveMostRecentEntry(user, this);
                 return;
             }
             int minesCount = Convert.ToInt32(mines.Value);
             if (minesCount < 1 || minesCount > (boardSize * boardSize) - 1)
             {
-                await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, number of mines must be between 1 and {boardSize * boardSize - 1}(size^2 - 1).",true, autoDeleteAfter: cleanupDelay);
+                await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, number of mines must be between 1 and {boardSize * boardSize - 1}(size^2 - 1).", true, whisperTo: user.KfUsername);
                 RateLimitService.RemoveMostRecentEntry(user, this);
-                return;           
+                return;
             }
             //at this point all valid values so good to continue making the game
             await KasinoMines.CreateGame(gambler, wager, boardSize, minesCount);
@@ -201,7 +200,7 @@ public class MinesCommand : ICommand
                 {
                     if (game.BetsPlaced.Contains(coord) || coord.r < 0 || coord.r > game.Size || coord.c < 0 || coord.c > game.Size)
                     {
-                        await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you can't place duplicate or invalid bets. Use the tool: {ToolUrl}", true, autoDeleteAfter: cleanupDelay);
+                        await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you can't place duplicate or invalid bets. Use the tool: {ToolUrl}", true, whisperTo: user.KfUsername);
                         RateLimitService.RemoveMostRecentEntry(user, this);
                         return;
                     }
@@ -238,7 +237,7 @@ public class MinesCommand : ICommand
                 if (matches.Count == 0 || matches == null) //if invalid bet string
                 {
                     await botInstance.SendChatMessageAsync(
-                        $"{user.FormatUsername()}, invalid bet string. Example: !mines 100 10 10 1,3 1,5 2,6 - or use the tool: {ToolUrl}", true, autoDeleteAfter: cleanupDelay);
+                        $"{user.FormatUsername()}, invalid bet string. Example: !mines 100 10 10 1,3 1,5 2,6 - or use the tool: {ToolUrl}", true, whisperTo: user.KfUsername);
                     RateLimitService.RemoveMostRecentEntry(user, this);
                     return;
                 }
@@ -262,7 +261,7 @@ public class MinesCommand : ICommand
                 }
                 await botInstance.SendChatMessageAsync(
                     $"{user.FormatUsername()}, you already have a game running. !mines <picks> to reveal more spaces, !mines cashout to cash out, !mines <bet string> to place precise picks. Tool: {ToolUrl}",
-                    true, autoDeleteAfter: cleanupDelay);
+                    true, whisperTo: user.KfUsername);
                 RateLimitService.RemoveMostRecentEntry(user, this);
                 return;
             }
@@ -279,7 +278,7 @@ public class MinesCommand : ICommand
             {
                 msg = botInstance.GetSentMessageStatus(KasinoMines.ActiveGames[gambler.Id].LastMessageReference);
             }
-            
+
             if (pick == 0) //if using coordinates
             {
                 var game = KasinoMines.ActiveGames[gambler.Id];
@@ -292,13 +291,13 @@ public class MinesCommand : ICommand
                     }
                 }
                 await KasinoMines.Bet(gambler, precisePicks, msg, cashout);
-                
+
             }
             else //if using picks
             {
                 await KasinoMines.Bet(gambler, pick, msg, cashout);
             }
-            
+
         }
     }
 }

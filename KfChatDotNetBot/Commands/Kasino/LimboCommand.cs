@@ -38,27 +38,27 @@ public class LimboCommand : ICommand
         decimal limboNumber; //user number
         var settings = await SettingsProvider.GetMultipleValuesAsync([
             BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay,
-            BuiltIn.Keys.KasinoLimboCleanupDelay, BuiltIn.Keys.KasinoLimboEnabled, 
+            BuiltIn.Keys.KasinoLimboCleanupDelay, BuiltIn.Keys.KasinoLimboEnabled,
             BuiltIn.Keys.KiwiFarmsGreenColor, BuiltIn.Keys.KiwiFarmsRedColor
         ]);
-        
+
         // Check if limbo is enabled
         var limboEnabled = (settings[BuiltIn.Keys.KasinoLimboEnabled]).ToBoolean();
         if (!limboEnabled)
         {
-            var gameDisabledCleanupDelay= TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
+            var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, limbo is currently disabled.", 
-                true, autoDeleteAfter: gameDisabledCleanupDelay);
+                $"{user.FormatUsername()}, limbo is currently disabled.",
+                true, whisperTo: user.KfUsername);
             return;
         }
-        
+
         var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoLimboCleanupDelay].ToType<int>());
-        
+
         if (!arguments.TryGetValue("amount", out var amount))
         {
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, not enough arguments. !limbo <wager>",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -70,20 +70,20 @@ public class LimboCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
-                true, autoDeleteAfter: cleanupDelay);
+                true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
-        
+
         if (wager == 0)
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you have to wager more than {await wager.FormatKasinoCurrencyAsync()}", true,
-                autoDeleteAfter: cleanupDelay);
+                whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
-        
+
         //KasinoShop stuff -------------------------------------------------------------------------
         if (botInstance.BotServices.KasinoShop != null)
         {
@@ -102,7 +102,7 @@ public class LimboCommand : ICommand
         if (limboNumber <= 1)
         {
             //cancel the game if user does not choose a correct number
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you must choose a number greater than 1", true, autoDeleteAfter: cleanupDelay);
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you must choose a number greater than 1", true, whisperTo: user.KfUsername);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -117,7 +117,7 @@ public class LimboCommand : ICommand
             newBalance = await Money.NewWagerAsync(gambler.Id, wager, win, WagerGame.Limbo, ct: ctx);
             await botInstance.SendChatMessageAsync($"[b][color={colorToUse}] {casinoNumbers[1]:N2}[/color][/b][br]{user.FormatUsername()}, you " +
                                                    $"[color={settings[BuiltIn.Keys.KiwiFarmsGreenColor].Value}] won {await win.FormatKasinoCurrencyAsync()}![/color] " +
-                                                   $"Your balance is now: {await newBalance.FormatKasinoCurrencyAsync()}!", true, autoDeleteAfter: cleanupDelay);
+                                                   $"Your balance is now: {await newBalance.FormatKasinoCurrencyAsync()}!", true, whisperTo: user.KfUsername);
             //Kasino Shop stuff----------------------------------------------------------------------
             if (botInstance.BotServices.KasinoShop != null)
             {
@@ -129,7 +129,7 @@ public class LimboCommand : ICommand
         }
 
         if (limboNumber / 2 > casinoNumbers[1]) colorToUse = settings[BuiltIn.Keys.KiwiFarmsRedColor].Value!; //use red for the number if you're not close
-        else if (limboNumber *3 / 4 > casinoNumbers[1])
+        else if (limboNumber * 3 / 4 > casinoNumbers[1])
             colorToUse = "yellow"; //use yellow for the number if you're pretty close
         else colorToUse = "orange"; //use orange for mid range guess
         //you lose
@@ -137,7 +137,7 @@ public class LimboCommand : ICommand
         await botInstance.SendChatMessageAsync(
             $"[b][color={colorToUse}] {casinoNumbers[1]:N2}[/color][/b][br]{user.FormatUsername()}, you [color={settings[BuiltIn.Keys.KiwiFarmsRedColor].Value}]" +
             $"lost {await wager.FormatKasinoCurrencyAsync()}[/color]. Your balance is now: {await newBalance.FormatKasinoCurrencyAsync()}.",
-            true, autoDeleteAfter: cleanupDelay);
+            true, whisperTo: user.KfUsername);
         //Kasino Shop stuff----------------------------------------------------------------------
         if (botInstance.BotServices.KasinoShop != null)
         {
@@ -147,7 +147,7 @@ public class LimboCommand : ICommand
         //---------------------------------------------------------------------------------------
 
     }
-    
+
     //returns a distribution with a 1/multi chance of getting a number below or above sqr(min * max) (so max should basically be multi^2). basically gives you a 1/x fair chance to win
     //then scales the number using the number scaling function
     private decimal[] Get1XWeightedRandomNumber(double minValue, double maxValue, decimal multi)
@@ -175,9 +175,9 @@ public class LimboCommand : ICommand
         var logFactor = k * delta;
         var factor = Math.Exp(logFactor);
         var preResult = (result * (decimal)factor);
-        
+
         if (!((double)preResult < anchor)) return preResult;
-        
+
         var minTheo = (double)(multi * multi) / Max;
         var logMinTheo = Math.Log(minTheo);
         var logPreResult = Math.Log((double)preResult);
