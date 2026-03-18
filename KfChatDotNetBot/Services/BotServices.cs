@@ -642,7 +642,7 @@ public class BotServices
         var timeStr = nowEst.ToString("h:mmtt").ToLower();
 
         // Build MOTD
-        var motd = $"❗▲{topStr} ▼{botStr} | Day {day} {timeStr}";
+        var motd = $"▲{topStr} ▼{botStr} | Day {day} {timeStr}";
 
         var customText = settings[BuiltIn.Keys.StoxMotdCustomText].Value;
         if (!string.IsNullOrWhiteSpace(customText))

@@ -309,7 +309,7 @@ public class ChatBot
 
             // this is stupid but with the invisible space we can identify the motd message
             // and don't have to edit it 
-            if (message.Author.Username == settings[BuiltIn.Keys.KiwiFarmsUsername].Value && message.Message.StartsWith("❗"))
+            if (message.Author.Username == settings[BuiltIn.Keys.KiwiFarmsUsername].Value && message.Message.StartsWith("▲"))
             {
                 KfClient.SendMessageInstantAsync("/motd " + message.MessageUuid).Wait(_cancellationToken);
             }
