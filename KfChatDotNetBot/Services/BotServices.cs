@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Humanizer;
+using KfChatDotNetBot.Commands;
 using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
@@ -64,7 +65,7 @@ public class BotServices
         TemporarilyBypassGambaSeshForDiscord =
             SettingsProvider.GetValueAsync(BuiltIn.Keys.DiscordTemporarilyBypassGambaSeshInitialValue).Result.ToBoolean();
 
-        ClipService = new ClipService(_cancellationToken);
+        ClipService = new ClipService(_cancellationToken, FishtankCameras.Cameras);
         _logger.Info("Bot services ready to initialize!");
     }
 
@@ -114,6 +115,8 @@ public class BotServices
         _logger.Info("Starting websocket watchdog and Howl.gg user stats timer");
         _websocketWatchdog = WebsocketWatchdog();
         _howlggGetUserTimer = HowlggGetUserTimer();
+
+        _ = Task.Run(() => ClipService!.RestoreActiveBuffersAsync(), _cancellationToken);
     }
 
     private async Task BuildFishtankForwarder()

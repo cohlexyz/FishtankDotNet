@@ -56,10 +56,12 @@ public class CameraBuffer : IAsyncDisposable
     private readonly object _bufferLock = new();
     private long _totalBytes;
     private bool _stopping;
+    private int _restartAttempt;
 
     private static readonly TimeSpan MaxBufferAge = TimeSpan.FromMinutes(8);
     private static readonly TimeSpan TrimInterval = TimeSpan.FromSeconds(5);
     private const int ReadChunkSize = 8192;
+    private const int MaxRestartAttempts = 5;
 
     public CameraBuffer(string cameraName, string streamUrl, string ffmpegPath, CancellationToken ct, string? audioUrl = null)
     {
@@ -71,9 +73,10 @@ public class CameraBuffer : IAsyncDisposable
     }
 
     /// <summary>
-    /// Spawns FFmpeg to read the live stream and begins buffering its output.
+    /// Spawns an FFmpeg process and starts the read/stderr tasks and the process monitor.
+    /// Does not create the trim task — that is done once in <see cref="Start"/>.
     /// </summary>
-    public void Start()
+    private void SpawnProcess()
     {
         var processInfo = new ProcessStartInfo
         {
@@ -98,11 +101,19 @@ public class CameraBuffer : IAsyncDisposable
         Logger.Info($"[CameraBuffer:{CameraName}] FFmpeg started (PID {_process.Id}) for {StreamUrl}");
 
         _readTask = Task.Run(ReadLoopAsync, _cts.Token);
-        _trimTask = Task.Run(TrimLoopAsync, _cts.Token);
         _stderrTask = Task.Run(DrainStderrAsync, _cts.Token);
 
         // Fire-and-forget: monitor the FFmpeg process for unexpected exit
         _ = Task.Run(MonitorProcessAsync, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Spawns FFmpeg to read the live stream and begins buffering its output.
+    /// </summary>
+    public void Start()
+    {
+        SpawnProcess();
+        _trimTask = Task.Run(TrimLoopAsync, _cts.Token);
     }
 
     /// <summary>
@@ -304,6 +315,7 @@ public class CameraBuffer : IAsyncDisposable
     private async Task MonitorProcessAsync()
     {
         if (_process == null) return;
+        var processStartTime = DateTimeOffset.UtcNow;
         try
         {
             await _process.WaitForExitAsync();
@@ -315,12 +327,48 @@ public class CameraBuffer : IAsyncDisposable
 
         if (_stopping) return;
 
-        // FFmpeg exited on its own — this is unexpected
+        // If the process ran long enough before crashing, treat it as a fresh start
+        if (DateTimeOffset.UtcNow - processStartTime > TimeSpan.FromMinutes(2))
+            _restartAttempt = 0;
+
         var exitCode = -1;
         try { exitCode = _process.ExitCode; } catch { /* process may be disposed */ }
         Logger.Error($"[CameraBuffer:{CameraName}] FFmpeg died unexpectedly (exit code {exitCode})");
 
-        OnDied?.Invoke(this);
+        if (_restartAttempt >= MaxRestartAttempts)
+        {
+            Logger.Error($"[CameraBuffer:{CameraName}] Max restart attempts ({MaxRestartAttempts}) reached, giving up");
+            OnDied?.Invoke(this);
+            return;
+        }
+
+        // Exponential backoff: 5, 10, 20, 40, 60 seconds (capped)
+        var delaySeconds = Math.Min(5 * (1 << _restartAttempt), 60);
+        Logger.Info($"[CameraBuffer:{CameraName}] Restarting in {delaySeconds}s (attempt {_restartAttempt + 1}/{MaxRestartAttempts})");
+        _restartAttempt++;
+
+        await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+        if (_stopping) return;
+
+        // Wait for previous read/stderr tasks to finish cleanly before spawning new ones
+        if (_readTask != null)
+            try { await _readTask.WaitAsync(TimeSpan.FromSeconds(5)); } catch { /* best effort */ }
+        if (_stderrTask != null)
+            try { await _stderrTask.WaitAsync(TimeSpan.FromSeconds(5)); } catch { /* best effort */ }
+
+        _process?.Dispose();
+        _process = null;
+
+        try
+        {
+            SpawnProcess();
+            Logger.Info($"[CameraBuffer:{CameraName}] Successfully restarted");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"[CameraBuffer:{CameraName}] Failed to restart FFmpeg: {ex.Message}");
+            OnDied?.Invoke(this);
+        }
     }
 
     /// <summary>

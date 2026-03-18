@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using Raffinert.FuzzySharp;
@@ -29,6 +30,7 @@ public class ClipService
     private readonly LinkedList<CameraBuffer> _activeBuffers = new();
     private readonly Lock _lock = new();
     private readonly CancellationToken _ct;
+    private readonly Dictionary<string, string> _cameras;
     private readonly Channel<ClipJob> _clipQueue = Channel.CreateUnbounded<ClipJob>();
     private readonly Task _queueWorker;
 
@@ -51,9 +53,10 @@ public class ClipService
         IProgress<ClipProgress>? Progress,
         TaskCompletionSource<string> Result);
 
-    public ClipService(CancellationToken ct)
+    public ClipService(CancellationToken ct, Dictionary<string, string> cameras)
     {
         _ct = ct;
+        _cameras = cameras;
         _queueWorker = Task.Run(() => ProcessQueueAsync(ct), ct);
     }
 
@@ -114,6 +117,7 @@ public class ClipService
             return $"Failed to start buffering {matchedName}: {ex.Message}";
         }
 
+        await PersistActiveCamerasAsync();
         var msg = $"Now buffering {matchedName}";
         if (evictedName != null)
             msg += $" (evicted {evictedName})";
@@ -144,6 +148,7 @@ public class ClipService
                 catch (Exception ex) { Logger.Error($"[ClipService] Error stopping {buf.CameraName}: {ex.Message}"); }
             }
 
+            await PersistActiveCamerasAsync();
             return $"Stopped all {toStop.Count} camera buffer(s)";
         }
 
@@ -181,6 +186,7 @@ public class ClipService
             return $"No active buffer matched \"{cameraQuery}\"";
 
         await target.StopAsync();
+        await PersistActiveCamerasAsync();
         return $"Stopped buffering {target.CameraName}";
     }
 
@@ -408,10 +414,78 @@ public class ClipService
 
     private void OnBufferDied(CameraBuffer buffer)
     {
-        Logger.Error($"[ClipService] Camera buffer for {buffer.CameraName} died, removing from active list");
+        Logger.Error($"[ClipService] Camera buffer for {buffer.CameraName} died (max retries exhausted), removing from active list");
         lock (_lock)
         {
             _activeBuffers.Remove(buffer);
+        }
+        _ = Task.Run(PersistActiveCamerasAsync, _ct);
+    }
+
+    /// <summary>
+    /// Saves the list of active camera names to settings so buffers can be restored after a restart.
+    /// </summary>
+    private async Task PersistActiveCamerasAsync()
+    {
+        List<string> names;
+        lock (_lock)
+        {
+            names = _activeBuffers.Select(b => b.CameraName).ToList();
+        }
+        try
+        {
+            await SettingsProvider.SetValueAsJsonObjectAsync(BuiltIn.Keys.ClipActiveCameras, names);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"[ClipService] Failed to persist active cameras: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Reads persisted active camera names from settings and restarts buffering for each one.
+    /// Should be called once on startup.
+    /// </summary>
+    public async Task RestoreActiveBuffersAsync()
+    {
+        Setting setting;
+        try
+        {
+            setting = await SettingsProvider.GetValueAsync(BuiltIn.Keys.ClipActiveCameras);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"[ClipService] Failed to read active cameras setting: {ex.Message}");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(setting.Value) || setting.Value == "[]")
+            return;
+
+        List<string>? cameraNames;
+        try
+        {
+            cameraNames = JsonSerializer.Deserialize<List<string>>(setting.Value);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"[ClipService] Failed to parse active cameras setting: {ex.Message}");
+            return;
+        }
+
+        if (cameraNames == null || cameraNames.Count == 0)
+            return;
+
+        Logger.Info($"[ClipService] Restoring {cameraNames.Count} camera buffer(s) from previous session");
+        foreach (var name in cameraNames)
+        {
+            if (!_cameras.ContainsKey(name))
+            {
+                Logger.Warn($"[ClipService] Persisted camera '{name}' not found in camera list, skipping");
+                continue;
+            }
+            var result = await StartAsync(name, _cameras);
+            Logger.Info($"[ClipService] Restore result for '{name}': {result}");
         }
     }
 

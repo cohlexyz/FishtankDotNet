@@ -351,6 +351,9 @@ public static class BuiltIn
             SettingValueType.Text, "15", WholeNumberRegex)]
         public static string DLiveCheckInterval = "DLive.CheckInterval";
         // Setting was originally Complex but this was a mistake, it's just an array of usernames. Ditto for PeerTube
+        [BuiltInSetting("JSON array of camera names to resume buffering on bot startup",
+            SettingValueType.Array, "[]")]
+        public static string ClipActiveCameras = "Clip.ActiveCameras";
         [BuiltInSetting("Array of DLive streamers who are currently live for persistence between bot restarts",
             SettingValueType.Array, "[]")]
         public static string DLivePersistedCurrentlyLiveStreams = "DLive.PersistedCurrentlyLiveStreams";
