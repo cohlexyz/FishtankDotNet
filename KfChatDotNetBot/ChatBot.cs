@@ -304,6 +304,13 @@ public class ChatBot
             {
                 _logger.Info($"KF ({message.MessageDate.ToLocalTime():HH:mm:ss}) <{message.Author.Username}> {message.Message}");
             }
+
+            if (message.Author.Username == settings[BuiltIn.Keys.KiwiFarmsUsername].Value && message.Message.StartsWith("MOTD: "))
+            {
+                KfClient.SendMessageInstantAsync("/motd " + message.MessageUuid).Wait(_cancellationToken);
+                KfClient.DeleteMessageAsync(message.MessageUuid).Wait(_cancellationToken);
+            }
+
             // Update last edit timestamp
             if (message.Author.Username == settings[BuiltIn.Keys.KiwiFarmsUsername].Value && message.MessageEditDate != null)
             {

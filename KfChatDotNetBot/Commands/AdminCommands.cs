@@ -68,9 +68,7 @@ public class SetMotdCommand : ICommand
             return;
         }
 
-        var msg = await botInstance.SendChatMessageAsync($"{motd}", true);
-        await botInstance.KfClient.SendMessageInstantAsync("/motd " + msg.ChatMessageUuid);
-        await botInstance.KfClient.DeleteMessageAsync(message.MessageUuid);
+        await botInstance.SendChatMessageAsync($"MOTD: {motd}", true);
     }
 }
 
