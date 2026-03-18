@@ -305,9 +305,10 @@ public class ChatBot
                 _logger.Info($"KF ({message.MessageDate.ToLocalTime():HH:mm:ss}) <{message.Author.Username}> {message.Message}");
             }
 
-            if (message.Author.Username == settings[BuiltIn.Keys.KiwiFarmsUsername].Value && message.Message.StartsWith("MOTD: "))
+            // this is stupid but with the invisible space we can identify the motd message
+            // and don't have to edit it 
+            if (message.Author.Username == settings[BuiltIn.Keys.KiwiFarmsUsername].Value && message.Message.StartsWith("‎"))
             {
-                KfClient.EditMessageAsync(message.MessageUuid, message.Message.Substring(6)).Wait(_cancellationToken);
                 KfClient.SendMessageInstantAsync("/motd " + message.MessageUuid).Wait(_cancellationToken);
             }
 
