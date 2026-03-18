@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Humanizer;
 using KfChatDotNetBot.Commands;
+using KfChatDotNetBot.Commands.Kasino;
 using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
@@ -8,6 +9,7 @@ using KfChatDotNetBot.Settings;
 using KickWsClient.Models;
 using Microsoft.EntityFrameworkCore;
 using NLog;
+using StackExchange.Redis;
 using Websocket.Client;
 
 namespace KfChatDotNetBot.Services;
@@ -600,7 +602,8 @@ public class BotServices
         var settings = await SettingsProvider.GetMultipleValuesAsync([
             BuiltIn.Keys.StoxMotdEnabled,
             BuiltIn.Keys.StoxMotdCustomText,
-            BuiltIn.Keys.StoxMotdMessageUuid
+            BuiltIn.Keys.StoxMotdMessageUuid,
+            BuiltIn.Keys.BotRedisConnectionString
         ]);
 
         if (!settings[BuiltIn.Keys.StoxMotdEnabled].ToBoolean())
@@ -623,15 +626,6 @@ public class BotServices
             return;
         }
 
-        // Sort by price descending, pick top 2 and bottom 2
-        var sorted = stoxData.Stocks.OrderByDescending(s => s.CurrentPrice).ToList();
-        var top2 = sorted.Take(2).ToList();
-        var bottom2 = sorted.TakeLast(2).ToList();
-
-        // Build stock portion
-        var topStr = string.Join(" ", top2.Select(s => $"{s.Symbol} ₣{s.CurrentPrice}"));
-        var botStr = string.Join(" ", bottom2.Select(s => $"{s.Symbol} ₣{s.CurrentPrice}"));
-
         // Calculate fishtank day and FTT time
         var fishtankStart = new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc);
         var nowUtc = DateTime.UtcNow;
@@ -641,12 +635,77 @@ public class BotServices
         var nowEst = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, estZone);
         var timeStr = nowEst.ToString("h:mmtt").ToLower();
 
-        // Build MOTD
-        var motd = $"▲{topStr} ▼{botStr} | Day {day} {timeStr}";
+        // Line 1: {time} | custom string
+        var motd = $"Day {day} {timeStr}";
 
         var customText = settings[BuiltIn.Keys.StoxMotdCustomText].Value;
         if (!string.IsNullOrWhiteSpace(customText))
             motd += $" | {customText}";
+
+        // Line 2: ongoing prediction question, if any
+        var redisConnStr = settings[BuiltIn.Keys.BotRedisConnectionString].Value;
+        if (!string.IsNullOrEmpty(redisConnStr))
+        {
+            try
+            {
+                var redis = await ConnectionMultiplexer.ConnectAsync(redisConnStr);
+                var redisDb = redis.GetDatabase();
+                var activePredictions = await PredictionHelper.ListActivePredictions(redisDb);
+                if (activePredictions.Count > 0)
+                {
+                    var predictionLines = string.Join(" | ", activePredictions.Select(p => $"🔮 {p.description}"));
+                    motd += $"[br][br]{predictionLines}";
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.Error($"Failed to fetch predictions for MOTD: {e.Message}");
+            }
+        }
+
+        // Build full stocks table
+        stoxData.Stocks.Sort((x, y) => y.CurrentPrice.CompareTo(x.CurrentPrice));
+
+        var currentAndPrevious = stoxData.Stocks
+            .Select(s => (current: s, previous: StoxCommand.LastStocksValues.Count > 0
+                ? StoxCommand.LastStocksValues.FirstOrDefault(x => x.Symbol == s.Symbol)
+                : null))
+            .ToList();
+
+        static string GetCells(Stox current, Stox? previous)
+        {
+            if (previous == null)
+                return $"[TD]{current.Symbol}[/TD][TD]₣{current.CurrentPrice}[/TD]";
+
+            int change = current.CurrentPrice - previous.CurrentPrice;
+            string changeStr = change > 0
+                ? $"[B][COLOR=#00ff00]₣{change}↗[/COLOR][/B]"
+                : change < 0
+                    ? $"[B][COLOR=#ff0000]₣{change}↘[/COLOR][/B]"
+                    : "₣0";
+
+            return $"[TD]{current.Symbol}[/TD][TD]₣{current.CurrentPrice} ({changeStr})[/TD]";
+        }
+
+        var stoxPerRow = (int)Math.Ceiling(currentAndPrevious.Count / 2.0);
+        var tableStr = "[size=80][TABLE width=\"1%\"]";
+        for (int i = 0; i < 2; i++)
+        {
+            var row = string.Empty;
+            for (int j = 0; j < stoxPerRow; j++)
+            {
+                var index = i * stoxPerRow + j;
+                if (index >= currentAndPrevious.Count)
+                    break;
+
+                var (current, previous) = currentAndPrevious[index];
+                row += GetCells(current, previous);
+            }
+            tableStr += $"[TR]{row}[/TR]";
+        }
+        tableStr += "[/TABLE][/size]";
+
+        motd += $"[br][br]{tableStr}";
 
         // Try to edit existing message, otherwise send a new one
         var existingUuid = settings[BuiltIn.Keys.StoxMotdMessageUuid].Value;

@@ -958,11 +958,9 @@ public class PredictionStatusCommand : ICommand
             : $"[br]use !bet {(activePredictions.Length > 1 ? $"\"{prediction.Description}\" " : "")}<amount> <option>";
 
         await botInstance.SendChatMessageAsync(
-            $"{user.KfUsername}, Prediction [{predictionId}]: {prediction.Description}[br][br]" +
-            $"Status: {bettingStatus}[br][br]" +
-            $"Options:[br]{optionsText}[br][br]" +
-            $"Total pot: {await totalPot.FormatKasinoCurrencyAsync()}[br]" +
-            $"Total bets: {bets.Count}{betInstructions}",
+            $"Prediction [{predictionId}]: {prediction.Description}[br]" +
+            $"Options:[br]{optionsText}[br]" +
+            $"Status: {bettingStatus}, Total pot: {await totalPot.FormatKasinoCurrencyAsync()}, total bets: {bets.Count}{betInstructions}",
             true);
     }
 }

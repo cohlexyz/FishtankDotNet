@@ -307,9 +307,8 @@ public class ChatBot
                 _logger.Info($"KF ({message.MessageDate.ToLocalTime():HH:mm:ss}) <{message.Author.Username}> {message.Message}");
             }
 
-            // this is stupid but with the invisible space we can identify the motd message
-            // and don't have to edit it 
-            if (message.Author.Username == settings[BuiltIn.Keys.KiwiFarmsUsername].Value && message.Message.StartsWith("▲"))
+            // Zero-width space prefix identifies the MOTD message
+            if (message.Author.Username == settings[BuiltIn.Keys.KiwiFarmsUsername].Value && message.Message.StartsWith("Day"))
             {
                 KfClient.SendMessageInstantAsync("/motd " + message.MessageUuid).Wait(_cancellationToken);
             }
