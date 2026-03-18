@@ -38,19 +38,6 @@ public class TwistedCommand : ICommand
     }
 }
 
-public class ScratchCommand : ICommand
-{
-    public List<Regex> Patterns => [new Regex("^scratch")];
-    public string? HelpText => "Start scratching";
-    public UserRight RequiredRight => UserRight.Guest;
-    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
-    public RateLimitOptionsModel? RateLimitOptions => null;
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
-    {
-        // ReSharper disable once StringLiteralTypo
-        await botInstance.SendChatMessageAsync("🐀 🗣 GET IT TWISTED 🌪, SCRATCH ✅. PLEASE START SCRATCHING 👍. SCRATCHING YOUR SCABIES SORES IS RELIEF 😌 AND RELIEF ONLY 👍. YOU WILL FEEL BETTER 💪, YOU WILL FIND COMFORT ❗️. YOU WILL DO ALL OF THAT 💯, YOU UNDERSTAND ⁉️ YOU WILL CONQUER THE ITCH 🦠 AND REBUILD YOUR SKIN’S PEACE 🤯", true);
-    }
-}
 
 public class CrackedCommand : ICommand
 {
@@ -96,7 +83,7 @@ public class CleanCommand : ICommand
             return;
         }
         var timespan = DateTimeOffset.UtcNow - DateTimeOffset.Parse(start.Value);
-        await botInstance.SendChatMessageAsync($"{settings[BuiltIn.Keys.TwitchBossmanJackUsername].Value} has been clean {timespan.Humanize(precision:5)}", true);
+        await botInstance.SendChatMessageAsync($"{settings[BuiltIn.Keys.TwitchBossmanJackUsername].Value} has been clean {timespan.Humanize(precision: 5)}", true);
     }
 }
 
@@ -124,10 +111,10 @@ public class RehabCommand : ICommand
         var timespan = endDate - DateTimeOffset.UtcNow;
         if (endDate > DateTimeOffset.UtcNow)
         {
-            await botInstance.SendChatMessageAsync($"{settings[BuiltIn.Keys.TwitchBossmanJackUsername].Value} should finish rehab in {timespan.Humanize(precision:3)}", true);
+            await botInstance.SendChatMessageAsync($"{settings[BuiltIn.Keys.TwitchBossmanJackUsername].Value} should finish rehab in {timespan.Humanize(precision: 3)}", true);
             return;
         }
-        await botInstance.SendChatMessageAsync($"{settings[BuiltIn.Keys.TwitchBossmanJackUsername].Value} left rehab {timespan.Humanize(precision:3)} ago", true);
+        await botInstance.SendChatMessageAsync($"{settings[BuiltIn.Keys.TwitchBossmanJackUsername].Value} left rehab {timespan.Humanize(precision: 3)} ago", true);
     }
 }
 
@@ -194,7 +181,7 @@ public class NextCourtHearingCommand : ICommand
             return;
         }
 
-        var sent = await botInstance.SendChatMessageAsync(RenderHearings(hearings),true);
+        var sent = await botInstance.SendChatMessageAsync(RenderHearings(hearings), true);
         var success = await botInstance.WaitForChatMessageAsync(sent, TimeSpan.FromSeconds(15), ctx);
         if (!success) throw new InvalidOperationException();
         var i = 0;
@@ -243,7 +230,7 @@ public class JailCommand : ICommand
             return;
         }
         var timespan = DateTimeOffset.UtcNow - DateTimeOffset.Parse(start.Value);
-        await botInstance.SendChatMessageAsync($"{settings[BuiltIn.Keys.TwitchBossmanJackUsername].Value} has been in jail {timespan.Humanize(precision:5)}", true);
+        await botInstance.SendChatMessageAsync($"{settings[BuiltIn.Keys.TwitchBossmanJackUsername].Value} has been in jail {timespan.Humanize(precision: 5)}", true);
     }
 }
 
