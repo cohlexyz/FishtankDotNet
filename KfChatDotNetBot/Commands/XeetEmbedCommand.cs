@@ -342,9 +342,17 @@ public class XeetEmbedCommand : ICommand
 
         if (mediaUrls.Count > 0)
         {
+            if (mediaUrls.Count > 2)
+            {
+                bodyBuilder.Append("[spoiler=\"Media attachments\"]");
+            }
             foreach (var mediaUrl in mediaUrls)
             {
                 bodyBuilder.Append($"[img]{mediaUrl}[/img][br]");
+            }
+            if (mediaUrls.Count > 2)
+            {
+                bodyBuilder.Append("[/spoiler]");
             }
         }
 
