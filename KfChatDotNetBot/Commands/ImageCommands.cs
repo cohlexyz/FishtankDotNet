@@ -50,7 +50,7 @@ public class AddImageCommand : ICommand
         await db.Images.AddAsync(new ImageDbModel { Key = key, Url = url, LastSeen = DateTimeOffset.MinValue }, ctx);
         await db.SaveChangesAsync(ctx);
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, you added the following media to the {key} carousel\n{url}", true, whisperTo: user.KfUsername);
+            $"You added the image to the {key} carousel: {url}", true, whisperTo: user.KfUsername);
     }
 }
 
