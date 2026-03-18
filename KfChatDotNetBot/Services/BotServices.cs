@@ -579,7 +579,7 @@ public class BotServices
 
     private async Task StoxMotdUpdaterTask()
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
         while (await timer.WaitForNextTickAsync(_cancellationToken))
         {
             if (_chatBot.InitialStartCooldown) continue;
