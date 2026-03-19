@@ -334,6 +334,7 @@ public class ClipSaveCommand : ICommand
     }
 }
 
+[DontDeleteInvocationMessage]
 public class ClipListCommand : ICommand
 {
     public List<Regex> Patterns => [new Regex(@"^clip list$")];

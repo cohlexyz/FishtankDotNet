@@ -146,6 +146,7 @@ public class JobsData
     public Dictionary<string, string> FishJobs { get; set; } = [];
 }
 
+[DontDeleteInvocationMessage]
 public class UpdateJobsCommand : ICommand
 {
     public List<Regex> Patterns => [
@@ -191,7 +192,7 @@ public class UpdateJobsCommand : ICommand
         }
         else
         {
-            jobsData.FishJobs[job] = fish;
+            jobsData.FishJobs[fish] = job;
         }
 
         await redisDb.StringSetAsync("fishtank_jobs", JsonSerializer.Serialize(jobsData));
@@ -231,5 +232,42 @@ public class UpdateJobsCommand : ICommand
         tableStr += "[/TABLE]";
         return tableStr;
     }
+}
+
+
+[DontDeleteInvocationMessage]
+public class ClearJobsCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^admin job clear$")
+    ];
+
+    public string? HelpText => "Clear Fishtank jobs for all users";
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        var settings = await SettingsProvider.GetMultipleValuesAsync([
+            BuiltIn.Keys.BotRedisConnectionString
+        ]);
+
+        if (string.IsNullOrEmpty(settings[BuiltIn.Keys.BotRedisConnectionString].Value))
+        {
+            await botInstance.SendChatMessageAsync($"{user.KfUsername}, jobs are not available at this time", true
+                , whisperTo: user.KfUsername);
+            return;
+        }
+
+        var redis = await ConnectionMultiplexer.ConnectAsync(settings[BuiltIn.Keys.BotRedisConnectionString].Value!);
+        var redisDb = redis.GetDatabase();
+        await redisDb.StringSetAsync("fishtank_jobs", JsonSerializer.Serialize(new JobsData()));
+        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, cleared all jobs", true, whisperTo: message.Author.Username);
+
+        await botInstance.BotServices.UpdateStoxMotdAsync();
+    }
+
 }
 
