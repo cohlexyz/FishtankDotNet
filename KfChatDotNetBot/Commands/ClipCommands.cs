@@ -65,7 +65,7 @@ public static class FishtankCameras
             }
             else if (pendingName != null && line.Length > 0 && !line.StartsWith('#'))
             {
-                cameras[pendingName] = line.Replace("/hls", "");
+                // cameras[pendingName] = line.Replace("/hls", "");
                 pendingName = null;
             }
         }
