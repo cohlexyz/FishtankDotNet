@@ -7,7 +7,6 @@ using KfChatDotNetBot.Models.DbModels;
 using KfChatDotNetBot.Settings;
 using KfChatDotNetWsClient.Models.Events;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 
 namespace KfChatDotNetBot.Commands;
 
@@ -128,54 +127,6 @@ public class CacheClearAdminCommand : ICommand
     }
 }
 
-public class NewKickChannelCommand : ICommand
-{
-    public List<Regex> Patterns => [
-        new Regex(@"^admin kick add (?<forum_id>\d+) (?<channel_id>\d+) (?<slug>\S+)$"),
-        new Regex(@"^admin kick add (?<forum_id>\d+) (?<channel_id>\d+) (?<slug>\S+) (?<auto_capture>true|false)$")
-    ];
-
-    public string? HelpText => "Add a Kick channel to the bot's database";
-    public UserRight RequiredRight => UserRight.Admin;
-    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
-    public RateLimitOptionsModel? RateLimitOptions => null;
-    public bool WhisperCanInvoke => false;
-    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
-    {
-        var autoCapture = false;
-        if (arguments.TryGetValue("auto_capture", out var argument))
-        {
-            autoCapture = argument.Value == "true";
-        }
-
-        await using var db = new ApplicationDbContext();
-        var url = $"https://kick.com/{arguments["slug"].Value}";
-        if (await db.Streams.AnyAsync(s => s.StreamUrl == url, cancellationToken: ctx))
-        {
-            await botInstance.SendChatMessageAsync("Channel is already in the database", true);
-            return;
-        }
-
-        var forumUser = await db.Users.FirstOrDefaultAsync(u => u.KfId == Convert.ToInt32(arguments["forum_id"].Value), cancellationToken: ctx);
-
-        var meta = JsonConvert.SerializeObject(new KickStreamMetaModel
-        {
-            ChannelId = Convert.ToInt32(arguments["channel_id"].Value)
-        });
-
-        db.Streams.Add(new StreamDbModel
-        {
-            Service = StreamService.Kick,
-            User = forumUser,
-            Metadata = meta,
-            StreamUrl = url,
-            AutoCapture = autoCapture
-        });
-
-        await db.SaveChangesAsync(ctx);
-        await botInstance.SendChatMessageAsync("Updated list of channels", true);
-    }
-}
 
 public class RemoveStreamChannelCommand : ICommand
 {

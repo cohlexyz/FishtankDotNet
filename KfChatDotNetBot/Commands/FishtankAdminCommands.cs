@@ -2,8 +2,9 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
+using KfChatDotNetBot.Services;
 using KfChatDotNetBot.Settings;
-using KfChatDotNetWsClient.Models.Events;
+using StackExchange.Redis;
 
 namespace KfChatDotNetBot.Commands;
 
@@ -138,3 +139,96 @@ public class ListFishtankWhitelistCommand : ICommand
         }
     }
 }
+
+
+public class JobsData
+{
+    public Dictionary<string, string> FishJobs { get; set; } = [];
+}
+
+public class UpdateJobsCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^admin jobs (?<job>.+) (?<fish>.+)$")
+    ];
+
+    public string? HelpText => "Update Fishtank jobs for a user (use 'none' to clear)";
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        var username = arguments["job"].Value.Trim();
+        var fish = arguments["fish"].Value.Trim();
+        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(fish))
+        {
+            await botInstance.SendChatMessageAsync($"@{message.Author.Username}, invalid command format", true, whisperTo: message.Author.Username);
+            return;
+        }
+        var settings = await SettingsProvider.GetMultipleValuesAsync([
+            BuiltIn.Keys.BotRedisConnectionString
+        ]);
+
+        if (string.IsNullOrEmpty(settings[BuiltIn.Keys.BotRedisConnectionString].Value))
+        {
+            await botInstance.SendChatMessageAsync($"{user.KfUsername}, predictions are not available at this time", true
+                , whisperTo: user.KfUsername);
+            return;
+        }
+
+        var redis = await ConnectionMultiplexer.ConnectAsync(settings[BuiltIn.Keys.BotRedisConnectionString].Value!);
+        var redisDb = redis.GetDatabase();
+
+        var jobsDataJson = await redisDb.StringGetAsync("fishtank_jobs");
+        var jobsData = string.IsNullOrEmpty(jobsDataJson) ? new JobsData() : JsonSerializer.Deserialize<JobsData>((string)jobsDataJson!) ?? new JobsData();
+
+        if (fish.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            jobsData.FishJobs.Remove(username);
+        }
+        else
+        {
+            jobsData.FishJobs[username] = fish;
+        }
+
+        await redisDb.StringSetAsync("fishtank_jobs", JsonSerializer.Serialize(jobsData));
+        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, updated jobs for '{username}'", true, whisperTo: message.Author.Username);
+
+        // update motd to reflect changes
+        await botInstance.BotServices.UpdateStoxMotdAsync();
+    }
+
+    public static async Task<string> BuildJobsTable(IDatabase redisDb)
+    {
+        var fishJobsJson = await redisDb.StringGetAsync("fishtank_jobs");
+        var fishJobsData = string.IsNullOrEmpty(fishJobsJson) ? new JobsData() : JsonSerializer.Deserialize<JobsData>((string)fishJobsJson!) ?? new JobsData();
+        var fishJobs = fishJobsData.FishJobs;
+        if (fishJobs.Count == 0)
+        {
+            return "";
+        }
+
+        var tableStr = "[size=80][TABLE]";
+        var users = fishJobs.Keys.OrderBy(u => u).ToList();
+
+        while (users.Count > 0)
+        {
+            var batch = users.Take(3).ToList();
+            users = users.Skip(3).ToList();
+
+            var row = string.Join("", batch.Select(u =>
+            {
+                var fish = fishJobs[u];
+                return $"[TD][B]{u}[/B]: {fish}[/TD]";
+            }));
+
+            tableStr += $"[TR]{row}[/TR]";
+        }
+
+        tableStr += "[/TABLE]";
+        return tableStr;
+    }
+}
+

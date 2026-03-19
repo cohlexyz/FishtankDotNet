@@ -655,14 +655,16 @@ public class BotServices
                 if (activePredictions.Count > 0)
                 {
                     var predictionLines = string.Join(" | ", activePredictions.Select(p => $"🔮 {p.description}"));
-                    motd += $"[br][br]{predictionLines}";
+                    motd += $"[br]{predictionLines}";
                 }
+                motd += await UpdateJobsCommand.BuildJobsTable(redisDb);
             }
             catch (Exception e)
             {
                 _logger.Error($"Failed to fetch predictions for MOTD: {e.Message}");
             }
         }
+
 
         // Build full stocks table
         stoxData.Stocks.Sort((x, y) => y.CurrentPrice.CompareTo(x.CurrentPrice));
@@ -706,7 +708,7 @@ public class BotServices
         }
         tableStr += "[/TABLE][/size]";
 
-        motd += $"[br][br]{tableStr}";
+        motd += $"{tableStr}";
 
         // Try to edit existing message, otherwise send a new one
         var existingUuid = settings[BuiltIn.Keys.StoxMotdMessageUuid].Value;

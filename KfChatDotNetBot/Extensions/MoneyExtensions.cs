@@ -3,7 +3,6 @@ using KfChatDotNetBot.Models.DbModels;
 using KfChatDotNetBot.Services;
 using KfChatDotNetBot.Settings;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 using NLog;
 
 namespace KfChatDotNetBot.Extensions;
