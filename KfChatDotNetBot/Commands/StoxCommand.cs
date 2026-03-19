@@ -28,7 +28,7 @@ public class StoxCommand : ICommand
     {
         MaxInvocations = 1,
         Window = TimeSpan.FromSeconds(60),
-        Flags = RateLimitFlags.Global | RateLimitFlags.NoResponse
+        Flags = RateLimitFlags.NoResponse
     };
 
     internal static List<Stox> LastStocksValues { get; set; } = new();
