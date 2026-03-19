@@ -65,7 +65,8 @@ public static class FishtankCameras
             }
             else if (pendingName != null && line.Length > 0 && !line.StartsWith('#'))
             {
-                cameras[pendingName] = line;
+                // WTF????
+                cameras[pendingName] = line.Replace(".jetzt", ".jetzt:444");
                 pendingName = null;
             }
         }
