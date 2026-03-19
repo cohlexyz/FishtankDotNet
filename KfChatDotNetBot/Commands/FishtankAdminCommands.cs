@@ -149,10 +149,10 @@ public class JobsData
 public class UpdateJobsCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^admin jobs (?<job>.+) (?<fish>.+)$")
+        new Regex(@"^admin job set(?<job>.+) (?<fish>.+)$")
     ];
 
-    public string? HelpText => "Update Fishtank jobs for a user (use 'none' to clear)";
+    public string? HelpText => "Update Fishtank jobs for a user ";
     public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
@@ -160,11 +160,12 @@ public class UpdateJobsCommand : ICommand
 
     public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
-        var username = arguments["job"].Value.Trim();
+        var job = arguments["job"].Value.Trim();
         var fish = arguments["fish"].Value.Trim();
-        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(fish))
+
+        if (string.IsNullOrEmpty(job))
         {
-            await botInstance.SendChatMessageAsync($"@{message.Author.Username}, invalid command format", true, whisperTo: message.Author.Username);
+            await botInstance.SendChatMessageAsync($"@{message.Author.Username}, invalid command format. Use <job name> <fish name>", true, whisperTo: message.Author.Username);
             return;
         }
         var settings = await SettingsProvider.GetMultipleValuesAsync([
@@ -186,17 +187,17 @@ public class UpdateJobsCommand : ICommand
 
         if (fish.Equals("none", StringComparison.OrdinalIgnoreCase))
         {
-            jobsData.FishJobs.Remove(username);
+            jobsData.FishJobs.Remove(job);
         }
         else
         {
-            jobsData.FishJobs[username] = fish;
+            jobsData.FishJobs[job] = fish;
         }
 
         await redisDb.StringSetAsync("fishtank_jobs", JsonSerializer.Serialize(jobsData));
-        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, updated jobs for '{username}'", true, whisperTo: message.Author.Username);
+        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, updated jobs for '{fish}'", true, whisperTo: message.Author.Username);
 
-        // update motd to reflect changes
+        // update otd to reflect changes
         await botInstance.BotServices.UpdateStoxMotdAsync();
     }
 
@@ -211,17 +212,17 @@ public class UpdateJobsCommand : ICommand
         }
 
         var tableStr = "[size=80][TABLE]";
-        var users = fishJobs.Keys.OrderBy(u => u).ToList();
+        var users = fishJobs.Keys.OrderBy(fish => fish).ToList();
 
         while (users.Count > 0)
         {
             var batch = users.Take(3).ToList();
             users = users.Skip(3).ToList();
 
-            var row = string.Join("", batch.Select(u =>
+            var row = string.Join("", batch.Select(fish =>
             {
-                var fish = fishJobs[u];
-                return $"[TD][B]{u}[/B]: {fish}[/TD]";
+                var job = fishJobs[fish];
+                return $"[TD][B]{fish}[/B]: {job}[/TD]";
             }));
 
             tableStr += $"[TR]{row}[/TR]";
