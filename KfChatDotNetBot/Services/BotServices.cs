@@ -657,7 +657,6 @@ public class BotServices
                     var predictionLines = string.Join(" | ", activePredictions.Select(p => $"🔮 {p.description}"));
                     motd += $"[br]{predictionLines}";
                 }
-                motd += await UpdateJobsCommand.BuildJobsTable(redisDb);
             }
             catch (Exception e)
             {
@@ -665,6 +664,7 @@ public class BotServices
             }
         }
 
+        motd += await FishtankJobs.BuildJobsTable();
 
         // Build full stocks table
         stoxData.Stocks.Sort((x, y) => y.CurrentPrice.CompareTo(x.CurrentPrice));
