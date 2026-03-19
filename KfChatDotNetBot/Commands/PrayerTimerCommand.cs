@@ -28,7 +28,9 @@ public class PrayerTimerCommand : ICommand
     private const string CacheKey = "PrayerTimings:Atlanta";
     private static readonly string[] MainPrayers = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var timings = await GetPrayerTimingsAsync(ctx);
         if (timings == null)
@@ -75,7 +77,7 @@ public class PrayerTimerCommand : ICommand
             : "unknown";
 
         await botInstance.SendChatMessageAsync(
-            $"Next: {nextPrayer} in {countdownStr} | {string.Join(" | ", parts)}", true, whisperTo: user.KfUsername);
+            $"Next: {nextPrayer} in {countdownStr} | {string.Join(" | ", parts)}", true);
     }
 
     private static bool TryParseTime(string timeStr, out TimeOnly result)

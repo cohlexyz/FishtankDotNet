@@ -32,7 +32,9 @@ public class StoxCommand : ICommand
     };
 
     internal static List<Stox> LastStocksValues { get; set; } = new();
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+
+    public bool WhisperCanInvoke => true;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         // fetch json from api
         const string endpoint = "https://api.fishtank.live/v1/stocks";
@@ -126,7 +128,9 @@ public class StoxBuyCommand : ICommand
         Flags = RateLimitFlags.NoResponse
     };
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         if (!await StoxMarket.IsOpenAsync())
@@ -240,7 +244,9 @@ public class StoxSellCommand : ICommand
         Flags = RateLimitFlags.NoResponse
     };
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         if (!await StoxMarket.IsOpenAsync())
@@ -346,7 +352,9 @@ public class StoxPortfolioCommand : ICommand
         Flags = RateLimitFlags.NoResponse
     };
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
@@ -456,7 +464,9 @@ public class StoxShortCommand : ICommand
         Flags = RateLimitFlags.NoResponse
     };
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         if (!await StoxMarket.IsOpenAsync())
@@ -574,7 +584,9 @@ public class StoxCoverCommand : ICommand
         Flags = RateLimitFlags.NoResponse
     };
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         if (!await StoxMarket.IsOpenAsync())
@@ -682,8 +694,9 @@ public class StoxOpenMarketCommand : ICommand
     public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => true;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         await SettingsProvider.SetValueAsBooleanAsync(BuiltIn.Keys.StoxMarketOpen, true);
@@ -701,8 +714,9 @@ public class StoxCloseMarketCommand : ICommand
     public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => true;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         await SettingsProvider.SetValueAsBooleanAsync(BuiltIn.Keys.StoxMarketOpen, false);
@@ -720,8 +734,9 @@ public class StoxRenameSymbolCommand : ICommand
     public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(30);
     public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => true;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var oldSymbol = arguments["oldSymbol"].Value.ToUpper();

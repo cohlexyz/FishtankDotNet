@@ -18,7 +18,9 @@ public class AddFishtankWhitelistCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var username = arguments["username"].Value.Trim();
 
@@ -69,8 +71,9 @@ public class RemoveFishtankWhitelistCommand : ICommand
     public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => true;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var username = arguments["username"].Value.Trim();
 
@@ -109,8 +112,9 @@ public class ListFishtankWhitelistCommand : ICommand
     public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => true;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         try
         {

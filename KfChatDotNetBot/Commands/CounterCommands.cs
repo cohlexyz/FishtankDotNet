@@ -15,7 +15,8 @@ public class CounterAddCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var name = arguments["name"].Value.ToLower();
         await using var db = new ApplicationDbContext();
@@ -37,8 +38,9 @@ public class CounterRemoveCommand : ICommand
     public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => true;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var name = arguments["name"].Value.ToLower();
         await using var db = new ApplicationDbContext();
@@ -68,7 +70,9 @@ public class CounterIncrementCommand : ICommand
         Flags = RateLimitFlags.Global
     };
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var name = arguments["name"].Value.ToLower();
         await using var db = new ApplicationDbContext();
@@ -94,7 +98,9 @@ public class CounterShowCommand : ICommand
         Flags = RateLimitFlags.Global
     };
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var name = arguments["name"].Value.ToLower();
         await using var db = new ApplicationDbContext();

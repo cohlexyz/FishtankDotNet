@@ -4,11 +4,13 @@ using Humanizer;
 using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
+using KfChatDotNetBot.Services;
 using KfChatDotNetBot.Settings;
 using KfChatDotNetWsClient.Models.Events;
 
 namespace KfChatDotNetBot.Commands;
 
+[DontDeleteInvocationMessage]
 public class HelpCommand : ICommand
 {
     public List<Regex> Patterns => [
@@ -26,7 +28,10 @@ public class HelpCommand : ICommand
         Window = TimeSpan.FromSeconds(60),
         Flags = RateLimitFlags.Global
     };
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         await botInstance.SendChatMessageAsync("Bot usage guide: https://fishtank.observer/bot/", true, autoDeleteAfter: TimeSpan.FromSeconds(20));
     }
@@ -103,9 +108,10 @@ public class SourceCommand : ICommand
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
-        await botInstance.SendChatMessageAsync("Source: https://github.com/cohlexyz/FishtankDotNet", true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync("Source: https://github.com/cohlexyz/FishtankDotNet", true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
 
@@ -120,7 +126,8 @@ public class ShareXClippingCommand : ICommand
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         await botInstance.SendChatMessageAsync("Clipping with ShareX: https://kiwifarms.st/threads/189850", true, whisperTo: user.KfUsername);
     }
@@ -169,7 +176,8 @@ public class PPVCommand : ICommand
     public UserRight RequiredRight => UserRight.Guest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => true;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var url = await SettingsProvider.GetValueAsync(BuiltIn.Keys.RestreamUrl);

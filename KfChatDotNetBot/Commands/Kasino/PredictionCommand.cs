@@ -112,7 +112,9 @@ public class PredictionStartCommand : ICommand
 
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([
@@ -236,7 +238,9 @@ public class PredictionBetCommand : ICommand
 
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([
@@ -534,7 +538,9 @@ public class PredictionEndCommand : ICommand
 
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([
@@ -850,7 +856,9 @@ public class PredictionStatusCommand : ICommand
 
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([
@@ -984,7 +992,8 @@ public class PredictionCloseBetsCommand : ICommand
 
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => true;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([
@@ -1108,7 +1117,9 @@ public class PredictionCancelCommand : ICommand
 
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([

@@ -82,7 +82,9 @@ public class ClipStartCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(30);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)
@@ -107,7 +109,9 @@ public class ClipSwitchCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(30);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)
@@ -133,7 +137,9 @@ public class ClipStopCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(30);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)
@@ -159,7 +165,9 @@ public class ClipBeginCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)
@@ -188,7 +196,9 @@ public class ClipSaveCommand : ICommand
         MaxInvocations = 2
     };
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)
@@ -332,7 +342,9 @@ public class ClipListCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)
@@ -362,7 +374,9 @@ public class ClipCamerasCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var cameras = await FishtankCameras.GetCamerasAsync();
         var names = string.Join(", ", cameras.Keys);
@@ -378,7 +392,9 @@ public class ClipQueueCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var clipService = botInstance.BotServices.ClipService;
         if (clipService == null)

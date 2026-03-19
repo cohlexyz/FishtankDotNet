@@ -134,13 +134,13 @@ internal class BotCommands
                 _ = ProcessMessageAsync(command, message, user, match.Groups);
                 if (!HasAttribute<DontDeleteInvocationMessage>(command))
                 {
-                    _ = _bot.KfClient.DeleteMessageAsync(message.MessageUuid);
+                    _ = _bot.KfClient.DeleteMessageAsync(message.MessageUuid!);
                 }
                 if (!continueAfterProcess) break;
             }
         }
     }
-    
+
     private async Task ProcessMessageAsync(ICommand command, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments)
     {
         var cts = new CancellationTokenSource(command.Timeout);

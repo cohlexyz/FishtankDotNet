@@ -723,6 +723,7 @@ public class BotServices
                     Reference = "stox-motd",
                     Message = motd,
                     Status = SentMessageTrackerStatus.ResponseReceived,
+                    Type = SentMessageType.ChatMessage,
                     ChatMessageUuid = existingUuid
                 };
             }

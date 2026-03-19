@@ -168,8 +168,8 @@ public class ManageImageKeyCommand : ICommand
     public UserRight RequiredRight => UserRight.Admin;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
-
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => false;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var imageKeys = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.BotImageAcceptableKeys)).JsonDeserialize<List<string>>();
