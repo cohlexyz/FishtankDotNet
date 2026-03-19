@@ -33,6 +33,7 @@ public static class FishtankCameras
     };
 }
 
+[DontDeleteInvocationMessage]
 public class ClipStartCommand : ICommand
 {
     public List<Regex> Patterns => [new Regex(@"^clip start (?<camera>.+)$")];
@@ -52,9 +53,10 @@ public class ClipStartCommand : ICommand
 
         var camera = arguments["camera"].Value.Trim();
         var result = await clipService.StartAsync(camera, FishtankCameras.Cameras);
-        await botInstance.SendChatMessageAsync(result, true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync(result, true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
+[DontDeleteInvocationMessage]
 
 public class ClipSwitchCommand : ICommand
 {
@@ -75,9 +77,11 @@ public class ClipSwitchCommand : ICommand
 
         var camera = arguments["camera"].Value.Trim();
         var result = await clipService.StartAsync(camera, FishtankCameras.Cameras);
-        await botInstance.SendChatMessageAsync(result, true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync(result, true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
+
+[DontDeleteInvocationMessage]
 
 public class ClipStopCommand : ICommand
 {
@@ -98,9 +102,11 @@ public class ClipStopCommand : ICommand
 
         var camera = arguments["camera"].Success ? arguments["camera"].Value.Trim() : null;
         var result = await clipService.StopAsync(camera, FishtankCameras.Cameras);
-        await botInstance.SendChatMessageAsync(result, true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync(result, true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
+
+[DontDeleteInvocationMessage]
 
 public class ClipBeginCommand : ICommand
 {
@@ -121,10 +127,11 @@ public class ClipBeginCommand : ICommand
 
         var camera = arguments["camera"].Value.Trim();
         var result = clipService.SetMarker(camera, FishtankCameras.Cameras);
-        await botInstance.SendChatMessageAsync(result, true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync(result, true);
     }
 }
 
+[DontDeleteInvocationMessage]
 public class ClipSaveCommand : ICommand
 {
     public List<Regex> Patterns => [new Regex(@"^clip save (?<camera>.+?)(?:\s+(?<duration>\d+[smSM]))?$")];
@@ -298,7 +305,7 @@ public class ClipListCommand : ICommand
 
         var lines = buffers.Select(b =>
             $"{b.Name}: {b.Duration.Humanize(2)} ({b.Bytes.Bytes().Humanize()})");
-        await botInstance.SendChatMessageAsync($"Active buffers: {string.Join(" | ", lines)}", true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync($"Active buffers: {string.Join(" | ", lines)}", true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
 

@@ -555,7 +555,7 @@ public class StoxShortCommand : ICommand
         var pos = shorts[symbol];
         await botInstance.SendChatMessageAsync(
             $"opened short of {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}. Collateral locked: {await collateral.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. Total short: {pos.Quantity:0.####}x {symbol} (avg entry: ₣{pos.EntryPrice:0.##}[plain])[/plain].",
-            true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            true, whisperTo: user.KfUsername);
     }
 }
 

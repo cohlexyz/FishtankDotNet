@@ -169,6 +169,6 @@ public class PPVCommand : ICommand
         CancellationToken ctx)
     {
         var url = await SettingsProvider.GetValueAsync(BuiltIn.Keys.RestreamUrl);
-        await botInstance.SendChatMessageAsync($"Restream URL: https://old.ppv.to/ft | MPV playlist: https://api.fishtank.rip/fishtank.m3u | Camera multiview: https://kiwifarms.st/posts/23970064", true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync($"Restream URL: https://old.ppv.to/ft | MPV playlist: https://api.fishtank.rip/fishtank.m3u | Camera multiview: https://kiwifarms.st/posts/23970064", true, autoDeleteAfter: TimeSpan.FromSeconds(20));
     }
 }

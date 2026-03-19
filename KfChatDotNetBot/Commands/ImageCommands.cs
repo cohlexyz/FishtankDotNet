@@ -13,6 +13,7 @@ using NLog;
 
 namespace KfChatDotNetBot.Commands;
 
+[DontDeleteInvocationMessage]
 public class AddImageCommand : ICommand
 {
     public List<Regex> Patterns => [
@@ -50,9 +51,10 @@ public class AddImageCommand : ICommand
         await db.Images.AddAsync(new ImageDbModel { Key = key, Url = url, LastSeen = DateTimeOffset.MinValue }, ctx);
         await db.SaveChangesAsync(ctx);
         await botInstance.SendChatMessageAsync(
-            $"You added the image to the {key} carousel: [img]{url}[/img]", true, whisperTo: user.KfUsername);
+            $"You added the image to the {key} carousel: [img]{url}[/img]", true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
+[DontDeleteInvocationMessage]
 
 public class RemoveImageCommand : ICommand
 {
@@ -92,7 +94,7 @@ public class RemoveImageCommand : ICommand
         await db.SaveChangesAsync(ctx);
         // await botInstance.SendChatMessageAsync("Removed image from database", true);
         await botInstance.SendChatMessageAsync(
-            $"You removed the image from the {key} carousel: [img]{url}[/img]", true, whisperTo: user.KfUsername);
+            $"You removed the image from the {key} carousel: [img]{url}[/img]", true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
 
@@ -214,7 +216,7 @@ public class GetRandomImage : ICommand
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
         Window = TimeSpan.FromSeconds(30),
-        MaxInvocations = 1,
+        MaxInvocations = 4,
         Flags = RateLimitFlags.Global | RateLimitFlags.NoResponse
     };
     public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
