@@ -12,7 +12,8 @@ public class TimeCommand : ICommand
     public UserRight RequiredRight => UserRight.Guest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public bool WhisperCanInvoke => true;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
         var nowEst = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, estZone);

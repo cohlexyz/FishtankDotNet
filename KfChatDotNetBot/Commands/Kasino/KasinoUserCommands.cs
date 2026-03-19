@@ -24,7 +24,9 @@ public class GetBalanceCommand : ICommand
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => false;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
@@ -51,7 +53,8 @@ public class GetExclusionCommand : ICommand
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => false;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
@@ -88,7 +91,8 @@ public class SendJuiceCommand : ICommand
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => false;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var logger = LogManager.GetCurrentClassLogger();
@@ -152,7 +156,8 @@ public class RakebackCommand : ICommand
         MaxInvocations = 1,
         Window = TimeSpan.FromSeconds(30)
     };
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => false;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         await using var db = new ApplicationDbContext();
@@ -208,7 +213,8 @@ public class LossbackCommand : ICommand
         Window = TimeSpan.FromSeconds(30),
         MaxInvocations = 1
     };
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => false;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var logger = LogManager.GetCurrentClassLogger();
@@ -268,8 +274,8 @@ public class AbandonKasinoCommand : ICommand
         Window = TimeSpan.FromSeconds(60),
         MaxInvocations = 1
     };
-
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => false;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         if (!message.MessageRawHtmlDecoded.EndsWith("abandon confirm"))
@@ -304,7 +310,8 @@ public class PocketWatchCommand : ICommand
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => false;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         await using var db = new ApplicationDbContext();
@@ -357,6 +364,7 @@ public class HostessCommand : ICommand
         MaxInvocations = 1,
         Window = TimeSpan.FromSeconds(30)
     };
+    public bool WhisperCanInvoke => false;
 
     private static readonly string[] StaticResponses = [
         "For questions regarding your current contract please contact us at contact@bossmanjack.com",
@@ -381,7 +389,7 @@ public class HostessCommand : ICommand
         "You are an overworked fastfood worker at a drive-thru. A confused gambling addict just arrived. Respond with at most two sentences."
     ];
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
         var random = RandomShim.Create(StandardRng.Create());
 
@@ -434,7 +442,8 @@ public class GetDailyDollarCommand : ICommand
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public bool WhisperCanInvoke => false;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([

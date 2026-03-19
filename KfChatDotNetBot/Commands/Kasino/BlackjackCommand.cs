@@ -40,9 +40,11 @@ public class BlackjackCommand : ICommand
         Flags = RateLimitFlags.NoAutoDeleteCooldownResponse
     };
 
+    public bool WhisperCanInvoke => false;
+
     private ApplicationDbContext _dbContext = new();
 
-    public async Task RunCommand(ChatBot botInstance, MessageModel message, UserDbModel user, GroupCollection arguments,
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([
@@ -89,8 +91,8 @@ public class BlackjackCommand : ICommand
             BuiltIn.Keys.KiwiFarmsGreenColor, BuiltIn.Keys.KiwiFarmsRedColor
         ]);
         var colors = new GameColors(
-            colorSettings[BuiltIn.Keys.KiwiFarmsGreenColor].Value,
-            colorSettings[BuiltIn.Keys.KiwiFarmsRedColor].Value);
+            colorSettings[BuiltIn.Keys.KiwiFarmsGreenColor].Value!,
+            colorSettings[BuiltIn.Keys.KiwiFarmsRedColor].Value!);
 
         var wager = Convert.ToDecimal(amountStr);
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);

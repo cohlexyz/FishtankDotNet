@@ -90,7 +90,8 @@ public class ChatBot
         KfClient.OnWsDisconnection += OnKfWsDisconnected;
         KfClient.OnWsReconnect += OnKfWsReconnected;
         KfClient.OnFailedToJoinRoom += OnFailedToJoinRoom;
-        KfClient.OnPermissions += OnPermissionsReceived;
+        KfClient.OnMotd += OnMotd;
+        KfClient.OnWhisper += OnWhisper;
 
         KfClient.StartWsClient().Wait(_cancellationToken);
 
@@ -104,15 +105,9 @@ public class ChatBot
         exitEvent.WaitOne();
     }
 
-    private void OnPermissionsReceived(object sender, PermissionsJsonModel permissions)
+    private void OnMotd(object sender, MessageModel message)
     {
-        if (!permissions.CanSend)
-        {
-            _logger.Error("Received permissions update indicating we can't send messages. Getting new auth.");
-            _kfTokenService.WipeCookies();
-            RefreshXfToken().Wait(_cancellationToken);
-            KfClient.ReconnectAsync().Wait(_cancellationToken);
-        }
+        SettingsProvider.SetValueAsync(BuiltIn.Keys.KiwiFarmsMotdUuid, message.MessageUuid).Wait(_cancellationToken);
     }
 
     private void OnFailedToJoinRoom(object sender, string message)
@@ -277,6 +272,45 @@ public class ChatBot
         KfClient.UpdateCookies(_kfTokenService.GetCookies());
     }
 
+    private void OnWhisper(object sender, WhisperModel whisper)
+    {
+        var settings = SettingsProvider.GetMultipleValuesAsync([
+                BuiltIn.Keys.KiwiFarmsUsername, BuiltIn.Keys.BotDisconnectReplayLimit
+            ]).Result;
+        if (whisper.Author.Username == settings[BuiltIn.Keys.KiwiFarmsUsername].Value)
+        {
+            _logger.Debug("Ignoring my own whisper");
+            return;
+        }
+
+        var sentMsgMaybe = SentMessages.FirstOrDefault(msg =>
+            msg.Type == SentMessageType.Whisper && msg.WhisperMessage == whisper.MessageRawHtmlDecoded);
+        sentMsgMaybe?.Status = SentMessageTrackerStatus.ResponseReceived;
+        _logger.Debug("Passing message to command interface");
+        var botCommandsMsg = new BotCommandMessageModel
+        {
+            Author = whisper.Author,
+            Recipient = whisper.Recipient,
+            Message = whisper.Message,
+            MessageDate = whisper.MessageDate,
+            MessageEditDate = null,
+            MessageRaw = whisper.MessageRaw,
+            MessageRawHtmlDecoded = whisper.MessageRawHtmlDecoded,
+            MessageUuid = null,
+            RoomId = null,
+            IsWhisper = true
+        };
+        try
+        {
+            _botCommands.ProcessMessage(botCommandsMsg);
+        }
+        catch (Exception e)
+        {
+            _logger.Error("ProcessMessage threw an exception");
+            _logger.Error(e);
+        }
+    }
+
     private void OnKfChatMessage(object sender, List<MessageModel> messages, MessagesJsonModel jsonPayload)
     {
         // Reset value to 0 as we've now successfully joined
@@ -327,14 +361,14 @@ public class ChatBot
                 // MessageRaw is not actually REAL and RAW. The messages are still HTML encoded
                 var decodedMessage = WebUtility.HtmlDecode(message.MessageRaw);
                 var sentMessage = SentMessages.FirstOrDefault(sent =>
-                    sent.Message == decodedMessage && sent.Status == SentMessageTrackerStatus.WaitingForResponse);
+                    sent.Message == decodedMessage && sent is { Status: SentMessageTrackerStatus.WaitingForResponse, Type: SentMessageType.ChatMessage });
                 if (sentMessage == null)
                 {
                     _logger.Error("Received message from Sneedchat that I sent but have no idea about. Message Data Follows:");
                     _logger.Error(JsonSerializer.Serialize(message));
                     _logger.Error("Last item inserted into the sent messages collection waiting for response:");
                     var latest =
-                        SentMessages.LastOrDefault(msg => msg.Status == SentMessageTrackerStatus.WaitingForResponse);
+                        SentMessages.LastOrDefault(msg => msg is { Status: SentMessageTrackerStatus.WaitingForResponse, Type: SentMessageType.ChatMessage });
                     _logger.Error(JsonSerializer.Serialize(latest));
                     if (latest != null)
                     {
@@ -375,9 +409,22 @@ public class ChatBot
                 !InitialStartCooldown)
             {
                 _logger.Debug("Passing message to command interface");
+                var botCommandsMsg = new BotCommandMessageModel
+                {
+                    Author = message.Author,
+                    MessageRaw = message.MessageRaw,
+                    Message = message.Message,
+                    MessageDate = message.MessageDate,
+                    MessageEditDate = message.MessageEditDate,
+                    MessageRawHtmlDecoded = message.MessageRawHtmlDecoded,
+                    MessageUuid = message.MessageUuid,
+                    Recipient = null,
+                    RoomId = message.RoomId,
+                    IsWhisper = false
+                };
                 try
                 {
-                    _botCommands.ProcessMessage(message);
+                    _botCommands.ProcessMessage(botCommandsMsg);
                 }
                 catch (Exception e)
                 {
@@ -449,6 +496,8 @@ public class ChatBot
             Reference = reference,
             Message = message.TrimEnd(), // Sneedchat trims trailing spaces
             Status = SentMessageTrackerStatus.Unknown,
+            Type = SentMessageType.ChatMessage,
+            WhisperMessage = null
         };
         if (settings[BuiltIn.Keys.KiwiFarmsSuppressChatMessages].ToBoolean())
         {
@@ -505,6 +554,80 @@ public class ChatBot
         {
             ScheduleMessageAutoDelete(messageTracker, autoDeleteAfter.Value);
         }
+        return messageTracker;
+    }
+
+    // Reference for Sneedchat hardcoded length limit
+    // https://github.com/jaw-sh/ruforo/blob/master/src/web/chat/connection.rs#L226
+    /// <summary>
+    /// Async method for sending a whisper
+    /// </summary>
+    /// <param name="recipient">Kiwi Farms user ID of the recipient for this whisper</param>
+    /// <param name="message">The message you wish to whisper</param>
+    /// <param name="lengthLimitBehavior">What behavior to use when encountering a message that exceeds the length limit</param>
+    /// <param name="lengthLimit">Length limit to enforce in bytes</param>
+    /// <returns>An object you can use to check the status of the message</returns>
+    public async Task<SentMessageTrackerModel> SendWhisperAsync(int recipient, string message, LengthLimitBehavior lengthLimitBehavior = LengthLimitBehavior.TruncateNicely, int lengthLimit = 2048)
+    {
+        var settings = await SettingsProvider
+            .GetMultipleValuesAsync([
+                BuiltIn.Keys.KiwiFarmsSuppressChatMessages
+            ]);
+        var originalMessage = message;
+        message = $"/w {recipient} {message}";
+        var reference = Guid.NewGuid().ToString();
+        var messageTracker = new SentMessageTrackerModel
+        {
+            Reference = reference,
+            Message = message.TrimEnd(), // Sneedchat trims trailing spaces
+            Status = SentMessageTrackerStatus.Unknown,
+            Type = SentMessageType.Whisper,
+            WhisperMessage = originalMessage.TrimEnd()
+        };
+        if (settings[BuiltIn.Keys.KiwiFarmsSuppressChatMessages].ToBoolean())
+        {
+            _logger.Info("Not sending message as SuppressChatMessages is enabled");
+            _logger.Info($"Message was: {message}");
+            messageTracker.Status = SentMessageTrackerStatus.NotSending;
+            SentMessages.Add(messageTracker);
+            return messageTracker;
+        }
+
+        if (!KfClient.IsConnected())
+        {
+            _logger.Info($"Not sending message '{message}' as Sneedchat is not connected");
+            messageTracker.Status = SentMessageTrackerStatus.ChatDisconnected;
+            SentMessages.Add(messageTracker);
+            return messageTracker;
+        }
+
+        if (messageTracker.Message.Utf8LengthBytes() > lengthLimit && lengthLimitBehavior != LengthLimitBehavior.DoNothing)
+        {
+            if (lengthLimitBehavior == LengthLimitBehavior.RefuseToSend)
+            {
+                _logger.Info("Refusing to send message as it exceeds the length limit and LengthLimitBehavior is RefuseToSend");
+                messageTracker.Status = SentMessageTrackerStatus.NotSending;
+                SentMessages.Add(messageTracker);
+                return messageTracker;
+            }
+            if (lengthLimitBehavior == LengthLimitBehavior.TruncateNicely)
+            {
+                // '…' is 3 bytes so we have to make room for it
+                messageTracker.Message = messageTracker.Message.TruncateBytes(lengthLimit - 3).TrimEnd() + "…";
+            }
+
+            if (lengthLimitBehavior == LengthLimitBehavior.TruncateExactly)
+            {
+                // TrimEnd in case you end up truncating on a space (happened during testing) as Sneedchat will trim it
+                messageTracker.Message = messageTracker.Message.TruncateBytes(lengthLimit).TrimEnd();
+            }
+        }
+
+        messageTracker.Status = SentMessageTrackerStatus.WaitingForResponse;
+        messageTracker.SentAt = DateTimeOffset.UtcNow;
+        _logger.Debug($"Message is {messageTracker.Message.Utf8LengthBytes()} bytes");
+        SentMessages.Add(messageTracker);
+        await KfClient.SendMessageInstantAsync(messageTracker.Message);
         return messageTracker;
     }
 
@@ -757,5 +880,27 @@ public class ChatBot
     {
         public required SentMessageTrackerModel Message { get; set; }
         public required DateTimeOffset DeleteAt { get; set; }
+    }
+
+    /// <summary>
+    /// Thin wrapper to decide whether to whisper or chat message respond
+    /// </summary>
+    /// <param name="origMsg">The original message you received (so I know if it was a whisper)</param>
+    /// <param name="response">Message you want to send</param>
+    /// <param name="bypassGambaSesh">Whether to bypass gambasesh (not applicable for whispers)</param>
+    /// <param name="autoDeleteAfter">Whether to auto delete after a period of time (not applicable to whispers)</param>
+    /// <param name="lengthLimitBehavior">What behavior to use for messages which exceed the length limit</param>
+    /// <returns></returns>
+    public async Task<SentMessageTrackerModel> ReplyToUser(BotCommandMessageModel origMsg, string response,
+        bool bypassGambaSesh = false, TimeSpan? autoDeleteAfter = null, LengthLimitBehavior lengthLimitBehavior = ChatBot.LengthLimitBehavior.TruncateNicely)
+    {
+        if (origMsg.IsWhisper)
+        {
+            return await SendWhisperAsync(origMsg.Author.Id, response,
+                lengthLimitBehavior: lengthLimitBehavior);
+        }
+
+        return await SendChatMessageAsync(response, bypassGambaSesh, lengthLimitBehavior,
+            autoDeleteAfter: autoDeleteAfter);
     }
 }

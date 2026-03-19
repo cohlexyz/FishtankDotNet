@@ -235,13 +235,10 @@ public class KasinoShop
     public async Task PrintDrugMarket(GamblerDbModel gambler)
     {
         int cc = Gambler_Profiles[gambler.User.KfId].CrackCounter;
-        var crackPrice = await (CrackPrice * cc).FormatKasinoCurrencyAsync();
-        var weedPrice = await WeedPricePerHour.FormatKasinoCurrencyAsync();
-        List<string> drugs =
-        [
-            $"1. Crack: {crackPrice} per dose",
-            $"2. Weed: {weedPrice} per hour",
-        ];
+        List<string> drugs = new();
+        var crackPrice = CrackPrice * cc;
+        drugs.Add($"1. Crack: {await crackPrice.FormatKasinoCurrencyAsync()} per dose");
+        drugs.Add($"2. Weed: {await WeedPricePerHour.FormatKasinoCurrencyAsync()} per hour");
         if (Gambler_Profiles[gambler.User.KfId].FloorNugs > 0)
         {
             drugs.Add($"3. Floor Nugs: {Gambler_Profiles[gambler.User.KfId].FloorNugs}");
@@ -1137,14 +1134,9 @@ public class KasinoShop
         }
         public async Task<string> FormatBalanceAsync()
         {
-            var formattedBalance = await CryptoBalance.FormatKasinoCurrencyAsync();
-            var str = "";
-            if (OutstandingLoanBalance > 0)
-            {
-                var formattedNet = await (CryptoBalance - OutstandingLoanBalance).FormatKasinoCurrencyAsync();
-                str = $"| Net Balance: {formattedNet}";
-            }
-            return $"Balance: {formattedBalance}{str}";
+            var netBalance = CryptoBalance - OutstandingLoanBalance;
+            string str = OutstandingLoanBalance > 0 ? $"| Net Balance: {await netBalance.FormatKasinoCurrencyAsync()}" : "";
+            return $"Balance: {await CryptoBalance.FormatKasinoCurrencyAsync()}{str}";
         }
         public decimal[] Balance()
         {
