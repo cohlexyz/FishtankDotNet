@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
+using KfChatDotNetBot.Services;
 using KfChatDotNetWsClient.Models.Events;
 using Microsoft.EntityFrameworkCore;
 
@@ -53,6 +54,7 @@ public class CounterRemoveCommand : ICommand
     }
 }
 
+[DontDeleteInvocationMessage]
 public class CounterIncrementCommand : ICommand
 {
     public List<Regex> Patterns => [new Regex(@"^(?<name>\w{1,64})itup$")];
@@ -78,6 +80,7 @@ public class CounterIncrementCommand : ICommand
     }
 }
 
+[DontDeleteInvocationMessage]
 public class CounterShowCommand : ICommand
 {
     public List<Regex> Patterns => [new Regex(@"^(?<name>\w{1,64})count$")];
