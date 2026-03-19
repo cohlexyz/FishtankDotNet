@@ -30,7 +30,7 @@ public class ClipService
     private readonly LinkedList<CameraBuffer> _activeBuffers = new();
     private readonly Lock _lock = new();
     private readonly CancellationToken _ct;
-    private readonly Dictionary<string, string> _cameras;
+    private readonly Func<Task<Dictionary<string, string>>> _cameraProvider;
     private readonly ChatBot _chatBot;
     private readonly Channel<ClipJob> _clipQueue = Channel.CreateUnbounded<ClipJob>();
     private readonly Task _queueWorker;
@@ -54,10 +54,10 @@ public class ClipService
         IProgress<ClipProgress>? Progress,
         TaskCompletionSource<string> Result);
 
-    public ClipService(CancellationToken ct, Dictionary<string, string> cameras, ChatBot chatBot)
+    public ClipService(CancellationToken ct, Func<Task<Dictionary<string, string>>> cameraProvider, ChatBot chatBot)
     {
         _ct = ct;
-        _cameras = cameras;
+        _cameraProvider = cameraProvider;
         _chatBot = chatBot;
         _queueWorker = Task.Run(() => ProcessQueueAsync(ct), ct);
     }
@@ -484,15 +484,16 @@ public class ClipService
             return;
 
         Logger.Info($"[ClipService] Restoring {cameraNames.Count} camera buffer(s) from previous session");
+        var cameras = await _cameraProvider();
         var restored = new List<string>();
         foreach (var name in cameraNames)
         {
-            if (!_cameras.ContainsKey(name))
+            if (!cameras.ContainsKey(name))
             {
                 Logger.Warn($"[ClipService] Persisted camera '{name}' not found in camera list, skipping");
                 continue;
             }
-            var result = await StartAsync(name, _cameras);
+            var result = await StartAsync(name, cameras);
             Logger.Info($"[ClipService] Restore result for '{name}': {result}");
             if (result.StartsWith("Now buffering", StringComparison.Ordinal))
                 restored.Add(name);
