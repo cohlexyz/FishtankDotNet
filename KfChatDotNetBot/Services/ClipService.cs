@@ -21,7 +21,7 @@ public class ClipService
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-    private const int MaxBuffers = 3;
+    private const int MaxBuffers = 4;
     private const int FuzzyMatchThreshold = 60;
     private const int StopFuzzyMatchThreshold = 80;
 
@@ -336,9 +336,25 @@ public class ClipService
     /// </summary>
     public static (string? Name, string? Url) FuzzyMatchCamera(string query, Dictionary<string, string> cameras)
     {
+        var queryLower = query.ToLowerInvariant();
+
+        // Exact match takes priority
+        var exact = cameras.Keys.FirstOrDefault(n => n.Equals(query, StringComparison.OrdinalIgnoreCase));
+        if (exact != null)
+            return (exact, cameras[exact]);
+
+        // PartialRatio for abbreviations (e.g. "director" → "Director Mode"), but use
+        // full Ratio as a tiebreaker so "Dorm" beats "Dorm Alternate" when querying "dorm".
         var best = cameras.Keys
-            .Select(name => (Name: name, Score: Fuzz.PartialRatio(query.ToLowerInvariant(), name.ToLowerInvariant())))
+            .Select(name =>
+            {
+                var nameLower = name.ToLowerInvariant();
+                return (Name: name,
+                    Score: Fuzz.PartialRatio(queryLower, nameLower),
+                    TieScore: Fuzz.Ratio(queryLower, nameLower));
+            })
             .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.TieScore)
             .FirstOrDefault();
 
         if (best.Score >= FuzzyMatchThreshold)
