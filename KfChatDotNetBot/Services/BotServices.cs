@@ -654,7 +654,7 @@ public class BotServices
                 if (activePredictions.Count > 0)
                 {
                     var predictionLines = string.Join(" | ", activePredictions.Select(p => $"🔮 {p.description}"));
-                    //motd += $"[br][br]{predictionLines}";
+                    motd += $"[br][br]{predictionLines}";
                 }
             }
             catch (Exception e)
@@ -705,7 +705,7 @@ public class BotServices
         }
         tableStr += "[/TABLE][/size]";
 
-        // motd += $"[br][br]{tableStr}";
+        motd += $"[br][br]{tableStr}";
 
         // Try to edit existing message, otherwise send a new one
         var existingUuid = settings[BuiltIn.Keys.StoxMotdMessageUuid].Value;
