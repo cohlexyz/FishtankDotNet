@@ -412,7 +412,7 @@ public class ChatMessage : UDPMessage
         if (string.IsNullOrEmpty(Message) || string.IsNullOrEmpty(User))
             return;
 
-        if (!await IsWhitelistedUserAsync(User))
+        if (!await IsWhitelistedUserAsync(User) && User != "system")
         {
             return;
         }
