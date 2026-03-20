@@ -18,10 +18,10 @@ namespace KfChatDotNetBot.Commands;
 public class AddImageCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^admin image (?<key>\w+) add (?<url>.+)$"),
-        new Regex(@"^admin images (?<key>\w+) add (?<url>.+)$"),
-        new Regex(@"^admin image (?<key>\w+) add_nigger (?<url>.+)$"),
-        new Regex(@"^admin images (?<key>\w+) add_nigger (?<url>.+)$")
+        new Regex(@"^admin image (?<key>\w+) add (?<url>\S+)(?:\s+(?<tags>.+))?$"),
+        new Regex(@"^admin images (?<key>\w+) add (?<url>\S+)(?:\s+(?<tags>.+))?$"),
+        new Regex(@"^admin image (?<key>\w+) add_nigger (?<url>\S+)(?:\s+(?<tags>.+))?$"),
+        new Regex(@"^admin images (?<key>\w+) add_nigger (?<url>\S+)(?:\s+(?<tags>.+))?$")
     ];
     public string? HelpText => "Add an image to the image rotation specified";
     public UserRight RequiredRight => UserRight.TrueAndHonest;
@@ -36,6 +36,7 @@ public class AddImageCommand : ICommand
         if (imageKeys == null) throw new InvalidOperationException($"{BuiltIn.Keys.BotImageAcceptableKeys} was null");
         var key = arguments["key"].Value;
         var url = arguments["url"].Value;
+        var tags = arguments["tags"].Success ? arguments["tags"].Value.Trim() : null;
         var niggerMode = message.Message.Contains("add_nigger");
         if (!imageKeys.Contains(key))
         {
@@ -50,7 +51,7 @@ public class AddImageCommand : ICommand
             return;
         }
 
-        await db.Images.AddAsync(new ImageDbModel { Key = key, Url = url, LastSeen = DateTimeOffset.MinValue }, ctx);
+        await db.Images.AddAsync(new ImageDbModel { Key = key, Url = url, LastSeen = DateTimeOffset.MinValue, Tags = tags }, ctx);
         await db.SaveChangesAsync(ctx);
         await botInstance.SendChatMessageAsync(
             $"You added the image to the {key} carousel: [img]{url}[/img]", true, autoDeleteAfter: TimeSpan.FromSeconds(10));
@@ -253,7 +254,9 @@ public class GetRandomImage : ICommand
         {
             var allImages = await images.ToListAsync(ctx);
             var scored = allImages
-                .Select(i => (Image: i, Score: Fuzz.PartialRatio(searchTerm.ToLower(), i.Url.ToLower())))
+                .Select(i => (Image: i, Score: Math.Max(
+                    Fuzz.PartialRatio(searchTerm.ToLower(), i.Url.ToLower()),
+                    i.Tags != null ? Fuzz.PartialRatio(searchTerm.ToLower(), i.Tags.ToLower()) : 0)))
                 .OrderByDescending(x => x.Score)
                 .ToList();
             if (scored.Count == 0 || scored[0].Score < 50)
