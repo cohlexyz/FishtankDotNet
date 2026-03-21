@@ -227,7 +227,7 @@ public class StoxBuyCommand : ICommand
 public class StoxSellCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^sell (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
+        new Regex(@"^sell (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
         new Regex(@"^stox sell (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
     ];
     public string? HelpText => "Sell stocks for Kasino balance: !stox sell <symbol> <amount>";
