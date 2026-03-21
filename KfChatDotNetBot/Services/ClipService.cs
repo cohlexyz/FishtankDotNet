@@ -431,13 +431,13 @@ public class ClipService
     private void OnBufferCrashed(CameraBuffer buffer, int exitCode)
     {
         Logger.Error($"[ClipService] Camera buffer for {buffer.CameraName} crashed (exit code {exitCode}), will attempt restart");
-        _chatBot.SendChatMessage($"[ClipService] {buffer.CameraName} buffer crashed (exit {exitCode}), attempting restart", bypassSeshDetect: true);
+        _chatBot.SendChatMessage($"[ClipService] {buffer.CameraName} buffer crashed (exit {exitCode}), attempting restart", bypassSeshDetect: true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 
     private void OnBufferDied(CameraBuffer buffer)
     {
         Logger.Error($"[ClipService] Camera buffer for {buffer.CameraName} died (max retries exhausted), removing from active list");
-        _chatBot.SendChatMessage($"[ClipService] {buffer.CameraName} buffer permanently died after max restart attempts — use !clip start ${buffer.CameraName} to resume", bypassSeshDetect: true);
+        _chatBot.SendChatMessage($"[ClipService] {buffer.CameraName} buffer permanently died after max restart attempts — use !clip start ${buffer.CameraName} to resume", bypassSeshDetect: true, autoDeleteAfter: TimeSpan.FromSeconds(20));
         lock (_lock)
         {
             _activeBuffers.Remove(buffer);
@@ -516,7 +516,7 @@ public class ClipService
         }
 
         if (restored.Count > 0)
-            _chatBot.SendChatMessage($"[ClipService] Restored {restored.Count} buffer(s) from last session: {string.Join(", ", restored)}", bypassSeshDetect: true);
+            _chatBot.SendChatMessage($"[ClipService] Restored {restored.Count} buffer(s) from last session: {string.Join(", ", restored)}", bypassSeshDetect: true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 
     private async Task ProcessQueueAsync(CancellationToken ct)
