@@ -217,7 +217,7 @@ public class StoxBuyCommand : ICommand
 
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, you bought {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await cost.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. You now hold {portfolio[symbol]:0.####}x {symbol}.",
-            true, whisperTo: user.KfId);
+            true, whisperTo: user.KfId, autoDeleteAfter: TimeSpan.FromSeconds(20));
     }
 }
 
@@ -315,7 +315,7 @@ public class StoxSellCommand : ICommand
             : $". You no longer hold any {symbol}.";
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, you sold {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await proceeds.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
-            true, whisperTo: user.KfId);
+            true, whisperTo: user.KfId, autoDeleteAfter: TimeSpan.FromSeconds(20));
     }
 }
 
@@ -425,7 +425,7 @@ public class StoxPortfolioCommand : ICommand
 
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}'s stox portfolio:\n{string.Join("\n", outputLines)}",
-            true, whisperTo: user.KfId);
+            true, whisperTo: user.KfId, autoDeleteAfter: TimeSpan.FromSeconds(20));
     }
 }
 
@@ -537,7 +537,7 @@ public class StoxShortCommand : ICommand
         var pos = shorts[symbol];
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, you opened short of {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}. Collateral locked: {await collateral.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. Total short: {pos.Quantity:0.####}x {symbol} (avg entry: ₣{pos.EntryPrice:0.##}[plain])[/plain].",
-            true, whisperTo: user.KfId);
+            true, whisperTo: user.KfId, autoDeleteAfter: TimeSpan.FromSeconds(20));
     }
 }
 
@@ -645,7 +645,7 @@ public class StoxCoverCommand : ICommand
             : $". No remaining short position in {symbol}.";
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, you covered {amount:0.####}x {symbol} short. Entry: ₣{entryPrice:0.##}, close: ₣{stock.CurrentPrice}. P&L: {pnlStr}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
-            true, whisperTo: user.KfId);
+            true, whisperTo: user.KfId, autoDeleteAfter: TimeSpan.FromSeconds(20));
     }
 }
 
