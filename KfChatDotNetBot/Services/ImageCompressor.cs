@@ -53,7 +53,8 @@ public static class ImageCompressor
         // Save as WebP with quality 45
         var encoder = new WebpEncoder
         {
-            Quality = quality
+            Quality = quality,
+            RepeatCount = 0 // loop animated WebPs indefinitely
         };
 
         using var ms = new MemoryStream();
@@ -67,6 +68,7 @@ public static class ImageCompressor
             return (null, error);
         }
 
+        ms.Position = 0;
         var url = await Zipline.Upload(ms, new MediaTypeHeaderValue("image/webp"), ct: ct);
         return (url, null);
     }
