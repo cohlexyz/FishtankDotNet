@@ -43,7 +43,7 @@ public static class ImageCompressor
 
             var psi = new ProcessStartInfo("convert")
             {
-                ArgumentList = { tempInput, "-resize", "220x>", "-loop", "0", "-quality", quality.ToString(), tempOutput },
+                ArgumentList = { tempInput, "-coalesce", "-resize", "220x>", "-quality", quality.ToString(), tempOutput },
                 RedirectStandardError = true,
                 UseShellExecute = false,
             };
