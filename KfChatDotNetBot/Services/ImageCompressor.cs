@@ -54,7 +54,7 @@ public static class ImageCompressor
         var encoder = new WebpEncoder
         {
             Quality = quality,
-            RepeatCount = 0 // loop animated WebPs indefinitely
+            FileFormat = WebpFileFormatType.Lossy,
         };
 
         using var ms = new MemoryStream();
