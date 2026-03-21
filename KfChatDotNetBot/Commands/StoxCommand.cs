@@ -387,8 +387,8 @@ public class StoxPortfolioCommand : ICommand
 
         if (portfolio.Count > 0)
         {
-            outputLines.Add("Longs:");
-            outputLines.AddRange(portfolio
+            outputLines.Add("Longs:\n");
+            var longs = portfolio
                 .OrderBy(kvp => kvp.Key)
                 .Select(kvp =>
                 {
@@ -397,14 +397,15 @@ public class StoxPortfolioCommand : ICommand
                     var valueStr = price.HasValue
                         ? $" (value: ₣{price.Value * kvp.Value:0.##}[plain])[/plain]"
                         : string.Empty;
-                    return $"  {kvp.Key}: {kvp.Value:0.####}x{valueStr}";
-                }));
+                    return $"{kvp.Key}: {kvp.Value:0.####}x{valueStr}";
+                });
+            outputLines.AddRange(string.Join(", ", longs));
         }
 
         if (shorts.Count > 0)
         {
-            outputLines.Add("Shorts:");
-            outputLines.AddRange(shorts
+            outputLines.Add("Shorts:\n");
+            var shortStr = shorts
                 .OrderBy(kvp => kvp.Key)
                 .Select(kvp =>
                 {
@@ -418,7 +419,8 @@ public class StoxPortfolioCommand : ICommand
                         ? $"[COLOR=#00ff00]+₣{pnl:0.##}[/COLOR]"
                         : $"[COLOR=#ff0000]₣{pnl:0.##}[/COLOR]";
                     return $"  {kvp.Key}: {pos.Quantity:0.####}x short (entry: ₣{pos.EntryPrice:0.##}, current: ₣{currentPrice.Value}, P&L: {pnlStr}[plain])[/plain]";
-                }));
+                });
+            outputLines.AddRange(string.Join(", ", shortStr));
         }
 
         await botInstance.SendChatMessageAsync(
