@@ -387,7 +387,7 @@ public class StoxPortfolioCommand : ICommand
 
         if (portfolio.Count > 0)
         {
-            outputLines.Add("Longs:\n");
+            outputLines.Add("Longs:");
             var longs = portfolio
                 .OrderBy(kvp => kvp.Key)
                 .Select(kvp =>
@@ -404,7 +404,7 @@ public class StoxPortfolioCommand : ICommand
 
         if (shorts.Count > 0)
         {
-            outputLines.Add("Shorts:\n");
+            outputLines.Add("Shorts:");
             var shortStr = shorts
                 .OrderBy(kvp => kvp.Key)
                 .Select(kvp =>
