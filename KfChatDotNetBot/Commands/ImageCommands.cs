@@ -51,10 +51,22 @@ public class AddImageCommand : ICommand
             return;
         }
 
-        await db.Images.AddAsync(new ImageDbModel { Key = key, Url = url, LastSeen = DateTimeOffset.MinValue, Tags = tags }, ctx);
+        var (result, error) = await ImageCompressor.CompressImageAsync(url, ct: ctx);
+        if (error != null)
+        {
+            await botInstance.SendChatMessageAsync($"Failed to add image: {error}", true, whisperTo: user.KfUsername);
+            return;
+        }
+        if (result == null)
+        {
+            await botInstance.SendChatMessageAsync("Failed to add image for an unknown reason", true, whisperTo: user.KfUsername);
+            return;
+        }
+
+        await db.Images.AddAsync(new ImageDbModel { Key = key, Url = result, LastSeen = DateTimeOffset.MinValue, Tags = tags }, ctx);
         await db.SaveChangesAsync(ctx);
         await botInstance.SendChatMessageAsync(
-            $"You added the image to the {key} carousel: [img]{url}[/img]", true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            $"You added the image to the {key} carousel: [img]{result}[/img]", true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
 }
 [DontDeleteInvocationMessage]
