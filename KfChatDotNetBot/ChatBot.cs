@@ -337,7 +337,9 @@ public class ChatBot
             lostMsg.Status = SentMessageTrackerStatus.Lost;
         }
         _logger.Debug($"Received {messages.Count} message(s)");
-        IncomingMessageCounter += messages.Count;
+
+        var nonBotMessages = messages.Where(m => m.Author.Username != settings[BuiltIn.Keys.KiwiFarmsUsername].Value).ToList();
+        IncomingMessageCounter += nonBotMessages.Count;
 
         foreach (var message in messages)
         {
