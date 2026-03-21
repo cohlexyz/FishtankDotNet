@@ -474,7 +474,7 @@ public class GetDailyDollarCommand : ICommand
             {
                 var span = rolloverTime.AddDays(1) - DateTimeOffset.UtcNow;
                 await botInstance.SendChatMessageAsync(
-                    $" your next daily dollar will be available in {span.Humanize(maxUnit: TimeUnit.Hour, minUnit: TimeUnit.Second)}",
+                    $"{user.KfUsername}, your next daily dollar will be available in {span.Humanize(maxUnit: TimeUnit.Hour, minUnit: TimeUnit.Second)}",
                     true, whisperTo: user.KfUsername);
                 return;
             }
@@ -483,7 +483,7 @@ public class GetDailyDollarCommand : ICommand
         var amount = settings[BuiltIn.Keys.KasinoDailyDollarAmount].ToType<decimal>();
         await Money.ModifyBalanceAsync(gambler!.Id, amount, TransactionSourceEventType.DailyDollar,
             "Daily dollar redemption", ct: ctx);
-        await botInstance.SendChatMessageAsync($" you redeemed {await amount.FormatKasinoCurrencyAsync()}", true,
+        await botInstance.SendChatMessageAsync($"{user.KfUsername}, you redeemed {await amount.FormatKasinoCurrencyAsync()}", true,
             whisperTo: user.KfUsername);
     }
 }

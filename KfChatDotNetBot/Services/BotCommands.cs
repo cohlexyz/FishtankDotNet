@@ -133,7 +133,7 @@ internal class BotCommands
                 }
                 _ = ProcessMessageAsync(command, message, user, match.Groups);
                 var isBotQuiet = ChatActivity.IsBotQuiet().WaitAsync(cancellationToken: _cancellationToken).Result;
-                if (!HasAttribute<DontDeleteInvocationMessage>(command) && !isBotQuiet)
+                if (!HasAttribute<DontDeleteInvocationMessage>(command) && isBotQuiet)
                 {
                     _ = _bot.KfClient.DeleteMessageAsync(message.MessageUuid!);
                 }
