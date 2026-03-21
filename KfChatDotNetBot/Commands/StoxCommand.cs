@@ -116,6 +116,8 @@ internal static class StoxMarket
 public class StoxBuyCommand : ICommand
 {
     public List<Regex> Patterns => [
+        new Regex(@"^buy (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
+        new Regex(@"^long (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
         new Regex(@"^stox buy (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
         new Regex(@"^stox long (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
     ];
@@ -225,6 +227,7 @@ public class StoxBuyCommand : ICommand
 public class StoxSellCommand : ICommand
 {
     public List<Regex> Patterns => [
+        new Regex(@"^sell (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
         new Regex(@"^stox sell (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
     ];
     public string? HelpText => "Sell stocks for Kasino balance: !stox sell <symbol> <amount>";
@@ -323,6 +326,8 @@ public class StoxSellCommand : ICommand
 public class StoxPortfolioCommand : ICommand
 {
     public List<Regex> Patterns => [
+        new Regex(@"^portfolio$", RegexOptions.IgnoreCase),
+        new Regex(@"^port$", RegexOptions.IgnoreCase),
         new Regex(@"^stox portfolio$", RegexOptions.IgnoreCase),
         new Regex(@"^stox port$", RegexOptions.IgnoreCase)
     ];
