@@ -31,7 +31,7 @@ public class GetBalanceCommand : ICommand
     {
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
         await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, your balance is {await gambler!.Balance.FormatKasinoCurrencyAsync()}", true, whisperTo: user.KfId);
+            $"{user.FormatUsername()}, your balance is {await gambler!.Balance.FormatKasinoCurrencyAsync()}", true, whisperTo: user.KfId, autoDeleteAfter: TimeSpan.FromSeconds(10));
 
         if (botInstance.BotServices.KasinoShop != null)
         {
