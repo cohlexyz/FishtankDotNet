@@ -577,6 +577,10 @@ public static class BuiltIn
         public static string ShuffleDotUsBmjUserId = "ShuffleDotUs.BmjUserId";
         [BuiltInSetting("UUID for the current MOTD message UUID", SettingValueType.Text)]
         public static string KiwiFarmsMotdUuid = "KiwiFarms.MotdUuid";
+        [BuiltInSetting("Message/min threshold to silence bot outputs", SettingValueType.Text, "5", WholeNumberRegex)]
+        public static string OutputSilenceThreshold = "Bot.SilenceThreshold";
+        [BuiltInSetting("Bot output silenced", SettingValueType.Boolean, "false", BooleanRegex)]
+        public static string OutputSilenced = "Bot.OutputSilenced";
     }
 }
 

@@ -58,74 +58,11 @@ public class RouletteCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
-        var settings = await SettingsProvider.GetMultipleValuesAsync([
-            BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay,
-            BuiltIn.Keys.KasinoRouletteEnabled,
-            BuiltIn.Keys.KasinoRouletteCountdownDuration,
-            BuiltIn.Keys.BotRedisConnectionString
-        ]);
-
-        // Check if roulette is enabled
-        var rouletteEnabled = settings[BuiltIn.Keys.KasinoRouletteEnabled].ToBoolean();
-        if (!rouletteEnabled)
-        {
-            var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(
-                settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
-            await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, roulette is currently disabled.",
-                true, whisperTo: user.KfUsername);
-            return;
-        }
-
-        if (string.IsNullOrEmpty(settings[BuiltIn.Keys.BotRedisConnectionString].Value))
-        {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, roulette is not available at this time", true,
-                autoDeleteAfter: TimeSpan.FromSeconds(15));
-            return;
-        }
-
-        var redis = await ConnectionMultiplexer.ConnectAsync(settings[BuiltIn.Keys.BotRedisConnectionString].Value!);
-        _redisDb = redis.GetDatabase();
-
-        var countdownDuration = TimeSpan.FromSeconds(
-            settings[BuiltIn.Keys.KasinoRouletteCountdownDuration].ToType<int>());
-
-        // Handle actions (refund/cancel)
-        if (arguments.TryGetValue("action", out var actionGroup))
-        {
-            var action = actionGroup.Value.ToLower();
-            if (action == "refund")
-            {
-                await HandleRefund(botInstance, user, ctx);
-                return;
-            }
-
-            if (action == "cancel")
-            {
-                // Check if user has admin rights
-                if (user.UserRight < UserRight.TrueAndHonest)
-                {
-                    await botInstance.SendChatMessageAsync(
-                        $"{user.FormatUsername()}, you don't have permission to cancel the roulette round.",
-                        true, autoDeleteAfter: TimeSpan.FromSeconds(10));
-                    return;
-                }
-                await HandleCancel(botInstance, user, ctx);
-                return;
-            }
-        }
-
-        // Handle placing a bet
-        if (!arguments.TryGetValue("amount", out var amountGroup) || !arguments.TryGetValue("bet", out var betGroup))
-        {
-            await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, invalid syntax. Use: !roulette <amount> <bet>",
-                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
-            RateLimitService.RemoveMostRecentEntry(user, this);
-            return;
-        }
-
-        await PlaceBet(botInstance, user, amountGroup.Value, betGroup.Value.Trim(), countdownDuration, ctx);
+        // roulette is always off 
+        await botInstance.SendChatMessageAsync(
+            $"{user.FormatUsername()}, roulette is currently disabled.",
+            true, whisperTo: user.KfUsername);
+        return;
     }
 
     private async Task PlaceBet(ChatBot botInstance, UserDbModel user, string amountStr, string betStr,

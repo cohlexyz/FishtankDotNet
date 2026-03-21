@@ -45,12 +45,15 @@ public class BotServices
     private YouTubePubSub? _youTubePubSub;
     public KasinoRain? KasinoRain;
 
+    public ChatActivity? ChatActivity;
+
     public KasinoShop? KasinoShop;
     public ClipService? ClipService;
 
     private Task? _websocketWatchdog;
     private Task? _howlggGetUserTimer;
     public Task? StoxMotdUpdater;
+    public Task? ChatActivityTracker;
     private SentMessageTrackerModel? _stoxMotdTracker;
 
     private string? _bmjTwitchUsername;
@@ -120,6 +123,8 @@ public class BotServices
         _websocketWatchdog = WebsocketWatchdog();
         _howlggGetUserTimer = HowlggGetUserTimer();
         StoxMotdUpdater = StoxMotdUpdaterTask();
+        ChatActivityTracker = ChatActivityTask();
+        ChatActivity = new ChatActivity(_chatBot);
 
         _ = Task.Run(() => ClipService!.RestoreActiveBuffersAsync(), _cancellationToken);
     }
@@ -580,6 +585,16 @@ public class BotServices
         }
     }
 
+    private async Task ChatActivityTask()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+        while (await timer.WaitForNextTickAsync(_cancellationToken))
+        {
+            if (_chatBot.InitialStartCooldown) continue;
+            await ChatActivity!.Update();
+        }
+    }
+
     private async Task StoxMotdUpdaterTask()
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
@@ -663,6 +678,14 @@ public class BotServices
                 _logger.Error($"Failed to fetch predictions for MOTD: {e.Message}");
             }
         }
+
+        var isKasinoOpen = await ChatActivity.IsKasinoOpen(_cancellationToken);
+        var botQuiet = await ChatActivity.IsBotQuiet();
+        var isStoxTradingOpen = await StoxMarket.IsOpenAsync();
+
+        motd += "[br]" + (isKasinoOpen ? "🎰 Kasino: Open!" : "⛔ Kasino: Closed") + " | ";
+        motd += (isStoxTradingOpen ? "📈 Stox: Open!" : "⛔ Stox: Closed") + " | ";
+        motd += botQuiet ? "Bot: 🤫" : "Bot: 🔊";
 
         motd += await FishtankJobs.BuildJobsTable();
 

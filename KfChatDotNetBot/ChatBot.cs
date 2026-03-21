@@ -42,6 +42,8 @@ public class ChatBot
 
     private List<UserModel> _usersInChat = [];
 
+    public int IncomingMessageCounter = 0;
+
 
     public ChatBot()
     {
@@ -335,6 +337,8 @@ public class ChatBot
             lostMsg.Status = SentMessageTrackerStatus.Lost;
         }
         _logger.Debug($"Received {messages.Count} message(s)");
+        IncomingMessageCounter += messages.Count;
+
         foreach (var message in messages)
         {
             if (message.MessageEditDate == null)
@@ -550,6 +554,13 @@ public class ChatBot
         messageTracker.SentAt = DateTimeOffset.UtcNow;
         _logger.Debug($"Message is {messageTracker.Message.Utf8LengthBytes()} bytes");
         SentMessages.Add(messageTracker);
+
+        var isBotQuiet = await ChatActivity.IsBotQuiet();
+        if (!isBotQuiet)
+        {
+            whisperTo = null;
+        }
+
         await KfClient.SendMessageInstantAsync(messageTracker.Message, whisperTo);
         if (autoDeleteAfter != null && whisperTo == null)
         {

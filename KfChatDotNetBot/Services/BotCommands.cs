@@ -132,7 +132,8 @@ internal class BotCommands
                     RateLimitService.AddEntry(user, command, message.MessageRawHtmlDecoded);
                 }
                 _ = ProcessMessageAsync(command, message, user, match.Groups);
-                if (!HasAttribute<DontDeleteInvocationMessage>(command))
+                var isBotQuiet = ChatActivity.IsBotQuiet().WaitAsync(cancellationToken: _cancellationToken).Result;
+                if (!HasAttribute<DontDeleteInvocationMessage>(command) && !isBotQuiet)
                 {
                     _ = _bot.KfClient.DeleteMessageAsync(message.MessageUuid!);
                 }
