@@ -116,7 +116,8 @@ internal static class StoxMarket
 public class StoxBuyCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^stox buy (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
+        new Regex(@"^stox buy (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
+        new Regex(@"^stox long (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
     ];
     public string? HelpText => "Buy stocks with your Kasino balance: !stox buy <symbol> <amount>";
     public UserRight RequiredRight => UserRight.Loser;
