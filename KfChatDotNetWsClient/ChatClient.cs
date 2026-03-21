@@ -244,17 +244,17 @@ public class ChatClient
         _wsClient.Send(message);
     }
 
-    public async Task SendMessageInstantAsync(string message, string? whisperTo = null)
+    public async Task SendMessageInstantAsync(string message, int? whisperTo = null)
     {
         _logger.Debug($"Sending '{message}', bypassing the queue");
         if (_wsClient == null) throw new WebSocketNotInitializedException();
-        if (string.IsNullOrEmpty(whisperTo))
+        if (whisperTo == null)
         {
             await _wsClient.SendInstant(message);
         }
         else
         {
-            await _wsClient.SendInstant($"/w @{whisperTo}, {message}");
+            await _wsClient.SendInstant($"/w @{whisperTo} {message}");
         }
     }
 

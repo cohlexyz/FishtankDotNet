@@ -61,7 +61,7 @@ public class RouletteCommand : ICommand
         // roulette is always off 
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, roulette is currently disabled.",
-            true, whisperTo: user.KfUsername);
+            true, whisperTo: user.KfId);
         return;
     }
 

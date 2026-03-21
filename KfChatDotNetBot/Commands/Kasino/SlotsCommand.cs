@@ -44,16 +44,8 @@ public class SlotsCommand : ICommand
     public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user,
         GroupCollection arguments, CancellationToken ctx)
     {
-
-        var settings = await SettingsProvider.GetMultipleValuesAsync([
-            BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay, BuiltIn.Keys.KasinoSlotsEnabled
-        ]);
-
-        // Check if slots is enabled
-        var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
-        await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, slots is currently disabled.",
-            true, autoDeleteAfter: gameDisabledCleanupDelay);
+        await botInstance.SendWhisperAsync(user.KfId,
+            $"{user.FormatUsername()}, slots is currently disabled.");
         return;
     }
     public class WinDetail

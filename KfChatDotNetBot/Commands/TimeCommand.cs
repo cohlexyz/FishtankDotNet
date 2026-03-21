@@ -36,6 +36,6 @@ public class TimeCommand : ICommand
             extraInfo = $" on day {days}";
         }
 
-        await botInstance.SendChatMessageAsync($"It's currently {ftt:dddd h:mm:ss tt} FTT{extraInfo}", whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync($"It's currently {ftt:dddd h:mm:ss tt} FTT{extraInfo}", whisperTo: user.KfId);
     }
 }

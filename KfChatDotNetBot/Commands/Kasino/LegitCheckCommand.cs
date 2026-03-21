@@ -59,7 +59,7 @@ public class LegitCheckCommand : ICommand
             {
                 await botInstance.SendChatMessageAsync(
                     $"couldn't find that user in chat. They must be present in chat to look up by username.",
-                    true, whisperTo: user.KfUsername);
+                    true, whisperTo: user.KfId);
                 return;
             }
             targetUser = await db.Users.FirstOrDefaultAsync(u => u.KfId == chatUser.Id, ctx);
@@ -77,7 +77,7 @@ public class LegitCheckCommand : ICommand
         if (targetUser == null)
         {
             await botInstance.SendChatMessageAsync($", that user doesn't exist.",
-                true, whisperTo: user.KfUsername);
+                true, whisperTo: user.KfId);
             return;
         }
 
@@ -97,7 +97,7 @@ public class LegitCheckCommand : ICommand
             if (gambler == null)
             {
                 await botInstance.SendChatMessageAsync(
-                    $"{targetUser.KfUsername} has never played at the kasino.", true, whisperTo: user.KfUsername);
+                    $"{targetUser.KfUsername} has never played at the kasino.", true, whisperTo: user.KfId);
                 return;
             }
             gamblerIds.Add(gambler.Id);
@@ -107,7 +107,7 @@ public class LegitCheckCommand : ICommand
         if (gamblerIds.Count == 0)
         {
             await botInstance.SendChatMessageAsync(
-                $", {targetUser.KfUsername} has never played at the kasino.", true, whisperTo: user.KfUsername);
+                $", {targetUser.KfUsername} has never played at the kasino.", true, whisperTo: user.KfId);
             return;
         }
 
@@ -119,7 +119,7 @@ public class LegitCheckCommand : ICommand
         if (wagers.Count == 0)
         {
             await botInstance.SendChatMessageAsync(
-                $", {targetUser.KfUsername} has no completed kasino wagers on record.", true, whisperTo: user.KfUsername);
+                $", {targetUser.KfUsername} has no completed kasino wagers on record.", true, whisperTo: user.KfId);
             return;
         }
 
@@ -171,7 +171,7 @@ public class LegitCheckCommand : ICommand
                 $" | Luckiest: {gameName} ({luckiestGame.Rtp:F2}% RTP, {luckiestGame.WagerCount:N0} wagers, {await luckiestGame.TotalWagered.FormatKasinoCurrencyAsync()} wagered)";
         }
 
-        await botInstance.SendChatMessageAsync(response, true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync(response, true, whisperTo: user.KfId);
     }
 
     /// <summary>

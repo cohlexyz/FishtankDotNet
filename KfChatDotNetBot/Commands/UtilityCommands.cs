@@ -94,7 +94,7 @@ public class GetVersionCommand : ICommand
                 true);
             return;
         }
-        await botInstance.SendChatMessageAsync($"Bot compiled against {version.Split('+')[1]}", true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync($"Bot compiled against {version.Split('+')[1]}", true, whisperTo: user.KfId);
     }
 }
 
@@ -129,7 +129,7 @@ public class ShareXClippingCommand : ICommand
     public bool WhisperCanInvoke => true;
     public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
-        await botInstance.SendChatMessageAsync("Clipping with ShareX: https://kiwifarms.st/threads/189850", true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync("Clipping with ShareX: https://kiwifarms.st/threads/189850", true, whisperTo: user.KfId);
     }
 }
 
@@ -154,7 +154,7 @@ public class GetLastActivity : ICommand
         var lastActive = await SettingsProvider.GetValueAsync(BuiltIn.Keys.BossmanLastSighting);
         if (lastActive.Value == null)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, I don't know.", true, whisperTo: user.KfUsername);
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, I don't know.", true, whisperTo: user.KfId);
             return;
         }
 

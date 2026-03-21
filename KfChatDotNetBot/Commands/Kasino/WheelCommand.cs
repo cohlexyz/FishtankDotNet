@@ -74,17 +74,15 @@ public class WheelCommand : ICommand
         var wheelEnabled = (settings[BuiltIn.Keys.KasinoWheelEnabled]).ToBoolean();
         if (!wheelEnabled)
         {
-            var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
-            await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, wheel is currently disabled.",
-                true, whisperTo: user.KfUsername);
+            await botInstance.SendWhisperAsync(user.KfId,
+                $"{user.FormatUsername()}, wheel is currently disabled.");
             return;
         }
 
         var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoWheelCleanupDelay].ToType<int>());
         if (!arguments.TryGetValue("amount", out var amount))
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, not enough arguments. !wheel <wager> <difficulty: low, medium, high>", true, autoDeleteAfter: cleanupDelay);
+            await botInstance.SendWhisperAsync(user.KfId, $"{user.FormatUsername()}, not enough arguments. !wheel <wager> <difficulty: low, medium, high>");
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -94,7 +92,7 @@ public class WheelCommand : ICommand
         var difficulty = arguments["difficulty"].Success ? Convert.ToString(arguments["difficulty"].Value) : new[] { "low", "medium", "high" }[Money.GetRandomNumber(gambler, 0, 2)];
         if (difficulty.ToLower() is not ("l" or "low" or "m" or "medium" or "h" or "high"))
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, unrecognized difficulty selection, please choose between: low, medium, high", true, autoDeleteAfter: cleanupDelay);
+            await botInstance.SendWhisperAsync(user.KfId, $"{user.FormatUsername()}, unrecognized difficulty selection, please choose between: low, medium, high");
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -102,18 +100,14 @@ public class WheelCommand : ICommand
         var wager = Convert.ToDecimal(amount.Value);
         if (gambler.Balance < wager)
         {
-            await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
-                true, autoDeleteAfter: cleanupDelay);
+            await botInstance.SendWhisperAsync(user.KfId, $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.");
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
 
         if (wager == 0)
         {
-            await botInstance.SendChatMessageAsync(
-                $"{user.FormatUsername()}, you have to wager more than {await wager.FormatKasinoCurrencyAsync()}", true,
-                autoDeleteAfter: cleanupDelay);
+            await botInstance.SendWhisperAsync(user.KfId, $"{user.FormatUsername()}, you have to wager more than {await wager.FormatKasinoCurrencyAsync()}");
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }

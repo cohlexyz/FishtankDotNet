@@ -1,6 +1,7 @@
 using System.Runtime.Caching;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
 using KfChatDotNetWsClient.Models.Events;
@@ -35,7 +36,7 @@ public class PrayerTimerCommand : ICommand
         var timings = await GetPrayerTimingsAsync(ctx);
         if (timings == null)
         {
-            await botInstance.SendChatMessageAsync($"@{message.Author.Username}, failed to fetch prayer times :(", true, autoDeleteAfter: TimeSpan.FromSeconds(10), whisperTo: user.KfUsername);
+            await botInstance.SendChatMessageAsync($"@{message.Author.Username}, failed to fetch prayer times :(", true, autoDeleteAfter: TimeSpan.FromSeconds(10), whisperTo: user.KfId);
             return;
         }
 
@@ -77,7 +78,7 @@ public class PrayerTimerCommand : ICommand
             : "unknown";
 
         await botInstance.SendChatMessageAsync(
-            $"Next: {nextPrayer} in {countdownStr} | {string.Join(" | ", parts)}", true);
+            $"{user.FormatUsername()}, next: {nextPrayer} in {countdownStr} | {string.Join(" | ", parts)}", true, whisperTo: user.KfId);
     }
 
     private static bool TryParseTime(string timeStr, out TimeOnly result)

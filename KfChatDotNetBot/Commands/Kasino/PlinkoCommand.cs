@@ -112,7 +112,7 @@ public class PlinkoCommand : ICommand
             var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, plinko is currently disabled.",
-                true, whisperTo: user.KfUsername);
+                true, whisperTo: user.KfId);
             return;
         }
         var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoPlinkoCleanupDelay].ToType<int>());

@@ -50,7 +50,7 @@ public class LimboCommand : ICommand
             var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, limbo is currently disabled.",
-                true, whisperTo: user.KfUsername);
+                true, whisperTo: user.KfId);
             return;
         }
 
@@ -59,7 +59,7 @@ public class LimboCommand : ICommand
         if (!arguments.TryGetValue("amount", out var amount))
         {
             await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, not enough arguments. !limbo <wager>",
-                true, whisperTo: user.KfUsername);
+                true, whisperTo: user.KfId);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -71,7 +71,7 @@ public class LimboCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
-                true, whisperTo: user.KfUsername);
+                true, whisperTo: user.KfId);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -80,7 +80,7 @@ public class LimboCommand : ICommand
         {
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you have to wager more than {await wager.FormatKasinoCurrencyAsync()}", true,
-                whisperTo: user.KfUsername);
+                whisperTo: user.KfId);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -103,7 +103,7 @@ public class LimboCommand : ICommand
         if (limboNumber <= 1)
         {
             //cancel the game if user does not choose a correct number
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you must choose a number greater than 1", true, whisperTo: user.KfUsername);
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, you must choose a number greater than 1", true, whisperTo: user.KfId);
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -118,7 +118,7 @@ public class LimboCommand : ICommand
             newBalance = await Money.NewWagerAsync(gambler.Id, wager, win, WagerGame.Limbo, ct: ctx);
             await botInstance.SendChatMessageAsync($"[b][color={colorToUse}] {casinoNumbers[1]:N2}[/color][/b][br]{user.FormatUsername()}, you " +
                                                    $"[color={settings[BuiltIn.Keys.KiwiFarmsGreenColor].Value}] won {await win.FormatKasinoCurrencyAsync()}![/color] " +
-                                                   $"Your balance is now: {await newBalance.FormatKasinoCurrencyAsync()}!", true, whisperTo: user.KfUsername);
+                                                   $"Your balance is now: {await newBalance.FormatKasinoCurrencyAsync()}!", true, whisperTo: user.KfId);
             //Kasino Shop stuff----------------------------------------------------------------------
             if (botInstance.BotServices.KasinoShop != null)
             {
@@ -138,7 +138,7 @@ public class LimboCommand : ICommand
         await botInstance.SendChatMessageAsync(
             $"[b][color={colorToUse}] {casinoNumbers[1]:N2}[/color][/b][br]{user.FormatUsername()}, you [color={settings[BuiltIn.Keys.KiwiFarmsRedColor].Value}]" +
             $"lost {await wager.FormatKasinoCurrencyAsync()}[/color]. Your balance is now: {await newBalance.FormatKasinoCurrencyAsync()}.",
-            true, whisperTo: user.KfUsername);
+            true, whisperTo: user.KfId);
         //Kasino Shop stuff----------------------------------------------------------------------
         if (botInstance.BotServices.KasinoShop != null)
         {

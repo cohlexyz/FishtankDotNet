@@ -90,6 +90,6 @@ public class GetRestreamPlainCommand : ICommand
         CancellationToken ctx)
     {
         var url = await SettingsProvider.GetValueAsync(BuiltIn.Keys.RestreamUrl);
-        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, restream URL: [plain]{url.Value}", true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, restream URL: [plain]{url.Value}", true, whisperTo: user.KfId);
     }
 }

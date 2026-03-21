@@ -59,7 +59,7 @@ public class Planes : ICommand
             var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, planes is currently disabled.",
-                true, whisperTo: user.KfUsername);
+                true, whisperTo: user.KfId);
             return;
         }
         var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoPlanesCleanupDelay].ToType<int>());

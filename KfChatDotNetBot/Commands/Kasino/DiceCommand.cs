@@ -38,13 +38,11 @@ public class DiceCommand : ICommand
         ]);
 
         // Check if dice is enabled
-        var diceEnabled = (settings[BuiltIn.Keys.KasinoDiceEnabled]).ToBoolean();
+        var diceEnabled = settings[BuiltIn.Keys.KasinoDiceEnabled].ToBoolean();
         if (!diceEnabled)
         {
-            var gameDisabledCleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
-            await botInstance.SendChatMessageAsync(
-                $" dice is currently disabled.",
-                true, whisperTo: user.KfUsername);
+            await botInstance.SendWhisperAsync(user.KfId,
+                $" dice is currently disabled.");
             return;
         }
 
@@ -52,9 +50,8 @@ public class DiceCommand : ICommand
 
         if (!arguments.TryGetValue("amount", out var amount))
         {
-            await botInstance.SendChatMessageAsync(
-                $" not enough arguments. !dice <wager>",
-                true, whisperTo: user.KfUsername);
+            await botInstance.SendWhisperAsync(user.KfId,
+                $" not enough arguments. !dice <wager>");
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -64,18 +61,16 @@ public class DiceCommand : ICommand
             throw new InvalidOperationException($"Caught a null when retrieving gambler for {user.KfUsername}");
         if (gambler.Balance < wager)
         {
-            await botInstance.SendChatMessageAsync(
-                $" your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.",
-                true, whisperTo: user.KfUsername);
+            await botInstance.SendWhisperAsync(user.KfId,
+                $" your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough for this wager.");
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
 
         if (wager == 0)
         {
-            await botInstance.SendChatMessageAsync(
-                $" you have to wager more than {await wager.FormatKasinoCurrencyAsync()}", true,
-                whisperTo: user.KfUsername);
+            await botInstance.SendWhisperAsync(user.KfId,
+                $" you have to wager more than {await wager.FormatKasinoCurrencyAsync()}");
             RateLimitService.RemoveMostRecentEntry(user, this);
             return;
         }
@@ -86,7 +81,7 @@ public class DiceCommand : ICommand
                 BuiltIn.Keys.KiwiFarmsGreenColor, BuiltIn.Keys.KiwiFarmsRedColor
             ]);
         // print dice game slider
-        await botInstance.SendChatMessageAsync($"{ConstructDiceGameOutput(rolled)}", true, whisperTo: user.KfUsername);
+        await botInstance.SendChatMessageAsync($"{ConstructDiceGameOutput(rolled)}", true, whisperTo: user.KfId);
         decimal newBalance;
         if (rolled > 0.5 + _houseEdge)
         {
@@ -94,18 +89,18 @@ public class DiceCommand : ICommand
             var effect = wager;
             newBalance = await Money.NewWagerAsync(gambler.Id, wager, effect, WagerGame.Dice, ct: ctx);
             await botInstance.SendChatMessageAsync(
-                $" you rolled a {rolled * 100:N2} and [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value}]WON![/COLOR][/B] " +
+                $"{user.FormatUsername()}, you rolled a {rolled * 100:N2} and [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value}]WON![/COLOR][/B] " +
                 $"You won {await effect.FormatKasinoCurrencyAsync()} and your balance is now {await newBalance.FormatKasinoCurrencyAsync()}",
-                true, whisperTo: user.KfUsername);
+                true, whisperTo: user.KfId);
         }
         else
         {
             // you lose dice
             newBalance = await Money.NewWagerAsync(gambler.Id, wager, -wager, WagerGame.Dice, ct: ctx);
             await botInstance.SendChatMessageAsync(
-                $" you rolled a {rolled * 100:N2} and [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]LOST![/COLOR][/B] " +
+                $"{user.FormatUsername()}, you rolled a {rolled * 100:N2} and [B][COLOR={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]LOST![/COLOR][/B] " +
                 $"Your balance is now {await newBalance.FormatKasinoCurrencyAsync()}",
-                true, whisperTo: user.KfUsername);
+                true, whisperTo: user.KfId);
         }
     }
 
