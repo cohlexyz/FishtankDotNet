@@ -11,7 +11,7 @@ using SixLabors.ImageSharp.Processing;
 public static class ImageCompressor
 {
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
-    public static async Task<(string? result, string? error)> CompressImageAsync(string imageUrl, int quality = 45, CancellationToken ct)
+    public static async Task<(string? result, string? error)> CompressImageAsync(string imageUrl, CancellationToken ct, int quality = 45)
     {
         var proxy = await SettingsProvider.GetValueAsync(BuiltIn.Keys.Proxy);
         var handler = new HttpClientHandler
@@ -53,7 +53,7 @@ public static class ImageCompressor
         // Save as WebP with quality 45
         var encoder = new WebpEncoder
         {
-            Quality = 45
+            Quality = quality
         };
 
         using var ms = new MemoryStream();
