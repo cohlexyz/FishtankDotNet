@@ -58,6 +58,10 @@ public class AddImageCommand : ICommand
             return;
         }
 
+        var msg = await botInstance.SendChatMessageAsync($"Processing image, please wait...", true);
+        await botInstance.WaitForChatMessageAsync(msg, TimeSpan.FromSeconds(5));
+
+
         var (result, error) = await ImageCompressor.CompressImageAsync(url, ct: ctx);
         if (error != null)
         {
@@ -72,6 +76,7 @@ public class AddImageCommand : ICommand
 
         await db.Images.AddAsync(new ImageDbModel { Key = key, Url = result, LastSeen = DateTimeOffset.MinValue, Tags = tags }, ctx);
         await db.SaveChangesAsync(ctx);
+        await botInstance.KfClient.DeleteMessageAsync(msg.ChatMessageUuid!);
         await botInstance.SendChatMessageAsync(
             $"You added the image to the {key} carousel: [img]{result}[/img]", true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
