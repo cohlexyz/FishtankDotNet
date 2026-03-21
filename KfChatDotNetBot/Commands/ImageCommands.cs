@@ -51,6 +51,13 @@ public class AddImageCommand : ICommand
             return;
         }
 
+        // verify that url is actually a url with basic regex
+        if (!Regex.IsMatch(url, @"^https?://\S+$"))
+        {
+            await botInstance.SendWhisperAsync(user.KfId, $"The URL '{url}' you provided is not valid");
+            return;
+        }
+
         var (result, error) = await ImageCompressor.CompressImageAsync(url, ct: ctx);
         if (error != null)
         {

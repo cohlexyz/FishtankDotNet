@@ -11,7 +11,7 @@ using SixLabors.ImageSharp.Processing;
 public static class ImageCompressor
 {
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
-    public static async Task<(string? result, string? error)> CompressImageAsync(string imageUrl, CancellationToken ct, int quality = 45)
+    public static async Task<(string? result, string? error)> CompressImageAsync(string imageUrl, CancellationToken ct, int quality = 40)
     {
         var proxy = await SettingsProvider.GetValueAsync(BuiltIn.Keys.Proxy);
         var handler = new HttpClientHandler
@@ -31,8 +31,8 @@ public static class ImageCompressor
 
         _logger.Debug($"Image size: {data.Length / 1024.0:F2} KB");
 
-        // If <= 1 MB, just save as-is
-        if (data.Length <= 1_000_000)
+        // If <= 2 MB, just save as-is
+        if (data.Length <= 2_000_000)
         {
             return (imageUrl, null);
         }
@@ -45,7 +45,7 @@ public static class ImageCompressor
         {
             image.Mutate(x => x.Resize(new ResizeOptions
             {
-                Size = new Size(250, 0), // auto height
+                Size = new Size(220, 0), // auto height
                 Mode = ResizeMode.Max
             }));
         }
@@ -61,9 +61,9 @@ public static class ImageCompressor
         await image.SaveAsync(ms, encoder);
         _logger.Debug($"Compressed image size: {ms.Length / 1024.0:F2} KB");
 
-        if (ms.Length > 1_000_000)
+        if (ms.Length > 2_000_000)
         {
-            var error = "Compressed image is still larger than 1 MB. You'll have to compress it yourself.";
+            var error = "Compressed image is still larger than 2 MB. You'll have to compress it yourself.";
             _logger.Warn(error);
             return (null, error);
         }
