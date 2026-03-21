@@ -1,16 +1,15 @@
 
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using KfChatDotNetBot.Services;
 using KfChatDotNetBot.Settings;
 using NLog;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.Processing;
 
 public static class ImageCompressor
 {
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
+
     public static async Task<(string? result, string? error)> CompressImageAsync(string imageUrl, CancellationToken ct, int quality = 40)
     {
         var proxy = await SettingsProvider.GetValueAsync(BuiltIn.Keys.Proxy);
@@ -27,49 +26,56 @@ public static class ImageCompressor
         }
 
         using var client = new HttpClient(handler);
-        byte[] data = await client.GetByteArrayAsync(imageUrl);
+        byte[] data = await client.GetByteArrayAsync(imageUrl, ct);
 
         _logger.Debug($"Image size: {data.Length / 1024.0:F2} KB");
 
-        // If <= 2 MB, just save as-is
         if (data.Length <= 2_000_000)
         {
             return (imageUrl, null);
         }
 
-        // Load image with ImageSharp
-        using var image = Image.Load(data);
-
-        // Resize if wider than 250px
-        if (image.Width > 250)
+        var tempInput = Path.GetTempFileName();
+        var tempOutput = Path.ChangeExtension(Path.GetTempFileName(), ".webp");
+        try
         {
-            image.Mutate(x => x.Resize(new ResizeOptions
+            await File.WriteAllBytesAsync(tempInput, data, ct);
+
+            var psi = new ProcessStartInfo("convert")
             {
-                Size = new Size(220, 0), // auto height
-                Mode = ResizeMode.Max
-            }));
+                ArgumentList = { tempInput, "-resize", "220x>", "-loop", "0", "-quality", quality.ToString(), tempOutput },
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+
+            using var process = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start ImageMagick convert process");
+            var stderr = await process.StandardError.ReadToEndAsync(ct);
+            await process.WaitForExitAsync(ct);
+
+            if (process.ExitCode != 0)
+            {
+                _logger.Error($"ImageMagick convert failed (exit {process.ExitCode}): {stderr}");
+                return (null, $"ImageMagick failed: {stderr}");
+            }
+
+            var outputBytes = await File.ReadAllBytesAsync(tempOutput, ct);
+            _logger.Debug($"Compressed image size: {outputBytes.Length / 1024.0:F2} KB");
+
+            if (outputBytes.Length > 2_000_000)
+            {
+                var error = "Compressed image is still larger than 2 MB. You'll have to compress it yourself.";
+                _logger.Warn(error);
+                return (null, error);
+            }
+
+            using var ms = new MemoryStream(outputBytes);
+            var url = await Zipline.Upload(ms, new MediaTypeHeaderValue("image/webp"), ct: ct);
+            return (url, null);
         }
-
-        // Save as WebP with quality 45
-        var encoder = new WebpEncoder
+        finally
         {
-            Quality = quality,
-            FileFormat = WebpFileFormatType.Lossy,
-        };
-
-        using var ms = new MemoryStream();
-        await image.SaveAsync(ms, encoder);
-        _logger.Debug($"Compressed image size: {ms.Length / 1024.0:F2} KB");
-
-        if (ms.Length > 2_000_000)
-        {
-            var error = "Compressed image is still larger than 2 MB. You'll have to compress it yourself.";
-            _logger.Warn(error);
-            return (null, error);
+            if (File.Exists(tempInput)) File.Delete(tempInput);
+            if (File.Exists(tempOutput)) File.Delete(tempOutput);
         }
-
-        ms.Position = 0;
-        var url = await Zipline.Upload(ms, new MediaTypeHeaderValue("image/webp"), ct: ct);
-        return (url, null);
     }
 }
