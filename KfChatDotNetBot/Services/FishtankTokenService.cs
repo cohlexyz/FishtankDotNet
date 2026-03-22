@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text.Json;
 using KfChatDotNetBot.Settings;
 using NLog;
@@ -74,15 +73,13 @@ public class FishtankTokenService
             return;
         }
 
-        var cookieContainer = new CookieContainer();
         var cookieValue = $"[\"{accessToken}\", \"{refreshToken}\"]";
-        cookieContainer.Add(new Uri("https://api.fishtank.live"),
-            new Cookie("sb-wcsaaupukpdmqdjcgaoo-auth-token", cookieValue));
 
-        using var handler = new HttpClientHandler { CookieContainer = cookieContainer };
-        using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(15) };
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.fishtank.live/v1/auth");
+        request.Headers.Add("Cookie", $"sb-wcsaaupukpdmqdjcgaoo-auth-token={cookieValue}");
 
-        var response = await client.GetAsync("https://api.fishtank.live/v1/auth", _ct);
+        var response = await client.SendAsync(request, _ct);
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync(_ct);
