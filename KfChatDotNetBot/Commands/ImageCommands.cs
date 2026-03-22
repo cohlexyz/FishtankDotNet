@@ -25,7 +25,7 @@ public class AddImageCommand : ICommand
     ];
     public string? HelpText => "Add an image to the image rotation specified";
     public UserRight RequiredRight => UserRight.TrueAndHonest;
-    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public TimeSpan Timeout => TimeSpan.FromSeconds(120);
     public RateLimitOptionsModel? RateLimitOptions => null;
     public bool WhisperCanInvoke => false;
     public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
