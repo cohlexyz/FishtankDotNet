@@ -48,6 +48,7 @@ public class BotServices
     public ChatActivity? ChatActivity;
 
     public KasinoShop? KasinoShop;
+    public FishtankTokenService? FishtankTokenService;
     public ClipService? ClipService;
 
     private Task? _websocketWatchdog;
@@ -72,7 +73,10 @@ public class BotServices
         TemporarilyBypassGambaSeshForDiscord =
             SettingsProvider.GetValueAsync(BuiltIn.Keys.DiscordTemporarilyBypassGambaSeshInitialValue).Result.ToBoolean();
 
-        ClipService = new ClipService(_cancellationToken, FishtankCameras.GetCamerasAsync, _chatBot);
+        FishtankTokenService = new FishtankTokenService(_cancellationToken);
+        FishtankTokenService.OnTokenRefreshed += OnFishtankTokenRefreshed;
+        ClipService = new ClipService(_cancellationToken,
+            () => Task.FromResult(FishtankCameras.GetCamerasWithToken(FishtankTokenService.CurrentToken)), _chatBot);
         _logger.Info("Bot services ready to initialize!");
     }
 
@@ -139,6 +143,40 @@ public class BotServices
     {
         _logger.Debug("Building the Kasino Rain thingy");
         KasinoRain = new KasinoRain(_chatBot, _cancellationToken);
+    }
+
+    private void OnFishtankTokenRefreshed(string newToken)
+    {
+        _logger.Info("[BotServices] Fishtank token refreshed, restarting active clip buffers");
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (ClipService == null) return;
+
+                var activeBuffers = ClipService.GetActiveBuffers();
+                var cameraNames = activeBuffers.Select(b => b.Name).ToList();
+                if (cameraNames.Count == 0) return;
+
+                _logger.Info($"[BotServices] Stopping {cameraNames.Count} buffer(s) for token refresh");
+                await ClipService.StopAsync(null);
+
+                var cameras = FishtankCameras.GetCamerasWithToken(newToken);
+                foreach (var name in cameraNames)
+                {
+                    var result = await ClipService.StartAsync(name, cameras);
+                    _logger.Info($"[BotServices] Restarted buffer for {name}: {result}");
+                }
+
+                _chatBot.SendChatMessage(
+                    $"[ClipService] Token refreshed, restarted {cameraNames.Count} buffer(s): {string.Join(", ", cameraNames)}",
+                    bypassSeshDetect: true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[BotServices] Failed to restart buffers after token refresh: {ex.Message}");
+            }
+        }, _cancellationToken);
     }
 
     private async Task BuildKasinoShop()

@@ -4,73 +4,51 @@ using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
 using KfChatDotNetBot.Services;
 using KfChatDotNetWsClient.Models.Events;
-using NLog;
 
 namespace KfChatDotNetBot.Commands;
 
 public static class FishtankCameras
 {
-    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-    private static readonly SemaphoreSlim FetchLock = new(1, 1);
-    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
-    private static Dictionary<string, string>? _cache;
-    private static DateTimeOffset _cacheExpiry = DateTimeOffset.MinValue;
-
-    public static async Task<Dictionary<string, string>> GetCamerasAsync()
+    public static readonly Dictionary<string, string> Cameras = new(StringComparer.OrdinalIgnoreCase)
     {
-        if (_cache != null && DateTimeOffset.UtcNow < _cacheExpiry)
-            return _cache;
+        {"Director Mode", "https://streams-e.fishtank.live/hls/live+dirc-5/5_2/index.m3u8?tkn="},
+        {"Dorm", "https://streams-e.fishtank.live/hls/live+dmrm-5/5_2/index.m3u8?tkn="},
+        {"Dorm Alternate", "https://streams-e.fishtank.live/hls/live+dmrm2-5/5_2/index.m3u8?tkn="},
+        {"Closet", "https://streams-e.fishtank.live/hls/live+dmcl-5/5_2/index.m3u8?tkn="},
+        {"Bar", "https://streams-e.fishtank.live/hls/live+brrr-5/5_2/index.m3u8?tkn="},
+        {"Bar Alternate", "https://streams-e.fishtank.live/hls/live+brrr2-5/5_2/index.m3u8?tkn="},
+        {"Kitchen", "https://streams-e.fishtank.live/hls/live+ktch-5/5_2/index.m3u8?tkn="},
+        {"Cameraman", "https://streams-e.fishtank.live/hls/live+cameraman2-5/5_2/index.m3u8?tkn="},
+        {"Hallway", "https://streams-e.fishtank.live/hls/live+hwdn-5/5_2/index.m3u8?tkn="},
+        {"Jacuzzi", "https://streams-e.fishtank.live/hls/live+jckz-5/5_2/index.m3u8?tkn="},
+        {"Bar PTZ", "https://streams-e.fishtank.live/hls/live+brpz-5/5_2/index.m3u8?tkn="},
+        {"Dining Room", "https://streams-e.fishtank.live/hls/live+dnrm-5/5_2/index.m3u8?tkn="},
+        {"Market", "https://streams-e.fishtank.live/hls/live+mrke-5/5_2/index.m3u8?tkn="},
+        {"Market Alternate", "https://streams-e.fishtank.live/hls/live+mrke2-5/5_2/index.m3u8?tkn="},
+        {"Foyer", "https://streams-e.fishtank.live/hls/live+foyr-5/5_2/index.m3u8?tkn="},
+        {"Glassroom", "https://streams-e.fishtank.live/hls/live+gsrm-5/5_2/index.m3u8?tkn="},
+        {"Computer Lab", "https://streams-e.fishtank.live/hls/live+bbcl-5/5_2/index.m3u8?tkn="},
+        {"???", "https://streams-e.fishtank.live/hls/live+bare-5/5_2/index.m3u8?tkn="},
+        {"Confessional", "https://streams-e.fishtank.live/hls/live+cfsl-5/5_2/index.m3u8?tkn="},
+        {"Corridor", "https://streams-e.fishtank.live/hls/live+codr-5/5_2/index.m3u8?tkn="},
+        {"East Wing", "https://streams-e.fishtank.live/hls/live+bkny-5/5_2/index.m3u8?tkn="},
+        {"West Wing", "https://streams-e.fishtank.live/hls/live+hwup-5/5_2/index.m3u8?tkn="},
+        {"???2", "https://streams-e.fishtank.live/hls/live+br3g-5/5_2/index.m3u8?tkn="},
+        {"Jungle Room", "https://streams-e.fishtank.live/hls/live+br4j-5/5_2/index.m3u8?tkn="}
+    };
 
-        await FetchLock.WaitAsync();
-        try
-        {
-            // Double-check after acquiring lock
-            if (_cache != null && DateTimeOffset.UtcNow < _cacheExpiry)
-                return _cache;
-
-            using var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(10);
-            var content = await client.GetStringAsync("https://api.fishtank.rip/fishtank.m3u");
-            var cameras = ParseM3u(content);
-            if (cameras.Count > 0)
-            {
-                _cache = cameras;
-                _cacheExpiry = DateTimeOffset.UtcNow.Add(CacheDuration);
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn($"[FishtankCameras] Failed to fetch camera list: {ex.Message}");
-        }
-        finally
-        {
-            FetchLock.Release();
-        }
-
-        return _cache ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static Dictionary<string, string> ParseM3u(string content)
+    /// <summary>
+    /// Returns the camera dictionary with the live stream token appended to each URL.
+    /// </summary>
+    public static Dictionary<string, string> GetCamerasWithToken(string? token)
     {
-        var cameras = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        string? pendingName = null;
-        foreach (var rawLine in content.Split('\n'))
+        var result = new Dictionary<string, string>(Cameras.Count, StringComparer.OrdinalIgnoreCase);
+        var tkn = token ?? string.Empty;
+        foreach (var (name, url) in Cameras)
         {
-            var line = rawLine.Trim();
-            if (line.StartsWith("#EXTINF:", StringComparison.OrdinalIgnoreCase))
-            {
-                var commaIdx = line.IndexOf(',');
-                if (commaIdx >= 0)
-                    pendingName = line[(commaIdx + 1)..].Trim();
-            }
-            else if (pendingName != null && line.Length > 0 && !line.StartsWith('#'))
-            {
-                // WTF????
-                cameras[pendingName] = line.Replace(".jetzt", ".jetzt:444");
-                pendingName = null;
-            }
+            result[name] = url + tkn;
         }
-        return cameras;
+        return result;
     }
 }
 
@@ -95,7 +73,7 @@ public class ClipStartCommand : ICommand
         }
 
         var camera = arguments["camera"].Value.Trim();
-        var cameras = await FishtankCameras.GetCamerasAsync();
+        var cameras = FishtankCameras.GetCamerasWithToken(botInstance.BotServices.FishtankTokenService?.CurrentToken);
         var result = await clipService.StartAsync(camera, cameras);
         await botInstance.SendChatMessageAsync(result, true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
@@ -122,7 +100,7 @@ public class ClipSwitchCommand : ICommand
         }
 
         var camera = arguments["camera"].Value.Trim();
-        var cameras = await FishtankCameras.GetCamerasAsync();
+        var cameras = FishtankCameras.GetCamerasWithToken(botInstance.BotServices.FishtankTokenService?.CurrentToken);
         var result = await clipService.StartAsync(camera, cameras);
         await botInstance.SendChatMessageAsync(result, true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
@@ -150,7 +128,7 @@ public class ClipStopCommand : ICommand
         }
 
         var camera = arguments["camera"].Success ? arguments["camera"].Value.Trim() : null;
-        var cameras = await FishtankCameras.GetCamerasAsync();
+        var cameras = FishtankCameras.GetCamerasWithToken(botInstance.BotServices.FishtankTokenService?.CurrentToken);
         var result = await clipService.StopAsync(camera, cameras);
         await botInstance.SendChatMessageAsync(result, true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
@@ -178,7 +156,7 @@ public class ClipBeginCommand : ICommand
         }
 
         var camera = arguments["camera"].Value.Trim();
-        var cameras = await FishtankCameras.GetCamerasAsync();
+        var cameras = FishtankCameras.GetCamerasWithToken(botInstance.BotServices.FishtankTokenService?.CurrentToken);
         var result = clipService.SetMarker(camera, cameras);
         await botInstance.SendChatMessageAsync(result, true);
     }
@@ -215,7 +193,7 @@ public class ClipSaveCommand : ICommand
         }
 
         var camera = arguments["camera"].Value.Trim();
-        var cameras = await FishtankCameras.GetCamerasAsync();
+        var cameras = FishtankCameras.GetCamerasWithToken(botInstance.BotServices.FishtankTokenService?.CurrentToken);
 
         // Resolve the camera name so we can look up markers by canonical name
         var (resolvedCamera, _) = ClipService.FuzzyMatchCamera(camera, cameras);
@@ -382,7 +360,7 @@ public class ClipCamerasCommand : ICommand
 
     public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
     {
-        var cameras = await FishtankCameras.GetCamerasAsync();
+        var cameras = FishtankCameras.GetCamerasWithToken(botInstance.BotServices.FishtankTokenService?.CurrentToken);
         var names = string.Join(", ", cameras.Keys);
         await botInstance.SendChatMessageAsync($"Available cameras: {names}", true, whisperTo: user.KfId);
     }
