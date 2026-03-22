@@ -433,6 +433,7 @@ public class HostessCommand : ICommand
 public class GetDailyDollarCommand : ICommand
 {
     public List<Regex> Patterns => [
+        new Regex("^redeem", RegexOptions.IgnoreCase),
         new Regex("^daily", RegexOptions.IgnoreCase),
         new Regex("^juiceme", RegexOptions.IgnoreCase),
 
