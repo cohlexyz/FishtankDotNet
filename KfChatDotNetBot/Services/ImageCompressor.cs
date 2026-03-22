@@ -10,7 +10,7 @@ public static class ImageCompressor
 {
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
-    public static async Task<(string? result, string? error)> CompressImageAsync(string imageUrl, CancellationToken ct, int quality = 40)
+    public static async Task<(string? result, string? error)> CompressImageAsync(string imageUrl, CancellationToken ct, int quality = 50)
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.Proxy, BuiltIn.Keys.KiwiFarmsDomain, BuiltIn.Keys.KiwiFarmsCookies]);
         var handler = new HttpClientHandler
