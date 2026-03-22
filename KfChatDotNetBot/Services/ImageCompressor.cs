@@ -12,17 +12,33 @@ public static class ImageCompressor
 
     public static async Task<(string? result, string? error)> CompressImageAsync(string imageUrl, CancellationToken ct, int quality = 40)
     {
-        var proxy = await SettingsProvider.GetValueAsync(BuiltIn.Keys.Proxy);
+        var settings = await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.Proxy, BuiltIn.Keys.KiwiFarmsDomain, BuiltIn.Keys.KiwiFarmsCookies]);
         var handler = new HttpClientHandler
         {
             AutomaticDecompression = DecompressionMethods.All,
             AllowAutoRedirect = true
         };
-        if (proxy.Value != null)
+        if (settings[BuiltIn.Keys.Proxy].Value != null)
         {
             handler.UseProxy = true;
-            handler.Proxy = new WebProxy(proxy.Value);
-            _logger.Debug($"Configured to use proxy {proxy.Value}");
+            handler.Proxy = new WebProxy(settings[BuiltIn.Keys.Proxy].Value);
+            _logger.Debug($"Configured to use proxy {settings[BuiltIn.Keys.Proxy].Value}");
+        }
+
+        var uri = new Uri(imageUrl);
+        var kfDomain = settings[BuiltIn.Keys.KiwiFarmsDomain].Value;
+        if (kfDomain != null && uri.Host.Equals(kfDomain, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.Debug("Image URL is on KiwiFarms domain, attaching cookies");
+            var cookieContainer = new CookieContainer();
+            var cookies = settings[BuiltIn.Keys.KiwiFarmsCookies].JsonDeserialize<Dictionary<string, string>>();
+            if (cookies != null)
+            {
+                foreach (var (name, value) in cookies)
+                    cookieContainer.Add(new Cookie(name, value, "/", kfDomain));
+            }
+            handler.CookieContainer = cookieContainer;
+            handler.UseCookies = true;
         }
 
         using var client = new HttpClient(handler);
