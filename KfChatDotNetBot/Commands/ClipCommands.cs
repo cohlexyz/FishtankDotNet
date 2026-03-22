@@ -329,7 +329,7 @@ public class ClipSaveCommand : ICommand
             clipService.ClearMarker(markerCameraName);
 
         // Send the clip URL as a new message and delete the progress message
-        await botInstance.SendChatMessageAsync($"@{user.KfUsername}, here's your clip: {result}", true);
+        await botInstance.SendChatMessageAsync($"@{user.KfUsername}, here's your clip: {result}", true, whisperTo: user.KfId);
         if (gotUuid)
             await botInstance.KfClient.DeleteMessageAsync(sent.ChatMessageUuid!);
     }
