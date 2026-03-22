@@ -119,9 +119,13 @@ public class StoxBuyCommand : ICommand
         new Regex(@"^buy (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
         new Regex(@"^long (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
         new Regex(@"^stox buy (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
-        new Regex(@"^stox long (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
+        new Regex(@"^stox long (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
+        new Regex(@"^buy (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?) (?<leverage>\d+(?:\.\d+)?)x$", RegexOptions.IgnoreCase),
+        new Regex(@"^long (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?) (?<leverage>\d+(?:\.\d+)?)x$", RegexOptions.IgnoreCase),
+        new Regex(@"^stox buy (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?) (?<leverage>\d+(?:\.\d+)?)x$", RegexOptions.IgnoreCase),
+        new Regex(@"^stox long (?<symbol>\w+) (?<amount>\d+(?:\.\d+)?) (?<leverage>\d+(?:\.\d+)?)x$", RegexOptions.IgnoreCase)
     ];
-    public string? HelpText => "Buy stocks with your Kasino balance: !stox buy <symbol> <amount>";
+    public string? HelpText => "Buy stocks with your Kasino balance: !stox buy <symbol> <amount> [<leverage>x]"; // e.g. !stox buy FISH 10 3x for 3x leverage (can go into debt!)"
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
@@ -184,15 +188,30 @@ public class StoxBuyCommand : ICommand
             return;
         }
 
-        var cost = (decimal)stock.CurrentPrice * amount;
+        var leverageStr = arguments["leverage"].Value;
+        var leverage = string.IsNullOrEmpty(leverageStr) ? 1m : decimal.Parse(leverageStr, CultureInfo.InvariantCulture);
+        const decimal maxLeverage = 10m;
+        if (leverage < 1m || leverage > maxLeverage)
+        {
+            await botInstance.SendWhisperAsync(user.KfId, $"leverage must be between 1x and {maxLeverage:0.##}x.");
+            return;
+        }
+
+        var positionValue = (decimal)stock.CurrentPrice * amount;
+        var margin = positionValue / leverage;
+        var borrowed = positionValue - margin;
+
         var gambler = await Money.GetGamblerEntityAsync(user.Id, ct: ctx);
         if (gambler == null)
             throw new InvalidOperationException($"Caught a null when retrieving gambler for {user.KfUsername}");
 
-        if (gambler.Balance < cost)
+        if (gambler.Balance < margin)
         {
-            await botInstance.SendWhisperAsync(user.KfId,
-                $"your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough to buy {amount:0.####}x {symbol} at ₣{stock.CurrentPrice} each (total: {await cost.FormatKasinoCurrencyAsync()}[plain])[/plain].");
+            var balanceMsg = leverage > 1m
+                ? $"you need {await margin.FormatKasinoCurrencyAsync()} margin ({leverage:0.##}x leverage) to buy {amount:0.####}x {symbol} at ₣{stock.CurrentPrice} (full position: {await positionValue.FormatKasinoCurrencyAsync()}), but only have {await gambler.Balance.FormatKasinoCurrencyAsync()}."
+                : $"your balance of {await gambler.Balance.FormatKasinoCurrencyAsync()} isn't enough to buy {amount:0.####}x {symbol} at ₣{stock.CurrentPrice} each (total: {await positionValue.FormatKasinoCurrencyAsync()}[plain])[/plain].";
+
+            await botInstance.SendWhisperAsync(user.KfId, balanceMsg);
             return;
         }
 
@@ -206,21 +225,62 @@ public class StoxBuyCommand : ICommand
         using var redis = await ConnectionMultiplexer.ConnectAsync(connectionString.Value);
         var db = redis.GetDatabase();
 
-        var portfolioKey = $"Stox.Portfolio.{gambler.Id}";
-        var portfolioJson = await db.StringGetAsync(portfolioKey);
-        var portfolio = portfolioJson.HasValue
-            ? JsonSerializer.Deserialize<Dictionary<string, decimal>>(portfolioJson.ToString()) ?? []
-            : new Dictionary<string, decimal>();
+        if (leverage > 1m)
+        {
+            var leveragedKey = $"Stox.Leveraged.{gambler.Id}";
+            var leveragedJson = await db.StringGetAsync(leveragedKey);
+            var leveragedPortfolio = leveragedJson.HasValue
+                ? JsonSerializer.Deserialize<Dictionary<string, StoxLeveragedPosition>>(leveragedJson.ToString()) ?? []
+                : new Dictionary<string, StoxLeveragedPosition>();
 
-        portfolio[symbol] = portfolio.GetValueOrDefault(symbol, 0m) + amount;
-        await db.StringSetAsync(portfolioKey, JsonSerializer.Serialize(portfolio));
+            if (leveragedPortfolio.TryGetValue(symbol, out var existing))
+            {
+                var totalQty = existing.Quantity + amount;
+                var avgEntry = (existing.Quantity * existing.EntryPrice + amount * (decimal)stock.CurrentPrice) / totalQty;
+                leveragedPortfolio[symbol] = new StoxLeveragedPosition
+                {
+                    Quantity = totalQty,
+                    EntryPrice = avgEntry,
+                    Borrowed = existing.Borrowed + borrowed
+                };
+            }
+            else
+            {
+                leveragedPortfolio[symbol] = new StoxLeveragedPosition
+                {
+                    Quantity = amount,
+                    EntryPrice = stock.CurrentPrice,
+                    Borrowed = borrowed
+                };
+            }
+            await db.StringSetAsync(leveragedKey, JsonSerializer.Serialize(leveragedPortfolio));
 
-        var newBalance = await Money.ModifyBalanceAsync(gambler.Id, -cost, TransactionSourceEventType.StoxPurchase,
-            $"{user.KfUsername}, you bought {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}", ct: ctx);
+            var newBalance = await Money.ModifyBalanceAsync(gambler.Id, -margin, TransactionSourceEventType.StoxLeveragedPurchase,
+                $"Leveraged buy {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} ({leverage:0.##}x, margin: ₣{margin:0.##}, borrowed: ₣{borrowed:0.##})", ct: ctx);
 
-        await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, you bought {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await cost.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. You now hold {portfolio[symbol]:0.####}x {symbol}.",
-            true, whisperTo: user.KfId, autoDeleteAfter: TimeSpan.FromSeconds(20));
+            var pos = leveragedPortfolio[symbol];
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, opened {leverage:0.##}x leveraged: {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}. Margin: {await margin.FormatKasinoCurrencyAsync()} | Borrowed: ₣{borrowed:0.##} | Full position: {await positionValue.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. Total leveraged: {pos.Quantity:0.####}x {symbol} (avg entry: ₣{pos.EntryPrice:0.##}[plain])[/plain].",
+                true, whisperTo: user.KfId, autoDeleteAfter: TimeSpan.FromSeconds(20));
+        }
+        else
+        {
+            var portfolioKey = $"Stox.Portfolio.{gambler.Id}";
+            var portfolioJson = await db.StringGetAsync(portfolioKey);
+            var portfolio = portfolioJson.HasValue
+                ? JsonSerializer.Deserialize<Dictionary<string, decimal>>(portfolioJson.ToString()) ?? []
+                : new Dictionary<string, decimal>();
+
+            portfolio[symbol] = portfolio.GetValueOrDefault(symbol, 0m) + amount;
+            await db.StringSetAsync(portfolioKey, JsonSerializer.Serialize(portfolio));
+
+            var newBalance = await Money.ModifyBalanceAsync(gambler.Id, -positionValue, TransactionSourceEventType.StoxPurchase,
+                $"{user.KfUsername}, you bought {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}", ct: ctx);
+
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, you bought {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await positionValue.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}. You now hold {portfolio[symbol]:0.####}x {symbol}.",
+                true, whisperTo: user.KfId, autoDeleteAfter: TimeSpan.FromSeconds(20));
+        }
     }
 }
 
@@ -274,15 +334,29 @@ public class StoxSellCommand : ICommand
         var db = redis.GetDatabase();
 
         var portfolioKey = $"Stox.Portfolio.{gambler.Id}";
+        var leveragedKey = $"Stox.Leveraged.{gambler.Id}";
+
         var portfolioJson = await db.StringGetAsync(portfolioKey);
         var portfolio = portfolioJson.HasValue
             ? JsonSerializer.Deserialize<Dictionary<string, decimal>>(portfolioJson.ToString()) ?? []
             : new Dictionary<string, decimal>();
 
-        var held = portfolio.GetValueOrDefault(symbol, 0m);
-        if (held < amount)
+        var leveragedJson = await db.StringGetAsync(leveragedKey);
+        var leveragedPortfolio = leveragedJson.HasValue
+            ? JsonSerializer.Deserialize<Dictionary<string, StoxLeveragedPosition>>(leveragedJson.ToString()) ?? []
+            : new Dictionary<string, StoxLeveragedPosition>();
+
+        var regularHeld = portfolio.GetValueOrDefault(symbol, 0m);
+        var leveragedPos = leveragedPortfolio.GetValueOrDefault(symbol);
+        var leveragedHeld = leveragedPos?.Quantity ?? 0m;
+        var totalHeld = regularHeld + leveragedHeld;
+
+        if (totalHeld < amount)
         {
-            await botInstance.SendWhisperAsync(user.KfId, $"you only hold {held:0.####}x {symbol} and can't sell {amount:0.####}x.");
+            var heldMsg = leveragedHeld > 0
+                ? $"you only hold {totalHeld:0.####}x {symbol} (regular: {regularHeld:0.####}, leveraged: {leveragedHeld:0.####}) and can't sell {amount:0.####}x."
+                : $"you only hold {regularHeld:0.####}x {symbol} and can't sell {amount:0.####}x.";
+            await botInstance.SendWhisperAsync(user.KfId, heldMsg);
             return;
         }
 
@@ -305,21 +379,82 @@ public class StoxSellCommand : ICommand
             return;
         }
 
-        var proceeds = (decimal)stock.CurrentPrice * amount;
-        portfolio[symbol] = held - amount;
-        if (portfolio[symbol] == 0m)
-            portfolio.Remove(symbol);
+        var remainingToSell = amount;
+        decimal regularSold = 0m;
+        decimal regularProceeds = 0m;
+        decimal leveragedSold = 0m;
+        decimal leveragedBorrowedRepaid = 0m;
+        decimal leveragedNet = 0m;
+
+        // Sell from regular (non-leveraged) portfolio first
+        if (regularHeld > 0 && remainingToSell > 0)
+        {
+            regularSold = Math.Min(remainingToSell, regularHeld);
+            regularProceeds = (decimal)stock.CurrentPrice * regularSold;
+            portfolio[symbol] = regularHeld - regularSold;
+            if (portfolio[symbol] == 0m) portfolio.Remove(symbol);
+            remainingToSell -= regularSold;
+        }
+
+        // Then sell from leveraged portfolio (proceeds minus borrowed = net, can be negative)
+        if (remainingToSell > 0 && leveragedPos != null)
+        {
+            leveragedSold = remainingToSell;
+            var borrowedPerShare = leveragedPos.Borrowed / leveragedPos.Quantity;
+            leveragedBorrowedRepaid = borrowedPerShare * leveragedSold;
+            leveragedNet = (decimal)stock.CurrentPrice * leveragedSold - leveragedBorrowedRepaid;
+
+            leveragedPos.Quantity -= leveragedSold;
+            leveragedPos.Borrowed -= leveragedBorrowedRepaid;
+            if (leveragedPos.Quantity <= 0m)
+                leveragedPortfolio.Remove(symbol);
+            else
+                leveragedPortfolio[symbol] = leveragedPos;
+        }
+
         await db.StringSetAsync(portfolioKey, JsonSerializer.Serialize(portfolio));
+        await db.StringSetAsync(leveragedKey, JsonSerializer.Serialize(leveragedPortfolio));
 
-        var newBalance = await Money.ModifyBalanceAsync(gambler.Id, proceeds, TransactionSourceEventType.StoxSale,
-            $"Sold {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}", ct: ctx);
+        decimal finalBalance = gambler.Balance;
+        if (regularSold > 0)
+            finalBalance = await Money.ModifyBalanceAsync(gambler.Id, regularProceeds, TransactionSourceEventType.StoxSale,
+                $"Sold {regularSold:0.####}x {symbol} @ ₣{stock.CurrentPrice}", ct: ctx);
+        if (leveragedSold > 0)
+            finalBalance = await Money.ModifyBalanceAsync(gambler.Id, leveragedNet, TransactionSourceEventType.StoxLeveragedSale,
+                $"Closed leveraged {leveragedSold:0.####}x {symbol} @ ₣{stock.CurrentPrice}, repaid ₣{leveragedBorrowedRepaid:0.##}", ct: ctx);
 
-        var remaining = portfolio.TryGetValue(symbol, out var rem)
-            ? $". You still hold {rem:0.####}x {symbol}."
-            : $". You no longer hold any {symbol}.";
-        await botInstance.SendChatMessageAsync(
-            $"{user.FormatUsername()}, you sold {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await proceeds.FormatKasinoCurrencyAsync()}. New balance: {await newBalance.FormatKasinoCurrencyAsync()}{remaining}",
-            true, whisperTo: user.KfId, autoDeleteAfter: TimeSpan.FromSeconds(20));
+        var regularRem = portfolio.TryGetValue(symbol, out var rr) ? rr : 0m;
+        var leveragedRem = leveragedPortfolio.TryGetValue(symbol, out var lr) ? lr.Quantity : 0m;
+        var totalRem = regularRem + leveragedRem;
+        string remaining;
+        if (totalRem == 0)
+            remaining = $". You no longer hold any {symbol}.";
+        else if (regularRem > 0 && leveragedRem > 0)
+            remaining = $". You still hold {totalRem:0.####}x {symbol} (regular: {regularRem:0.####}, leveraged: {leveragedRem:0.####}).";
+        else if (regularRem > 0)
+            remaining = $". You still hold {regularRem:0.####}x {symbol}.";
+        else
+            remaining = $". You still hold {leveragedRem:0.####}x {symbol} (leveraged).";
+
+        string saleMsg;
+        if (leveragedSold == 0m)
+        {
+            saleMsg = $"{user.FormatUsername()}, you sold {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice} for {await regularProceeds.FormatKasinoCurrencyAsync()}. New balance: {await finalBalance.FormatKasinoCurrencyAsync()}{remaining}";
+        }
+        else if (regularSold == 0m)
+        {
+            var grossProceeds = (decimal)stock.CurrentPrice * leveragedSold;
+            var netColor = leveragedNet >= 0 ? "#00ff00" : "#ff0000";
+            saleMsg = $"{user.FormatUsername()}, sold {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}: gross ₣{grossProceeds:0.##} - ₣{leveragedBorrowedRepaid:0.##} borrowed = [B][COLOR={netColor}]{await leveragedNet.FormatKasinoCurrencyAsync()}[/COLOR][/B] net. New balance: {await finalBalance.FormatKasinoCurrencyAsync()}{remaining}";
+        }
+        else
+        {
+            var grossLevProceeds = (decimal)stock.CurrentPrice * leveragedSold;
+            var netColor = leveragedNet >= 0 ? "#00ff00" : "#ff0000";
+            saleMsg = $"{user.FormatUsername()}, sold {amount:0.####}x {symbol} @ ₣{stock.CurrentPrice}. Regular ({regularSold:0.####}x): {await regularProceeds.FormatKasinoCurrencyAsync()}. Leveraged ({leveragedSold:0.####}x): ₣{grossLevProceeds:0.##} - ₣{leveragedBorrowedRepaid:0.##} borrowed = [B][COLOR={netColor}]{await leveragedNet.FormatKasinoCurrencyAsync()}[/COLOR][/B] net. New balance: {await finalBalance.FormatKasinoCurrencyAsync()}{remaining}";
+        }
+
+        await botInstance.SendChatMessageAsync(saleMsg, true, whisperTo: user.KfId, autoDeleteAfter: TimeSpan.FromSeconds(20));
     }
 }
 
@@ -361,6 +496,7 @@ public class StoxPortfolioCommand : ICommand
 
         var portfolioKey = $"Stox.Portfolio.{gambler.Id}";
         var shortsKey = $"Stox.Shorts.{gambler.Id}";
+        var leveragedKey = $"Stox.Leveraged.{gambler.Id}";
 
         var portfolioJson = await db.StringGetAsync(portfolioKey);
         var portfolio = portfolioJson.HasValue
@@ -372,9 +508,14 @@ public class StoxPortfolioCommand : ICommand
             ? JsonSerializer.Deserialize<Dictionary<string, StoxShortPosition>>(shortsJson.ToString()) ?? new Dictionary<string, StoxShortPosition>()
             : new Dictionary<string, StoxShortPosition>();
 
-        if (portfolio.Count == 0 && shorts.Count == 0)
+        var leveragedJson = await db.StringGetAsync(leveragedKey);
+        var leveraged = leveragedJson.HasValue
+            ? JsonSerializer.Deserialize<Dictionary<string, StoxLeveragedPosition>>(leveragedJson.ToString()) ?? new Dictionary<string, StoxLeveragedPosition>()
+            : new Dictionary<string, StoxLeveragedPosition>();
+
+        if (portfolio.Count == 0 && shorts.Count == 0 && leveraged.Count == 0)
         {
-            await botInstance.SendWhisperAsync(user.KfId, $"you don't hold any stocks. Use !stox buy <symbol> <amount> or !stox short <symbol> <amount> to get started.");
+            await botInstance.SendWhisperAsync(user.KfId, $"you don't hold any stocks. Use !stox buy <symbol> <amount> [<leverage>x] or !stox short <symbol> <amount> to get started.");
             return;
         }
 
@@ -427,6 +568,31 @@ public class StoxPortfolioCommand : ICommand
                     return $"  {kvp.Key}: {pos.Quantity:0.####}x short (entry: ₣{pos.EntryPrice:0.##}, current: ₣{currentPrice.Value}, P&L: {pnlStr}[plain])[/plain]";
                 });
             outputLines.AddRange(string.Join(", ", shortStr));
+        }
+
+        if (leveraged.Count > 0)
+        {
+            outputLines.Add("Leveraged Longs:");
+            var leveragedStr = leveraged
+                .OrderBy(kvp => kvp.Key)
+                .Select(kvp =>
+                {
+                    var pos = kvp.Value;
+                    var currentPrice = stoxData?.Stocks.FirstOrDefault(s =>
+                        s.Symbol.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase))?.CurrentPrice;
+                    var fullEntry = pos.EntryPrice * pos.Quantity;
+                    var effectiveLeverage = pos.Borrowed > 0m && fullEntry > pos.Borrowed
+                        ? fullEntry / (fullEntry - pos.Borrowed)
+                        : 1m;
+                    if (!currentPrice.HasValue)
+                        return $"  {kvp.Key}: {pos.Quantity:0.####}x leveraged ({effectiveLeverage:0.##}x, entry: ₣{pos.EntryPrice:0.##}[plain])[/plain]";
+                    var pnl = (decimal)(currentPrice.Value - pos.EntryPrice) * pos.Quantity;
+                    var pnlStr = pnl >= 0
+                        ? $"[COLOR=#00ff00]+₣{pnl:0.##}[/COLOR]"
+                        : $"[COLOR=#ff0000]₣{pnl:0.##}[/COLOR]";
+                    return $"  {kvp.Key}: {pos.Quantity:0.####}x leveraged ({effectiveLeverage:0.##}x, entry: ₣{pos.EntryPrice:0.##}, current: ₣{currentPrice.Value}, P&L: {pnlStr}[plain])[/plain]";
+                });
+            outputLines.Add(string.Join(", ", leveragedStr));
         }
 
         await botInstance.SendChatMessageAsync(
@@ -775,8 +941,38 @@ public class StoxRenameSymbolCommand : ICommand
             shortsUpdated++;
         }
 
+        // Migrate leveraged long positions
+        int leveragedUpdated = 0;
+        await foreach (var key in server.KeysAsync(pattern: "Stox.Leveraged.*"))
+        {
+            var json = await db.StringGetAsync(key);
+            if (!json.HasValue) continue;
+
+            var leveraged = JsonSerializer.Deserialize<Dictionary<string, StoxLeveragedPosition>>(json.ToString()) ?? [];
+            if (!leveraged.TryGetValue(oldSymbol, out var pos)) continue;
+
+            leveraged.Remove(oldSymbol);
+            if (leveraged.TryGetValue(newSymbol, out var existing))
+            {
+                var totalQty = existing.Quantity + pos.Quantity;
+                var avgEntry = (existing.Quantity * existing.EntryPrice + pos.Quantity * pos.EntryPrice) / totalQty;
+                leveraged[newSymbol] = new StoxLeveragedPosition
+                {
+                    Quantity = totalQty,
+                    EntryPrice = avgEntry,
+                    Borrowed = existing.Borrowed + pos.Borrowed
+                };
+            }
+            else
+            {
+                leveraged[newSymbol] = pos;
+            }
+            await db.StringSetAsync(key, JsonSerializer.Serialize(leveraged));
+            leveragedUpdated++;
+        }
+
         await botInstance.SendChatMessageAsync(
-            $"renamed stox symbol {oldSymbol} → {newSymbol}. Updated {portfoliosUpdated} long portfolio(s) and {shortsUpdated} short position(s).",
+            $"renamed stox symbol {oldSymbol} → {newSymbol}. Updated {portfoliosUpdated} long portfolio(s), {shortsUpdated} short position(s), and {leveragedUpdated} leveraged position(s).",
             true, autoDeleteAfter: TimeSpan.FromSeconds(30));
     }
 }

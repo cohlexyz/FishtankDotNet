@@ -400,7 +400,15 @@ public enum TransactionSourceEventType
     /// <summary>
     /// Collateral returned (plus/minus P&L) when closing a short position
     /// </summary>
-    StoxCover
+    StoxCover,
+    /// <summary>
+    /// Margin paid when opening a leveraged long position
+    /// </summary>
+    StoxLeveragedPurchase,
+    /// <summary>
+    /// Net proceeds (sale proceeds minus borrowed amount repaid) when closing a leveraged long position
+    /// </summary>
+    StoxLeveragedSale
 }
 
 public enum WagerGame
