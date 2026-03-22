@@ -408,7 +408,15 @@ public enum TransactionSourceEventType
     /// <summary>
     /// Net proceeds (sale proceeds minus borrowed amount repaid) when closing a leveraged long position
     /// </summary>
-    StoxLeveragedSale
+    StoxLeveragedSale,
+    /// <summary>
+    /// Margin posted when opening a leveraged short position
+    /// </summary>
+    StoxLeveragedShort,
+    /// <summary>
+    /// Net returned (margin +/- P&amp;L) when closing a leveraged short position; can be negative
+    /// </summary>
+    StoxLeveragedCover
 }
 
 public enum WagerGame

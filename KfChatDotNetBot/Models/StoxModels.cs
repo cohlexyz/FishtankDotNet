@@ -18,6 +18,16 @@ public class StoxLeveragedPosition
     public decimal Borrowed { get; set; }
 }
 
+public class StoxLeveragedShortPosition
+{
+    public decimal Quantity { get; set; }
+    public decimal EntryPrice { get; set; }
+    /// <summary>
+    /// Total margin posted for this position (full collateral divided by leverage).
+    /// </summary>
+    public decimal Margin { get; set; }
+}
+
 public class Stox
 {
     [JsonPropertyName("tickerSymbol")]
