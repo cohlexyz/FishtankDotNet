@@ -248,7 +248,7 @@ public class KasinoTopStoxCommand : ICommand
 
         if (transactions.Count == 0)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, no Stox transactions found.", true);
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, no Stox transactions found.", true, whisperTo: user.KfId);
             return;
         }
 
@@ -270,7 +270,7 @@ public class KasinoTopStoxCommand : ICommand
             response += $"#{i + 1} {entry.Username}: {await entry.NetProfit.FormatKasinoCurrencyAsync(wrapInPlainBbCode: false)}[br]";
         }
 
-        await botInstance.SendChatMessageAsync(response, true);
+        await botInstance.SendChatMessageAsync(response, true, whisperTo: user.KfId);
     }
 }
 
@@ -297,7 +297,7 @@ public class KasinoTopGamblingCommand : ICommand
 
         if (wagers.Count == 0)
         {
-            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, no gambling records found.", true);
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, no gambling records found.", true, whisperTo: user.KfId);
             return;
         }
 
@@ -319,6 +319,6 @@ public class KasinoTopGamblingCommand : ICommand
             response += $"#{i + 1} {entry.Username}: {await entry.NetProfit.FormatKasinoCurrencyAsync(wrapInPlainBbCode: false)}[br]";
         }
 
-        await botInstance.SendChatMessageAsync(response, true);
+        await botInstance.SendChatMessageAsync(response, true, whisperTo: user.KfId);
     }
 }
