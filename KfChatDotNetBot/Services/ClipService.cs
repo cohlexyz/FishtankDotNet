@@ -600,10 +600,9 @@ public class ClipService
     {
         var id = Guid.NewGuid().ToString("N")[..8];
         var mp4Path = Path.Combine(Path.GetTempPath(), $"clip_{cameraName.Replace(' ', '_')}_{id}.mp4");
-        var ffmpegArgs = $"-fflags +discardcorrupt -i \"{tsPath}\" -i \"./Assets/watermark.png\" " +
-            $"-filter_complex \"[0:v]scale=-2:720,setpts=PTS-STARTPTS[vid];" +
+        var ffmpegArgs = $"-fflags +discardcorrupt+genpts -i \"{tsPath}\" -i \"./Assets/watermark.png\" " +
+            $"-filter_complex \"[0:v]scale=-2:720[vid];" +
             $"[vid][1:v]overlay=10:H-h-10\" " +
-            $"-af asetpts=PTS-STARTPTS " +
             $"-c:v libx264 -preset veryfast -crf 26 -c:a aac -b:a 128k " +
             $"-threads 6 -progress pipe:1 -y \"{mp4Path}\"";
 
