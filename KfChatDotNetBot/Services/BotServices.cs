@@ -658,7 +658,21 @@ public class BotServices
         if (!string.IsNullOrWhiteSpace(customText))
             motd += $" | {customText}";
 
-        // Line 2: ongoing prediction question, if any
+        // Line 2: SFX/TTS status
+        var sfxStatus = false;
+        var ttsStatus = false;
+        if (FeatureStatusMessage.FeatureStatuses.TryGetValue("sfx", out var sfxEnabled))
+        {
+            sfxStatus = sfxEnabled;
+        }
+        if (FeatureStatusMessage.FeatureStatuses.TryGetValue("tts", out var ttsEnabled))
+        {
+            ttsStatus = ttsEnabled;
+        }
+
+        motd += $"[br]TTS: {(ttsStatus ? "ON" : "OFF")} | SFX: {(sfxStatus ? "ON" : "OFF")}";
+
+        // Line 3: ongoing prediction question, if any
         var redisConnStr = settings[BuiltIn.Keys.BotRedisConnectionString].Value;
         if (!string.IsNullOrEmpty(redisConnStr))
         {

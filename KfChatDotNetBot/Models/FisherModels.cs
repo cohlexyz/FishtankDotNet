@@ -211,6 +211,27 @@ public class GhostMessage : UDPMessage
     }
 }
 
+[UDPMessage("feature_status")]
+public class FeatureStatusMessage : UDPMessage
+{
+    public static Dictionary<string, bool> FeatureStatuses { get; set; } = new Dictionary<string, bool>();
+
+    [JsonPropertyName("feature_name")]
+    public string? FeatureName { get; set; }
+
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
+
+    internal override async Task HandleMessage(ChatBot chat)
+    {
+        if (string.IsNullOrEmpty(FeatureName))
+            return;
+
+        FeatureStatuses[FeatureName] = Enabled;
+        await chat.BotServices.UpdateStoxMotdAsync();
+    }
+}
+
 [UDPMessage("chat")]
 public class ChatMessage : UDPMessage
 {
