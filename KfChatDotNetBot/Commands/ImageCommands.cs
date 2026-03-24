@@ -277,10 +277,20 @@ public class GetRandomImage : ICommand
         if (!string.IsNullOrEmpty(searchTerm))
         {
             var allImages = await images.ToListAsync(ctx);
+            var searchTokens = searchTerm.ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var scored = allImages
-                .Select(i => (Image: i, Score: Math.Max(
-                    Fuzz.PartialRatio(searchTerm.ToLower(), i.Url.ToLower()),
-                    i.Tags != null ? Fuzz.PartialRatio(searchTerm.ToLower(), i.Tags.ToLower()) : 0)))
+                .Select(i =>
+                {
+                    var urlScore = Fuzz.PartialRatio(searchTerm.ToLower(), i.Url.ToLower());
+                    int tagScore = 0;
+                    if (i.Tags != null)
+                    {
+                        var tagTokens = i.Tags.ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        if (tagTokens.Length > 0)
+                            tagScore = (int)searchTokens.Average(st => tagTokens.Max(tt => Fuzz.Ratio(st, tt)));
+                    }
+                    return (Image: i, Score: Math.Max(urlScore, tagScore));
+                })
                 .OrderByDescending(x => x.Score)
                 .ToList();
             if (scored.Count == 0 || scored[0].Score < 50)
