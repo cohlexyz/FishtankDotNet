@@ -26,7 +26,7 @@ public class StoxCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 1,
+        MaxInvocations = 4,
         Window = TimeSpan.FromSeconds(60),
         Flags = RateLimitFlags.NoResponse
     };
@@ -130,7 +130,7 @@ public class StoxBuyCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 2,
+        MaxInvocations = 10,
         Window = TimeSpan.FromSeconds(60),
         Flags = RateLimitFlags.NoResponse
     };
@@ -295,7 +295,7 @@ public class StoxSellCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 2,
+        MaxInvocations = 10,
         Window = TimeSpan.FromSeconds(60),
         Flags = RateLimitFlags.NoResponse
     };
@@ -471,7 +471,7 @@ public class StoxPortfolioCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 2,
+        MaxInvocations = 10,
         Window = TimeSpan.FromSeconds(120),
         Flags = RateLimitFlags.NoResponse
     };
@@ -642,7 +642,7 @@ public class StoxShortCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 2,
+        MaxInvocations = 10,
         Window = TimeSpan.FromSeconds(60),
         Flags = RateLimitFlags.NoResponse
     };
@@ -797,7 +797,7 @@ public class StoxCoverCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 2,
+        MaxInvocations = 10,
         Window = TimeSpan.FromSeconds(60),
         Flags = RateLimitFlags.NoResponse
     };
