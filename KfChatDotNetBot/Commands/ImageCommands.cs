@@ -158,7 +158,9 @@ public class ListImageCommand : ICommand
             var content = string.Empty;
             foreach (var image in images)
             {
-                content += image.Url + Environment.NewLine;
+                var ts = DateTimeOffset.UtcNow - image.LastSeen;
+                var time = $"{ts.TotalDays:N0}d{ts.Hours:N0}h{ts.Minutes:N0}m{ts.Seconds:N0}s";
+                content += $"{image.Url} - {time} - {image.Tags}" + Environment.NewLine;
             }
 
             var paste = await Zipline.Upload(content, new MediaTypeHeaderValue("text/plain"), "1d", ctx);
