@@ -1007,7 +1007,7 @@ public class StoxCloseMarketCommand : ICommand
 public class StoxDiluteCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^stox dilute (?<amount>\d+(?:\.\d+)?)%$", RegexOptions.IgnoreCase)
+        new Regex(@"^stox dilute (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
     ];
     public string? HelpText => null;
     public UserRight RequiredRight => UserRight.Admin;
@@ -1020,7 +1020,7 @@ public class StoxDiluteCommand : ICommand
     {
         var amount = decimal.Parse(arguments["amount"].Value, CultureInfo.InvariantCulture);
 
-        if (amount <= 0m || amount >= 2m)
+        if (amount <= 0m || amount > 2m)
         {
             await botInstance.SendChatMessageAsync($"dilution percentage must be between 0 and 2.",
                 true, autoDeleteAfter: TimeSpan.FromSeconds(10));
