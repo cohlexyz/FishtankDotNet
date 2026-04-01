@@ -275,8 +275,7 @@ public class CameraBuffer : IAsyncDisposable
             {
                 var line = await reader.ReadLineAsync(token);
                 if (line == null) break;
-                // Log at Warn so FFmpeg errors are visible during troubleshooting
-                Logger.Warn($"[CameraBuffer:{CameraName}] FFmpeg: {line}");
+                Logger.Debug($"[CameraBuffer:{CameraName}] FFmpeg: {line}");
             }
         }
         catch (OperationCanceledException)
