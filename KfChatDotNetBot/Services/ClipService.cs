@@ -85,8 +85,22 @@ public class ClipService
         }
 
         var ffmpegPath = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.FFmpegBinaryPath)).Value ?? "ffmpeg";
-        var (resolvedVideoUrl, resolvedAudioUrl) = await ResolveStreamsAsync(url, _ct);
-        Logger.Info($"[ClipService] Resolved stream URL for {matchedName}: {resolvedVideoUrl}{(resolvedAudioUrl != null ? $" (audio: {resolvedAudioUrl})" : "")}");
+        // For Fishtank/Mux streams: skip ResolveStreamsAsync — FFmpeg must own the entire
+        // session (master playlist fetch + variant selection).  The master URL already includes
+        // ?video=5mbps which makes Mux return only one variant, preventing multi-session probing.
+        string resolvedVideoUrl;
+        string? resolvedAudioUrl;
+        if (url.Contains("fishtank.live", StringComparison.OrdinalIgnoreCase))
+        {
+            resolvedVideoUrl = url;
+            resolvedAudioUrl = null;
+            Logger.Info($"[ClipService] Passing master playlist to FFmpeg for {matchedName} (Mux session-based)");
+        }
+        else
+        {
+            (resolvedVideoUrl, resolvedAudioUrl) = await ResolveStreamsAsync(url, _ct);
+        }
+        Logger.Info($"[ClipService] Stream URL for {matchedName}: {resolvedVideoUrl}{(resolvedAudioUrl != null ? $" (audio: {resolvedAudioUrl})" : "")}");
         var buffer = new CameraBuffer(matchedName, resolvedVideoUrl, ffmpegPath, _ct, resolvedAudioUrl);
         buffer.OnDied = OnBufferDied;
         buffer.OnCrashed = OnBufferCrashed;

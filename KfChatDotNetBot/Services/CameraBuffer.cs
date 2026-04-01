@@ -84,7 +84,10 @@ public class CameraBuffer : IAsyncDisposable
     /// </summary>
     private void SpawnProcess()
     {
-        const string hlsHeaders = "Referer: https://www.fishtank.live/\r\nOrigin: https://www.fishtank.live\r\n";
+        const string hlsHeaders =
+            "Referer: https://www.fishtank.live/\r\n" +
+            "Origin: https://www.fishtank.live\r\n" +
+            "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36\r\n";
         var processInfo = new ProcessStartInfo
         {
             FileName = _ffmpegPath,
@@ -272,7 +275,8 @@ public class CameraBuffer : IAsyncDisposable
             {
                 var line = await reader.ReadLineAsync(token);
                 if (line == null) break;
-                Logger.Debug($"[CameraBuffer:{CameraName}] FFmpeg: {line}");
+                // Log at Warn so FFmpeg errors are visible during troubleshooting
+                Logger.Warn($"[CameraBuffer:{CameraName}] FFmpeg: {line}");
             }
         }
         catch (OperationCanceledException)

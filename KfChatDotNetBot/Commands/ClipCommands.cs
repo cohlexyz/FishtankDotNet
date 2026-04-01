@@ -18,30 +18,30 @@ public static class FishtankCameras
     /// </summary>
     private static readonly Dictionary<string, string> DefaultCameras = new(StringComparer.OrdinalIgnoreCase)
     {
-        {"Director Mode", "https://streams-e.fishtank.live/hls/live+dirc-5/5_2/index.m3u8?tkn="},
-        {"Dorm", "https://streams-e.fishtank.live/hls/live+dmrm-5/5_2/index.m3u8?tkn="},
-        {"Dorm Alternate", "https://streams-e.fishtank.live/hls/live+dmrm2-5/5_2/index.m3u8?tkn="},
-        {"Closet", "https://streams-e.fishtank.live/hls/live+dmcl-5/5_2/index.m3u8?tkn="},
-        {"Bar", "https://streams-e.fishtank.live/hls/live+brrr-5/5_2/index.m3u8?tkn="},
-        {"Bar Alternate", "https://streams-e.fishtank.live/hls/live+brrr2-5/5_2/index.m3u8?tkn="},
-        {"Kitchen", "https://streams-e.fishtank.live/hls/live+ktch-5/5_2/index.m3u8?tkn="},
-        {"Cameraman", "https://streams-e.fishtank.live/hls/live+cameraman2-5/5_2/index.m3u8?tkn="},
-        {"Hallway", "https://streams-e.fishtank.live/hls/live+hwdn-5/5_2/index.m3u8?tkn="},
-        {"Jacuzzi", "https://streams-e.fishtank.live/hls/live+jckz-5/5_2/index.m3u8?tkn="},
-        {"Bar PTZ", "https://streams-e.fishtank.live/hls/live+brpz-5/5_2/index.m3u8?tkn="},
-        {"Dining Room", "https://streams-e.fishtank.live/hls/live+dnrm-5/5_2/index.m3u8?tkn="},
-        {"Market", "https://streams-e.fishtank.live/hls/live+mrke-5/5_2/index.m3u8?tkn="},
-        {"Market Alternate", "https://streams-e.fishtank.live/hls/live+mrke2-5/5_2/index.m3u8?tkn="},
-        {"Foyer", "https://streams-e.fishtank.live/hls/live+foyr-5/5_2/index.m3u8?tkn="},
-        {"Glassroom", "https://streams-e.fishtank.live/hls/live+gsrm-5/5_2/index.m3u8?tkn="},
-        {"Computer Lab", "https://streams-e.fishtank.live/hls/live+bbcl-5/5_2/index.m3u8?tkn="},
-        {"???", "https://streams-e.fishtank.live/hls/live+bare-5/5_2/index.m3u8?tkn="},
-        {"Confessional", "https://streams-e.fishtank.live/hls/live+cfsl-5/5_2/index.m3u8?tkn="},
-        {"Corridor", "https://streams-e.fishtank.live/hls/live+codr-5/5_2/index.m3u8?tkn="},
-        {"East Wing", "https://streams-e.fishtank.live/hls/live+bkny-5/5_2/index.m3u8?tkn="},
-        {"West Wing", "https://streams-e.fishtank.live/hls/live+hwup-5/5_2/index.m3u8?tkn="},
-        {"???2", "https://streams-e.fishtank.live/hls/live+br3g-5/5_2/index.m3u8?tkn="},
-        {"Jungle Room", "https://streams-e.fishtank.live/hls/live+br4j-5/5_2/index.m3u8?tkn="}
+        {"Director Mode", "https://streams-e.fishtank.live/hls/live+dirc-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Dorm", "https://streams-e.fishtank.live/hls/live+dmrm-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Dorm Alternate", "https://streams-e.fishtank.live/hls/live+dmrm2-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Closet", "https://streams-e.fishtank.live/hls/live+dmcl-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Bar", "https://streams-e.fishtank.live/hls/live+brrr-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Bar Alternate", "https://streams-e.fishtank.live/hls/live+brrr2-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Kitchen", "https://streams-e.fishtank.live/hls/live+ktch-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Cameraman", "https://streams-e.fishtank.live/hls/live+cameraman2-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Hallway", "https://streams-e.fishtank.live/hls/live+hwdn-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Jacuzzi", "https://streams-e.fishtank.live/hls/live+jckz-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Bar PTZ", "https://streams-e.fishtank.live/hls/live+brpz-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Dining Room", "https://streams-e.fishtank.live/hls/live+dnrm-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Market", "https://streams-e.fishtank.live/hls/live+mrke-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Market Alternate", "https://streams-e.fishtank.live/hls/live+mrke2-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Foyer", "https://streams-e.fishtank.live/hls/live+foyr-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Glassroom", "https://streams-e.fishtank.live/hls/live+gsrm-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Computer Lab", "https://streams-e.fishtank.live/hls/live+bbcl-5/index.m3u8?video=2.5mbps&jwt="},
+        {"???", "https://streams-e.fishtank.live/hls/live+bare-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Confessional", "https://streams-e.fishtank.live/hls/live+cfsl-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Corridor", "https://streams-e.fishtank.live/hls/live+codr-5/index.m3u8?video=2.5mbps&jwt="},
+        {"East Wing", "https://streams-e.fishtank.live/hls/live+bkny-5/index.m3u8?video=2.5mbps&jwt="},
+        {"West Wing", "https://streams-e.fishtank.live/hls/live+hwup-5/index.m3u8?video=2.5mbps&jwt="},
+        {"???2", "https://streams-e.fishtank.live/hls/live+br3g-5/index.m3u8?video=2.5mbps&jwt="},
+        {"Jungle Room", "https://streams-e.fishtank.live/hls/live+br4j-5/index.m3u8?video=2.5mbps&jwt="}
     };
 
     /// <summary>
@@ -85,7 +85,7 @@ public static class FishtankCameras
                 ? lb
                 : "streams-e.fishtank.live"; // fallback
 
-            var url = $"https://{domain}/hls/live+{stream.Id}/5_2/index.m3u8?tkn=";
+            var url = $"https://{domain}/hls/live+{stream.Id}/index.m3u8?video=2.5mbps&jwt=";
             newCameras[stream.Name] = url;
         }
 
