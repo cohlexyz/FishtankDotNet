@@ -75,6 +75,19 @@ public class BotServices
 
         FishtankTokenService = new FishtankTokenService(_cancellationToken);
         FishtankTokenService.OnTokenRefreshed += OnFishtankTokenRefreshed;
+
+        // Attempt to populate cameras from the API before ClipService starts
+        try
+        {
+            var liveStreams = FishtankTokenService.FetchLiveStreamsAsync().GetAwaiter().GetResult();
+            if (liveStreams != null)
+                FishtankCameras.RebuildFromApi(liveStreams);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"[BotServices] Failed to fetch live streams on startup, using defaults: {ex.Message}");
+        }
+
         ClipService = new ClipService(_cancellationToken,
             () => Task.FromResult(FishtankCameras.GetCamerasWithToken(FishtankTokenService.CurrentToken)), _chatBot);
         _logger.Info("Bot services ready to initialize!");
@@ -152,6 +165,18 @@ public class BotServices
         {
             try
             {
+                // Refresh camera list from API (load balancer domains may have changed)
+                try
+                {
+                    var liveStreams = await FishtankTokenService!.FetchLiveStreamsAsync();
+                    if (liveStreams != null)
+                        FishtankCameras.RebuildFromApi(liveStreams);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn($"[BotServices] Failed to refresh cameras during token refresh: {ex.Message}");
+                }
+
                 if (ClipService == null) return;
 
                 var activeBuffers = ClipService.GetActiveBuffers();

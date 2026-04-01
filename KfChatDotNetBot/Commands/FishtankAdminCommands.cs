@@ -141,6 +141,48 @@ public class ListFishtankWhitelistCommand : ICommand
 }
 
 
+public class RefreshFishtankCamerasCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^admin fishtank cameras refresh$")
+    ];
+
+    public string? HelpText => "Refresh the camera list from the Fishtank API (does not affect active buffers)";
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(15);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        var tokenService = botInstance.BotServices.FishtankTokenService;
+        if (tokenService == null)
+        {
+            await botInstance.SendChatMessageAsync($"@{message.Author.Username}, Fishtank token service is not initialized", true);
+            return;
+        }
+
+        try
+        {
+            var liveStreams = await tokenService.FetchLiveStreamsAsync();
+            if (liveStreams == null || liveStreams.LiveStreams.Count == 0)
+            {
+                await botInstance.SendChatMessageAsync($"@{message.Author.Username}, API returned no streams", true);
+                return;
+            }
+
+            var (added, removed, total) = FishtankCameras.RebuildFromApi(liveStreams);
+            await botInstance.SendChatMessageAsync(
+                $"@{message.Author.Username}, camera list refreshed: {total} cameras (+{added} -{removed})", true);
+        }
+        catch (Exception ex)
+        {
+            await botInstance.SendChatMessageAsync($"@{message.Author.Username}, failed to refresh cameras: {ex.Message}", true);
+        }
+    }
+}
+
+
 public static class FishtankJobs
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();

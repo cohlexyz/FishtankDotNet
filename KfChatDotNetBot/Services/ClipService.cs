@@ -366,6 +366,8 @@ public class ClipService
     private static async Task<(string VideoUrl, string? AudioUrl)> ResolveStreamsAsync(string url, CancellationToken ct)
     {
         using var client = new HttpClient();
+        client.DefaultRequestHeaders.Referrer = new Uri("https://www.fishtank.live/");
+        client.DefaultRequestHeaders.Add("Origin", "https://www.fishtank.live");
         string content;
         try
         {

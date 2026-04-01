@@ -354,10 +354,16 @@ public static class BuiltIn
         [BuiltInSetting("JSON array of camera names to resume buffering on bot startup",
             SettingValueType.Array, "[]")]
         public static string ClipActiveCameras = "Clip.ActiveCameras";
+        [BuiltInSetting("Fishtank account email address for login", SettingValueType.Text, isSecret: true)]
+        public static string FishtankEmail = "Fishtank.Email";
+        [BuiltInSetting("Fishtank account password for login", SettingValueType.Text, isSecret: true)]
+        public static string FishtankPassword = "Fishtank.Password";
         [BuiltInSetting("Fishtank Supabase access token (used to fetch live stream token)", SettingValueType.Text, isSecret: true)]
         public static string FishtankAccessToken = "Fishtank.AccessToken";
         [BuiltInSetting("Fishtank Supabase refresh token (used to fetch live stream token)", SettingValueType.Text, isSecret: true)]
         public static string FishtankRefreshToken = "Fishtank.RefreshToken";
+        [BuiltInSetting("Fishtank auth token expiry time (UTC ISO 8601)", SettingValueType.Text)]
+        public static string FishtankTokenExpiry = "Fishtank.TokenExpiry";
         [BuiltInSetting("Array of DLive streamers who are currently live for persistence between bot restarts",
             SettingValueType.Array, "[]")]
         public static string DLivePersistedCurrentlyLiveStreams = "DLive.PersistedCurrentlyLiveStreams";

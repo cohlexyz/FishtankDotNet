@@ -84,13 +84,15 @@ public class CameraBuffer : IAsyncDisposable
     /// </summary>
     private void SpawnProcess()
     {
+        const string hlsHeaders = "Referer: https://www.fishtank.live/\r\nOrigin: https://www.fishtank.live\r\n";
         var processInfo = new ProcessStartInfo
         {
             FileName = _ffmpegPath,
             // -re is not used here: we want to read as fast as the live stream provides
+            // -headers must come before -i so they apply to HLS manifest and segment requests
             Arguments = _audioUrl != null
-                ? $"-i \"{StreamUrl}\" -i \"{_audioUrl}\" -map 0:v -map 1:a -c copy -f mpegts pipe:1"
-                : $"-i \"{StreamUrl}\" -c copy -f mpegts pipe:1",
+                ? $"-headers \"{hlsHeaders}\" -i \"{StreamUrl}\" -headers \"{hlsHeaders}\" -i \"{_audioUrl}\" -map 0:v -map 1:a -c copy -f mpegts pipe:1"
+                : $"-headers \"{hlsHeaders}\" -i \"{StreamUrl}\" -c copy -f mpegts pipe:1",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

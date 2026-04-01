@@ -4,12 +4,19 @@ using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
 using KfChatDotNetBot.Services;
 using KfChatDotNetWsClient.Models.Events;
+using NLog;
 
 namespace KfChatDotNetBot.Commands;
 
 public static class FishtankCameras
 {
-    public static readonly Dictionary<string, string> Cameras = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+    private static readonly Lock CameraLock = new();
+
+    /// <summary>
+    /// Fallback camera definitions used when the API is unavailable.
+    /// </summary>
+    private static readonly Dictionary<string, string> DefaultCameras = new(StringComparer.OrdinalIgnoreCase)
     {
         {"Director Mode", "https://streams-e.fishtank.live/hls/live+dirc-5/5_2/index.m3u8?tkn="},
         {"Dorm", "https://streams-e.fishtank.live/hls/live+dmrm-5/5_2/index.m3u8?tkn="},
@@ -38,17 +45,70 @@ public static class FishtankCameras
     };
 
     /// <summary>
-    /// Returns the camera dictionary with the live stream token appended to each URL.
+    /// Camera name → HLS base URL (without token). Initialized from API or falls back to hardcoded defaults.
+    /// </summary>
+    private static Dictionary<string, string> _cameras = new(DefaultCameras, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Returns the current camera dictionary (snapshot) with the live stream token appended to each URL.
     /// </summary>
     public static Dictionary<string, string> GetCamerasWithToken(string? token)
     {
-        var result = new Dictionary<string, string>(Cameras.Count, StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> snapshot;
+        lock (CameraLock)
+        {
+            snapshot = new Dictionary<string, string>(_cameras, StringComparer.OrdinalIgnoreCase);
+        }
+
         var tkn = token ?? string.Empty;
-        foreach (var (name, url) in Cameras)
+        var result = new Dictionary<string, string>(snapshot.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, url) in snapshot)
         {
             result[name] = url + tkn;
         }
         return result;
+    }
+
+    /// <summary>
+    /// Rebuilds the camera dictionary from the Fishtank live-streams API response.
+    /// Active stream buffers are NOT affected — they continue using their existing URLs.
+    /// Returns (added, removed, total) counts.
+    /// </summary>
+    public static (int Added, int Removed, int Total) RebuildFromApi(FishtankLiveStreamsResponse response)
+    {
+        var newCameras = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var stream in response.LiveStreams)
+        {
+            // Determine the load balancer domain for this stream
+            var domain = response.LoadBalancer.TryGetValue(stream.Id, out var lb)
+                ? lb
+                : "streams-e.fishtank.live"; // fallback
+
+            var url = $"https://{domain}/hls/live+{stream.Id}/5_2/index.m3u8?tkn=";
+            newCameras[stream.Name] = url;
+        }
+
+        int added, removed;
+        lock (CameraLock)
+        {
+            var oldKeys = new HashSet<string>(_cameras.Keys, StringComparer.OrdinalIgnoreCase);
+            var newKeys = new HashSet<string>(newCameras.Keys, StringComparer.OrdinalIgnoreCase);
+            added = newKeys.Count(k => !oldKeys.Contains(k));
+            removed = oldKeys.Count(k => !newKeys.Contains(k));
+            _cameras = newCameras;
+        }
+
+        Logger.Info($"[FishtankCameras] Rebuilt camera list: {newCameras.Count} cameras (+{added} -{removed})");
+        return (added, removed, newCameras.Count);
+    }
+
+    /// <summary>
+    /// Returns the number of cameras currently known.
+    /// </summary>
+    public static int Count
+    {
+        get { lock (CameraLock) { return _cameras.Count; } }
     }
 }
 
