@@ -168,7 +168,7 @@ public class ClipSaveCommand : ICommand
     public List<Regex> Patterns => [new Regex(@"^clip save (?<camera>.+?)(?:\s+(?<duration>\d+[smSM]))?$")];
     public string? HelpText => "Save the buffer for a camera as a clip and upload it (append e.g. 30s or 2m to trim, or use !clip begin to set a marker)";
     public UserRight RequiredRight => UserRight.Clipper;
-    public TimeSpan Timeout => TimeSpan.FromMinutes(5);
+    public TimeSpan Timeout => TimeSpan.FromMinutes(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
         Window = TimeSpan.FromSeconds(30),

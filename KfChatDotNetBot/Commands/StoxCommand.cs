@@ -26,7 +26,7 @@ public class StoxCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 1,
+        MaxInvocations = 4,
         Window = TimeSpan.FromSeconds(60),
         Flags = RateLimitFlags.NoResponse
     };
@@ -130,7 +130,7 @@ public class StoxBuyCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 2,
+        MaxInvocations = 10,
         Window = TimeSpan.FromSeconds(60),
         Flags = RateLimitFlags.NoResponse
     };
@@ -295,7 +295,7 @@ public class StoxSellCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 2,
+        MaxInvocations = 10,
         Window = TimeSpan.FromSeconds(60),
         Flags = RateLimitFlags.NoResponse
     };
@@ -471,7 +471,7 @@ public class StoxPortfolioCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 2,
+        MaxInvocations = 10,
         Window = TimeSpan.FromSeconds(120),
         Flags = RateLimitFlags.NoResponse
     };
@@ -642,7 +642,7 @@ public class StoxShortCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 2,
+        MaxInvocations = 10,
         Window = TimeSpan.FromSeconds(60),
         Flags = RateLimitFlags.NoResponse
     };
@@ -797,7 +797,7 @@ public class StoxCoverCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(15);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        MaxInvocations = 2,
+        MaxInvocations = 10,
         Window = TimeSpan.FromSeconds(60),
         Flags = RateLimitFlags.NoResponse
     };
@@ -1002,6 +1002,122 @@ public class StoxCloseMarketCommand : ICommand
         await botInstance.SendChatMessageAsync("Stox market is now [B][COLOR=#ff0000]CLOSED[/COLOR][/B]. Trading suspended.",
             true, autoDeleteAfter: TimeSpan.FromSeconds(30));
     }
+}
+
+public class StoxDiluteCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^stox dilute (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase)
+    ];
+    public string? HelpText => null;
+    public UserRight RequiredRight => UserRight.Admin;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(30);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => true;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
+        CancellationToken ctx)
+    {
+        var amount = decimal.Parse(arguments["amount"].Value, CultureInfo.InvariantCulture);
+
+        if (amount <= 0m || amount > 2m)
+        {
+            await botInstance.SendChatMessageAsync($"dilution percentage must be between 0 and 2.",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
+        var connectionString = await SettingsProvider.GetValueAsync(BuiltIn.Keys.BotRedisConnectionString);
+        if (connectionString.Value == null)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"stox trading is currently unavailable (Redis not configured).",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            return;
+        }
+
+        using var redis = await ConnectionMultiplexer.ConnectAsync(connectionString.Value);
+        var db = redis.GetDatabase();
+        var server = redis.GetServer(redis.GetEndPoints().First());
+
+        int portfoliosUpdated = 0;
+        int shortsUpdated = 0;
+
+        // Dilute long positions
+        await foreach (var key in server.KeysAsync(pattern: "Stox.Portfolio.*"))
+        {
+            var json = await db.StringGetAsync(key);
+            if (!json.HasValue) continue;
+
+            var portfolio = JsonSerializer.Deserialize<Dictionary<string, decimal>>(json.ToString()) ?? new Dictionary<string, decimal>();
+            foreach (var symbol in portfolio.Keys.ToList())
+            {
+                var qty = portfolio[symbol];
+                var dilutedQty = qty * amount;
+                portfolio[symbol] = dilutedQty;
+            }
+            await db.StringSetAsync(key, JsonSerializer.Serialize(portfolio));
+            portfoliosUpdated++;
+        }
+
+        // Dilute short positions
+        await foreach (var key in server.KeysAsync(pattern: "Stox.Shorts.*"))
+        {
+            var json = await db.StringGetAsync(key);
+            if (!json.HasValue) continue;
+
+            var shorts = JsonSerializer.Deserialize<Dictionary<string, StoxShortPosition>>(json.ToString()) ?? new Dictionary<string, StoxShortPosition>();
+            foreach (var symbol in shorts.Keys.ToList())
+            {
+                var pos = shorts[symbol];
+                var dilutedQty = pos.Quantity * amount;
+                shorts[symbol] = new StoxShortPosition { Quantity = dilutedQty, EntryPrice = pos.EntryPrice };
+            }
+            await db.StringSetAsync(key, JsonSerializer.Serialize(shorts));
+            shortsUpdated++;
+        }
+
+        // Dilute leveraged long positions
+        int leveragedUpdated = 0;
+        await foreach (var key in server.KeysAsync(pattern: "Stox.Leveraged.*"))
+        {
+            var json = await db.StringGetAsync(key);
+            if (!json.HasValue) continue;
+            var leveraged = JsonSerializer.Deserialize<Dictionary<string, StoxLeveragedPosition>>(json.ToString()) ?? new Dictionary<string, StoxLeveragedPosition>();
+            foreach (var symbol in leveraged.Keys.ToList())
+            {
+                var pos = leveraged[symbol];
+                var dilutedQty = pos.Quantity * amount;
+                var dilutedBorrowed = pos.Borrowed * amount;
+                leveraged[symbol] = new StoxLeveragedPosition { Quantity = dilutedQty, EntryPrice = pos.EntryPrice, Borrowed = dilutedBorrowed };
+            }
+            await db.StringSetAsync(key, JsonSerializer.Serialize(leveraged));
+            leveragedUpdated++;
+        }
+
+        // Dilute leveraged short positions
+        int levShortsUpdated = 0;
+        await foreach (var key in server.KeysAsync(pattern: "Stox.LeveragedShorts.*"))
+        {
+            var json = await db.StringGetAsync(key);
+            if (!json.HasValue) continue;
+            var levShorts = JsonSerializer.Deserialize<Dictionary<string, StoxLeveragedShortPosition>>(json.ToString()) ?? new Dictionary<string, StoxLeveragedShortPosition>();
+            foreach (var symbol in levShorts.Keys.ToList())
+            {
+                var pos = levShorts[symbol];
+                var dilutedQty = pos.Quantity * amount;
+                var dilutedMargin = pos.Margin * amount;
+                levShorts[symbol] = new StoxLeveragedShortPosition { Quantity = dilutedQty, EntryPrice = pos.EntryPrice, Margin = dilutedMargin };
+            }
+            await db.StringSetAsync(key, JsonSerializer.Serialize(levShorts));
+            levShortsUpdated++;
+        }
+
+        await botInstance.SendChatMessageAsync(
+            $"Diluted all stox positions by {amount:0.##}. Portfolios updated: {portfoliosUpdated}, shorts updated: {shortsUpdated}, leveraged longs updated: {leveragedUpdated}, leveraged shorts updated: {levShortsUpdated}.",
+            true, autoDeleteAfter: TimeSpan.FromSeconds(30));
+    }
+
 }
 
 public class StoxRenameSymbolCommand : ICommand
