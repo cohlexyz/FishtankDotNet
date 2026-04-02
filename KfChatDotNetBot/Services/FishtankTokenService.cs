@@ -8,7 +8,7 @@ namespace KfChatDotNetBot.Services;
 public class FishtankTokenService
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromHours(24);
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(25);
 
     private readonly CancellationToken _ct;
     private readonly Task _refreshLoop;
