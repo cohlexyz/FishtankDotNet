@@ -2,7 +2,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Humanizer;
-using Raffinert.FuzzySharp;
 using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
@@ -280,30 +279,19 @@ public class GetRandomImage : ICommand
         {
             var allImages = await images.ToListAsync(ctx);
             var searchTokens = searchTerm.ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var scored = allImages
-                .Select(i =>
-                {
-                    var urlScore = Fuzz.PartialRatio(searchTerm.ToLower(), i.Url.ToLower());
-                    int tagScore = 0;
-                    if (i.Tags != null)
-                    {
-                        var tagTokens = i.Tags.ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                        if (tagTokens.Length > 0)
-                            tagScore = (int)searchTokens.Average(st => tagTokens.Max(tt => Fuzz.Ratio(st, tt)));
-                    }
-                    return (Image: i, Score: Math.Max(urlScore, tagScore));
-                })
-                .OrderByDescending(x => x.Score)
-                .ToList();
-            if (scored.Count == 0 || scored[0].Score < 50)
+            var matches = allImages.Where(i =>
+            {
+                if (i.Tags == null) return false;
+                var tagTokens = i.Tags.ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                return searchTokens.All(st => tagTokens.Contains(st));
+            }).ToList();
+            if (matches.Count == 0)
             {
                 RateLimitService.RemoveMostRecentEntry(user, this);
                 await botInstance.SendChatMessageAsync($"No image in {key} matched \"{searchTerm}\"", true, whisperTo: user.KfId);
                 return;
             }
-            var bestScore = scored[0].Score;
-            var candidates = scored.Where(x => x.Score == bestScore).Select(x => x.Image).ToList();
-            image = candidates[new Random().Next(0, candidates.Count)];
+            image = matches.OrderBy(i => i.LastSeen).First();
         }
         else
         {
