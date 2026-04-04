@@ -160,48 +160,48 @@ public class BotServices
 
     private void OnFishtankTokenRefreshed(string newToken)
     {
-        _logger.Info("[BotServices] Fishtank token refreshed, restarting active clip buffers");
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                // Refresh camera list from API (load balancer domains may have changed)
-                try
-                {
-                    var liveStreams = await FishtankTokenService!.FetchLiveStreamsAsync();
-                    if (liveStreams != null)
-                        FishtankCameras.RebuildFromApi(liveStreams);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warn($"[BotServices] Failed to refresh cameras during token refresh: {ex.Message}");
-                }
+        // _logger.Info("[BotServices] Fishtank token refreshed, restarting active clip buffers");
+        // _ = Task.Run(async () =>
+        // {
+        //     try
+        //     {
+        //         // Refresh camera list from API (load balancer domains may have changed)
+        //         try
+        //         {
+        //             var liveStreams = await FishtankTokenService!.FetchLiveStreamsAsync();
+        //             if (liveStreams != null)
+        //                 FishtankCameras.RebuildFromApi(liveStreams);
+        //         }
+        //         catch (Exception ex)
+        //         {
+        //             _logger.Warn($"[BotServices] Failed to refresh cameras during token refresh: {ex.Message}");
+        //         }
 
-                if (ClipService == null) return;
+        //         if (ClipService == null) return;
 
-                var activeBuffers = ClipService.GetActiveBuffers();
-                var cameraNames = activeBuffers.Select(b => b.Name).ToList();
-                if (cameraNames.Count == 0) return;
+        //         var activeBuffers = ClipService.GetActiveBuffers();
+        //         var cameraNames = activeBuffers.Select(b => b.Name).ToList();
+        //         if (cameraNames.Count == 0) return;
 
-                _logger.Info($"[BotServices] Stopping {cameraNames.Count} buffer(s) for token refresh");
-                await ClipService.StopAsync(null);
+        //         _logger.Info($"[BotServices] Stopping {cameraNames.Count} buffer(s) for token refresh");
+        //         await ClipService.StopAsync(null);
 
-                var cameras = FishtankCameras.GetCamerasWithToken(newToken);
-                foreach (var name in cameraNames)
-                {
-                    var result = await ClipService.StartAsync(name, cameras);
-                    _logger.Info($"[BotServices] Restarted buffer for {name}: {result}");
-                }
+        //         var cameras = FishtankCameras.GetCamerasWithToken(newToken);
+        //         foreach (var name in cameraNames)
+        //         {
+        //             var result = await ClipService.StartAsync(name, cameras);
+        //             _logger.Info($"[BotServices] Restarted buffer for {name}: {result}");
+        //         }
 
-                _chatBot.SendChatMessage(
-                    $"[ClipService] Token refreshed, restarted {cameraNames.Count} buffer(s): {string.Join(", ", cameraNames)}",
-                    bypassSeshDetect: true, autoDeleteAfter: TimeSpan.FromSeconds(10));
-            }
-            catch (Exception ex)
-            {
-                _logger.Error($"[BotServices] Failed to restart buffers after token refresh: {ex.Message}");
-            }
-        }, _cancellationToken);
+        //         _chatBot.SendChatMessage(
+        //             $"[ClipService] Token refreshed, restarted {cameraNames.Count} buffer(s): {string.Join(", ", cameraNames)}",
+        //             bypassSeshDetect: true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         _logger.Error($"[BotServices] Failed to restart buffers after token refresh: {ex.Message}");
+        //     }
+        // }, _cancellationToken);
     }
 
     private async Task BuildKasinoShop()
