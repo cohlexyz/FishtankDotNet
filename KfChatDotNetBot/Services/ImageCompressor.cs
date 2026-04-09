@@ -46,9 +46,12 @@ public static class ImageCompressor
 
         _logger.Debug($"Image size: {data.Length / 1024.0:F2} KB");
 
-        if (data.Length <= 2_000_000)
+        if (data.Length <= 2_700_000)
         {
-            return (imageUrl, null);
+            // just upload as-is without compression
+            using var ms = new MemoryStream(data);
+            var url = await Zipline.Upload(ms, new MediaTypeHeaderValue("image/webp"), ct: ct);
+            return (url, null);
         }
 
         var tempInput = Path.GetTempFileName();
@@ -80,20 +83,31 @@ public static class ImageCompressor
             // Retry up to 3 more times with progressively reduced quality and size
             int retryQuality = quality;
             string retryResize = "250x>";
-            for (int attempt = 1; outputBytes.Length > 2_000_000 && attempt <= 3; attempt++)
+            for (int attempt = 1; outputBytes.Length > 2_700_000 && attempt <= 5; attempt++)
             {
                 retryQuality = Math.Max(10, retryQuality - 10);
                 retryResize = attempt switch
                 {
                     1 => "220x>",
                     2 => "200x>",
-                    _ => "190x>"
+                    3 => "180x>",
+                    4 => "160x>",
+                    _ => "150x>"
                 };
-                _logger.Info($"Still over 2 MB, retry {attempt}/3 (quality={retryQuality}, resize={retryResize})");
+                var retryFrameStep = attempt switch
+                {
+                    1 => 1,
+                    2 => 2,
+                    3 => 2,
+                    4 => 3,
+                    _ => 4
+                };
+                var retryInput = retryFrameStep > 1 ? $"{tempInput}[0-9999:{retryFrameStep}]" : tempInput;
+                _logger.Info($"Still over 2 MB, retry {attempt}/5 (quality={retryQuality}, resize={retryResize}, frameStep={retryFrameStep})");
 
                 var retryPsi = new ProcessStartInfo("convert")
                 {
-                    ArgumentList = { tempInput, "-coalesce", "-resize", retryResize, "-quality", retryQuality.ToString(), tempOutput },
+                    ArgumentList = { retryInput, "-coalesce", "-resize", retryResize, "-quality", retryQuality.ToString(), tempOutput },
                     RedirectStandardError = true,
                     UseShellExecute = false,
                 };
