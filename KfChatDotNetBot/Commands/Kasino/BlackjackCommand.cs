@@ -581,21 +581,3 @@ public class BlackjackCommand : ICommand
             true, autoDeleteAfter: cleanupDelay);
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Supporting types used across BlackjackDisplay and BlackjackCommand
-// ─────────────────────────────────────────────────────────────────────────────
-
-internal enum HandOutcome
-{
-    Blackjack, DealerBlackjack, Win, Lose, Bust, DealerBust, Push
-}
-
-/// Pre-computed per-hand result data passed from BlackjackCommand.ResolveGame
-/// to BlackjackDisplay.FinalResult for rendering.
-internal record HandResultData(
-    int HandIndex,
-    List<Card> Hand,
-    int PlayerValue,
-    HandOutcome Outcome,
-    decimal Effect);

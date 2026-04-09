@@ -18,7 +18,7 @@ public class KasinoKrash : IDisposable
     private CancellationToken _ct;
     public KasinoKrashModel? TheGame;
     public static decimal HOUSE_EDGE = (decimal)0.98;
-    
+
     public KasinoKrash(ChatBot kfChatBot, CancellationToken ct = default) //the service itself
     {
         _kfChatBot = kfChatBot;
@@ -69,10 +69,10 @@ public class KasinoKrash : IDisposable
         }
         if (TheGame.Bets.All(x => x.Gambler.User.KfId != gambler.User.KfId)) return;
         if (!TheGame.KrashAccepted) return;
-        
+
         //find which bet is yours
         var index = TheGame.Bets.TakeWhile(bet => bet.Gambler.User.KfId != gambler.User.KfId).Count();
-        
+
         var krashBet = TheGame.Bets[index];
         TheGame.Bets.RemoveAt(index);
         var payout = TheGame.CurrentMulti * krashBet.Wager - krashBet.Wager;
@@ -87,7 +87,7 @@ public class KasinoKrash : IDisposable
         }
         await SaveKrashState(TheGame);
     }
-    
+
     public async Task AddParticipant(GamblerDbModel gambler, decimal wager, decimal multi = -1)
     {
         if (TheGame == null)
@@ -98,7 +98,7 @@ public class KasinoKrash : IDisposable
         }
         if (TheGame.Bets.Any(x => x.Gambler.User.KfId == gambler.User.KfId)) return;
         if (!TheGame.BetsAccepted) return;
-        var bet = new KrashBet{Gambler = gambler, Wager = wager, Multi = multi};
+        var bet = new KrashBet { Gambler = gambler, Wager = wager, Multi = multi };
         TheGame.Bets.Add(bet);
         if (_kfChatBot.BotServices.KasinoShop != null)
         {
@@ -110,14 +110,14 @@ public class KasinoKrash : IDisposable
     public async Task StartGame(GamblerDbModel creator, decimal wager, decimal multi = -1)
     {
         TheGame = new KasinoKrashModel(creator);
-        TheGame.Bets.Add(new KrashBet{Gambler = creator, Wager = wager, Multi = multi});
+        TheGame.Bets.Add(new KrashBet { Gambler = creator, Wager = wager, Multi = multi });
         await SaveKrashState(TheGame);
         if (_kfChatBot.BotServices.KasinoShop != null)
         {
-            HOUSE_EDGE = (HOUSE_EDGE + _kfChatBot.BotServices.KasinoShop.DefaultHouseEdgeModifier - _kfChatBot.BotServices.KasinoShop.Gambler_Profiles[creator.User.KfId].HouseEdgeModifier)/2;
+            HOUSE_EDGE = (HOUSE_EDGE + _kfChatBot.BotServices.KasinoShop.DefaultHouseEdgeModifier - _kfChatBot.BotServices.KasinoShop.Gambler_Profiles[creator.User.KfId].HouseEdgeModifier) / 2;
         }
         _ = RunGame();
-        
+
     }
     public async Task RunGame() //running the actual game
     {
@@ -132,7 +132,7 @@ public class KasinoKrash : IDisposable
         var preGameTimer = TimeSpan.FromSeconds(30);
         var interval = TimeSpan.FromSeconds(1);
         var timer = new PeriodicTimer(interval);
-        
+
         while (await timer.WaitForNextTickAsync(_ct)) //timer before starting the game
         {
             var bets = "";
@@ -143,7 +143,7 @@ public class KasinoKrash : IDisposable
                 else bets += " on freehand!";
                 bets += "[br]";
             }
-            await _kfChatBot.KfClient.EditMessageAsync(msg.ChatMessageUuid,
+            await _kfChatBot.KfClient.EditMessageAsync(msg.ChatMessageUuid!,
                 $"{TheGame.Creator.User.FormatUsername()} started a Krash! You have [b]{preGameTimer}[/b] to place your bets.[br]{bets}");
             preGameTimer -= interval;
             if (preGameTimer <= TimeSpan.Zero)
@@ -151,13 +151,13 @@ public class KasinoKrash : IDisposable
                 break;
             }
         }
-        
+
         //any bets placed after this point will be cancelled, must wait until the last game finishes to start a new one.
         TheGame.BetsAccepted = false;
         await SaveKrashState(TheGame);
-        
+
         //start the display of the game
-        
+
         //change these to change the speed of the game
         var growthRate = 1.02m;
         var growthAcceleration = 1.00185m;
@@ -169,7 +169,7 @@ public class KasinoKrash : IDisposable
         while (await timer.WaitForNextTickAsync(_ct))
         {
             TheGame.KrashAccepted = true;
-            await _kfChatBot.KfClient.EditMessageAsync(msg.ChatMessageUuid!, $"[center][b][size=200][color=limegreen]{Math.Truncate(TheGame.CurrentMulti*100)/100}x");
+            await _kfChatBot.KfClient.EditMessageAsync(msg.ChatMessageUuid!, $"[center][b][size=200][color=limegreen]{Math.Truncate(TheGame.CurrentMulti * 100) / 100}x");
             TheGame.CurrentMulti += defaultGrowth;
             defaultGrowth *= growthRate;
             growthRate *= growthAcceleration;
@@ -215,8 +215,8 @@ public class KasinoKrash : IDisposable
         await RemoveKrashState();
     }
 
-    
-    
+
+
     public class KasinoKrashModel
     {
         public GamblerDbModel Creator;
@@ -231,7 +231,7 @@ public class KasinoKrash : IDisposable
             this.Creator = creator;
             FinalMulti = GetLinearWeightedRandom(1.01, 25000);
         }
-        
+
         private decimal GetLinearWeightedRandom(double minValue, double maxValue)
         {
             var random = RandomShim.Create(StandardRng.Create());
@@ -250,7 +250,7 @@ public class KasinoKrash : IDisposable
 
     public class KrashBet
     {
-        public required GamblerDbModel Gambler{ get; set;}
+        public required GamblerDbModel Gambler { get; set; }
         public required decimal Wager { get; set; }
         public required decimal Multi { get; set; }
     }

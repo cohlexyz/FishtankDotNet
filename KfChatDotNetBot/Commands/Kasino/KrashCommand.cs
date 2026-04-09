@@ -17,18 +17,18 @@ public class KrashBetCommand : ICommand
         new Regex(@"^krash (?<amount>\d+(?:\.\d+)?)$", RegexOptions.IgnoreCase),
         new Regex(@"^krash", RegexOptions.IgnoreCase)
     ];
-    
+
     public string? HelpText => "!rain <amount> to start a rain, !rain to join all active rains";
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromSeconds(90);
     public RateLimitOptionsModel? RateLimitOptions => null;
     public bool WhisperCanInvoke => false;
-    
+
     public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user,
         GroupCollection arguments,
         CancellationToken ctx)
     {
-        return;
+        return;/*
         var cleanupDelay = TimeSpan.FromSeconds(10);
         
         if (message is { IsWhisper: false, MessageUuid: not null })
@@ -79,5 +79,6 @@ public class KrashBetCommand : ICommand
             //add to the existing game
             await botInstance.BotServices.KasinoKrash.AddParticipant(gambler, wager, multi);
         }
+        */
     }
 }
