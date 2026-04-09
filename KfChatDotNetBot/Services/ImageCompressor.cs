@@ -5,12 +5,13 @@ using System.Net.Http.Headers;
 using KfChatDotNetBot.Services;
 using KfChatDotNetBot.Settings;
 using NLog;
+using SixLabors.ImageSharp;
 
 public static class ImageCompressor
 {
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
-    public static async Task<(string? result, string? error)> CompressImageAsync(string imageUrl, CancellationToken ct, int quality = 50)
+    public static async Task<(string? result, string? error)> CompressImageAsync(string imageUrl, CancellationToken ct, int quality = 50, string key = "")
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.Proxy, BuiltIn.Keys.KiwiFarmsDomain, BuiltIn.Keys.KiwiFarmsCookies]);
         var handler = new HttpClientHandler
@@ -45,6 +46,17 @@ public static class ImageCompressor
         byte[] data = await client.GetByteArrayAsync(imageUrl, ct);
 
         _logger.Debug($"Image size: {data.Length / 1024.0:F2} KB");
+
+        // check the image width for key == quote (they can't be wider than 400px)
+        if (key == "quote")
+        {
+            using var img = Image.Load(data);
+            if (img.Width > 400)
+            {
+                _logger.Debug($"Quote image is {img.Width}px wide, rejecting (max 400px for quotes)");
+                return (null, $"Image is too wide ({img.Width}px) for a quote - maximum is 400px, otherwise it won't be readable.");
+            }
+        }
 
         if (data.Length <= 2_700_000)
         {
