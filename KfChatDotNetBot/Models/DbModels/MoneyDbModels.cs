@@ -446,7 +446,8 @@ public enum WagerGame
     /// <summary>
     /// User predictions with multiple outcomes where winners share the pot
     /// </summary>
-    Prediction
+    Prediction,
+    Krash
 }
 
 public enum GamblerState

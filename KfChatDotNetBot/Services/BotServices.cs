@@ -50,6 +50,7 @@ public class BotServices
     public KasinoShop? KasinoShop;
     public FishtankTokenService? FishtankTokenService;
     public ClipService? ClipService;
+    public KasinoKrash? KasinoKrash;
 
     private Task? _websocketWatchdog;
     private Task? _howlggGetUserTimer;
@@ -123,8 +124,9 @@ public class BotServices
             // BuildShuffleDotUs(),
             BuildFishtankForwarder(),
             BuildYouTubePubSub(),
-            BuildKasinoRain()
-            // BuildKasinoShop()
+            BuildKasinoRain(),
+            BuildKasinoShop(),
+            BuildKasinoKrash()
         ];
         try
         {
@@ -150,6 +152,12 @@ public class BotServices
     {
         _logger.Debug("Building the Fishtank Forwarder thingy");
         _ = Task.Run(async () => FishtankForwarder.Start(_chatBot));
+    }
+
+    private async Task BuildKasinoKrash()
+    {
+        _logger.Debug("Building the Kasino Krash thingy");
+        KasinoKrash = new KasinoKrash(_chatBot, _cancellationToken);
     }
 
     private async Task BuildKasinoRain()

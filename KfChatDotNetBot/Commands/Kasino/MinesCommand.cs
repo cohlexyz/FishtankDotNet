@@ -39,7 +39,7 @@ public class MinesCommand : ICommand
 
     public RateLimitOptionsModel? RateLimitOptions => new RateLimitOptionsModel
     {
-        MaxInvocations = 3,
+        MaxInvocations = 10,
         Window = TimeSpan.FromSeconds(10)
     };
     public bool WhisperCanInvoke => false;
@@ -56,6 +56,10 @@ public class MinesCommand : ICommand
             BuiltIn.Keys.KasinoMinesEnabled, BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay
         ]);
         var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoMinesCleanupDelay].ToType<int>());
+        if (message is { IsWhisper: false, MessageUuid: not null })
+        {
+            await botInstance.KfClient.DeleteMessageAsync(message.MessageUuid);
+        }
         if (!settings[BuiltIn.Keys.KasinoMinesEnabled].ToBoolean())
         {
             await botInstance.SendChatMessageAsync(

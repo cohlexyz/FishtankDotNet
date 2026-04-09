@@ -51,7 +51,6 @@ public class Planes : ICommand
             BuiltIn.Keys.KasinoPlanesCleanupDelay, BuiltIn.Keys.KasinoPlanesRandomRiggeryEnabled,
             BuiltIn.Keys.KasinoPlanesTargetedRiggeryEnabled, BuiltIn.Keys.KasinoPlanesTargetedRiggeryVictims
         ]);
-
         // Check if planes is enabled
         var planesEnabled = (settings[BuiltIn.Keys.KasinoPlanesEnabled]).ToBoolean();
         if (!planesEnabled)

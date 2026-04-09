@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
@@ -60,6 +60,11 @@ public class BlackjackCommand : ICommand
                 $"{user.FormatUsername()}, blackjack is currently disabled.",
                 true, autoDeleteAfter: gameDisabledCleanupDelay, whisperTo: user.KfId);
             return;
+        }
+
+        if (message is { IsWhisper: false, MessageUuid: not null })
+        {
+            await botInstance.KfClient.DeleteMessageAsync(message.MessageUuid);
         }
 
         var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoBlackjackCleanupDelay].ToType<int>());
@@ -573,6 +578,24 @@ public class BlackjackCommand : ICommand
 
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, your blackjack game timed out and you forfeited {await wager.WagerAmount.FormatKasinoCurrencyAsync()}",
-            true, autoDeleteAfter: cleanupDelay, whisperTo: user.KfId);
+            true, autoDeleteAfter: cleanupDelay);
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Supporting types used across BlackjackDisplay and BlackjackCommand
+// ─────────────────────────────────────────────────────────────────────────────
+
+internal enum HandOutcome
+{
+    Blackjack, DealerBlackjack, Win, Lose, Bust, DealerBust, Push
+}
+
+/// Pre-computed per-hand result data passed from BlackjackCommand.ResolveGame
+/// to BlackjackDisplay.FinalResult for rendering.
+internal record HandResultData(
+    int HandIndex,
+    List<Card> Hand,
+    int PlayerValue,
+    HandOutcome Outcome,
+    decimal Effect);

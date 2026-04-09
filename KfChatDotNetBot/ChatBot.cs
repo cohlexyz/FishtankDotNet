@@ -465,7 +465,8 @@ public class ChatBot
             // Strip weird control characters and just allow basic punctuation + whitespace
             var kindaSanitized = new string(message.MessageRawHtmlDecoded
                 .Where(c => c == ' ' || char.IsPunctuation(c) || char.IsLetter(c) || char.IsDigit(c)).ToArray());
-            if (message.MessageEditDate == null && message.Author.Id != settings[BuiltIn.Keys.GambaSeshUserId].ToType<int>() &&
+            if ((message.MessageEditDate == null || message.MessageDate > DateTimeOffset.UtcNow.AddSeconds(-15))
+                && message.Author.Id != settings[BuiltIn.Keys.GambaSeshUserId].ToType<int>() &&
                 message.Author.Username != settings[BuiltIn.Keys.KiwiFarmsUsername].Value &&
                 settings[BuiltIn.Keys.BotRespondToDiscordImpersonation].ToBoolean() &&
                 (kindaSanitized.Contains("discord16.png") ||
