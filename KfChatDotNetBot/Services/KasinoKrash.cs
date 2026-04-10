@@ -75,10 +75,12 @@ public class KasinoKrash : IDisposable
 
         var krashBet = TheGame.Bets[index];
         TheGame.Bets.RemoveAt(index);
-        var payout = TheGame.CurrentMulti * krashBet.Wager - krashBet.Wager;
+        var multi = TheGame.CurrentMulti;
+        var payout = multi * krashBet.Wager - krashBet.Wager;
         var newBalance = await Money.NewWagerAsync(krashBet.Gambler.Id, krashBet.Wager, payout, WagerGame.Krash, ct: _ct);
+        var green = await SettingsProvider.GetValueAsync(BuiltIn.Keys.KiwiFarmsGreenColor);
         await _kfChatBot.SendChatMessageAsync(
-            $"{krashBet.Gambler.User.FormatUsername()}, you [color=limegreen][b]won[/b][/color] {await payout.FormatKasinoCurrencyAsync()}!",
+            $"{krashBet.Gambler.User.FormatUsername()}, you [color={green.Value}][b]won[/b][/color] {await payout.FormatKasinoCurrencyAsync()} by cashing out the krash at {multi}x!",
             true, autoDeleteAfter: TimeSpan.FromSeconds(10));
         if (_kfChatBot.BotServices.KasinoShop != null)
         {
@@ -96,7 +98,6 @@ public class KasinoKrash : IDisposable
             if (TheGame == null) throw new InvalidOperationException("Failed to retrieve state or no krash is in progress");
             _ = RunGame();
         }
-        if (TheGame.Bets.Any(x => x.Gambler.User.KfId == gambler.User.KfId)) return;
         if (!TheGame.BetsAccepted) return;
         var bet = new KrashBet { Gambler = gambler, Wager = wager, Multi = multi };
         TheGame.Bets.Add(bet);
@@ -132,19 +133,20 @@ public class KasinoKrash : IDisposable
         var preGameTimer = TimeSpan.FromSeconds(30);
         var interval = TimeSpan.FromSeconds(1);
         var timer = new PeriodicTimer(interval);
+        await _kfChatBot.WaitForChatMessageAsync(msg, ct: _ct);
 
         while (await timer.WaitForNextTickAsync(_ct)) //timer before starting the game
         {
             var bets = "";
             foreach (var bet in TheGame.Bets)
             {
-                bets += $"{bet.Gambler.User.FormatUsername()} is betting {bet.Wager}";
+                bets += $"{bet.Gambler.User.FormatUsername()} is betting {await bet.Wager.FormatKasinoCurrencyAsync()}";
                 if (bet.Multi != -1) bets += $" on {bet.Multi}x!";
                 else bets += " on freehand!";
                 bets += "[br]";
             }
             await _kfChatBot.KfClient.EditMessageAsync(msg.ChatMessageUuid!,
-                $"{TheGame.Creator.User.FormatUsername()} started a Krash! You have [b]{preGameTimer}[/b] to place your bets.[br]{bets}");
+                $"{TheGame.Creator.User.FormatUsername()} started a Krash! You have [b]{preGameTimer}[/b] to place your bets. [ditto]!krash[/ditto] <amount> <optional multi>[br]{bets}");
             preGameTimer -= interval;
             if (preGameTimer <= TimeSpan.Zero)
             {
@@ -162,6 +164,8 @@ public class KasinoKrash : IDisposable
         var growthRate = 1.02m;
         var growthAcceleration = 1.00185m;
         await _kfChatBot.KfClient.DeleteMessageAsync(msg.ChatMessageUuid!);
+        var green = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.KiwiFarmsGreenColor)).Value;
+        var red = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.KiwiFarmsRedColor)).Value;
         msg = await _kfChatBot.SendChatMessageAsync($"[center][b][size=200][color=limegreen]{TheGame.CurrentMulti}x");
         var defaultGrowth = 0.01m;
         interval = TimeSpan.FromSeconds(0.1);
@@ -169,23 +173,31 @@ public class KasinoKrash : IDisposable
         while (await timer.WaitForNextTickAsync(_ct))
         {
             TheGame.KrashAccepted = true;
-            await _kfChatBot.KfClient.EditMessageAsync(msg.ChatMessageUuid!, $"[center][b][size=200][color=limegreen]{Math.Truncate(TheGame.CurrentMulti * 100) / 100}x");
+            await _kfChatBot.KfClient.EditMessageAsync(msg.ChatMessageUuid!, $"[center][b][size=200][color={green}]{Math.Truncate(TheGame.CurrentMulti * 100) / 100}x");
             TheGame.CurrentMulti += defaultGrowth;
             defaultGrowth *= growthRate;
             growthRate *= growthAcceleration;
             if (TheGame.CurrentMulti >= TheGame.FinalMulti) break;
         }
         //at this point the game crashes and everybody who did not cash out or pre bet on a multi will have balance subtracted, winners will be paid out.
-        await _kfChatBot.KfClient.EditMessageAsync(msg.ChatMessageUuid!, $"[center][b][size=200][color=red]{TheGame.FinalMulti}x");
+        await _kfChatBot.KfClient.EditMessageAsync(msg.ChatMessageUuid!, $"[center][b][size=200][color={red}]{TheGame.FinalMulti}x");
         foreach (var bet in TheGame.Bets)
         {
+            var freshBalance = await Money.GetGamblerEntityAsync(bet.Gambler.User.Id, ct: _ct);
+            if (freshBalance?.Balance < bet.Wager)
+            {
+                await _kfChatBot.SendChatMessageAsync(
+                    $"Forfeited {bet.Gambler.User.FormatUsername()} as they no longer have a sufficient balance for their wager",
+                    true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+                continue;
+            }
             if (bet.Multi <= TheGame.FinalMulti && bet.Multi != -1)
             {
                 //you win
-                var payout = TheGame.CurrentMulti * bet.Wager - bet.Wager;
+                var payout = bet.Multi * bet.Wager - bet.Wager;
                 var newBalance = await Money.NewWagerAsync(bet.Gambler.Id, bet.Wager, payout, WagerGame.Krash, ct: _ct);
                 await _kfChatBot.SendChatMessageAsync(
-                    $"{bet.Gambler.User.FormatUsername()}, you [color=limegreen][b]won[/b][/color] {await payout.FormatKasinoCurrencyAsync()}!",
+                    $"{bet.Gambler.User.FormatUsername()}, you [color={green}][b]won[/b][/color] {await payout.FormatKasinoCurrencyAsync()}!",
                     true, autoDeleteAfter: TimeSpan.FromSeconds(10));
                 if (_kfChatBot.BotServices.KasinoShop != null)
                 {
@@ -198,7 +210,7 @@ public class KasinoKrash : IDisposable
                 //automatically lose, no pre entered multi or it was greater than the final multi and failed to cash out
                 var newBalance = await Money.NewWagerAsync(bet.Gambler.Id, bet.Wager, -bet.Wager, WagerGame.Krash, ct: _ct);
                 await _kfChatBot.SendChatMessageAsync(
-                    $"{bet.Gambler.User.FormatUsername()}, you [color=red][b]lost[/b][/color] {await bet.Wager.FormatKasinoCurrencyAsync()}!",
+                    $"{bet.Gambler.User.FormatUsername()}, you [color={red}][b]lost[/b][/color] {await bet.Wager.FormatKasinoCurrencyAsync()}!",
                     true, autoDeleteAfter: TimeSpan.FromSeconds(10));
                 if (_kfChatBot.BotServices.KasinoShop != null)
                 {
@@ -210,7 +222,7 @@ public class KasinoKrash : IDisposable
 
         HOUSE_EDGE = 0.98m;
         //now close the game
-        await Task.Delay(5000);
+        await Task.Delay(5000, _ct);
         await _kfChatBot.KfClient.DeleteMessageAsync(msg.ChatMessageUuid!);
         await RemoveKrashState();
     }

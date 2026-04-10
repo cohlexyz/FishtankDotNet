@@ -1,6 +1,6 @@
 ﻿using System.Net;
 using System.Text.Json;
-using Humanizer;
+using Homoglyphic;
 using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
@@ -39,11 +39,9 @@ public class ChatBot
     private DateTime _lastReconnectAttempt = DateTime.UtcNow;
     private List<ScheduledAutoDeleteModel> _scheduledDeletions = [];
     private Task _scheduledAutoDeleteTask;
-
-    private List<UserModel> _usersInChat = [];
-
-    public int IncomingMessageCounter = 0;
-
+    private List<UserModel> _currentUsersInChat = [];
+    private HomoglyphSearch? _homoglyphSearch;
+    public int IncomingMessageCounter { get; set; } = 0;
 
     public ChatBot()
     {
@@ -101,6 +99,13 @@ public class ChatBot
         _kfChatPing = KfPingTask();
         _logger.Debug("Creating scheduled auto deletion task");
         _scheduledAutoDeleteTask = ScheduledDeletionTask();
+
+        _logger.Debug("Trying to load homoglyphs");
+        if (File.Exists("homoglyphs.csv"))
+        {
+            var sets = HomoglyphLoader.LoadSets("homoglyphs.csv");
+            _homoglyphSearch = new HomoglyphSearch(sets);
+        }
 
         _logger.Debug("Blocking the main thread");
         var exitEvent = new ManualResetEvent(false);
@@ -192,7 +197,7 @@ public class ChatBot
                 }
             }
 
-            if (!_usersInChat.Any(u => u.Id == 205609) && _usersInChat.Count != 0)
+            if (!_currentUsersInChat.Any(u => u.Id == 205609) && _currentUsersInChat.Count != 0)
             {
                 _logger.Error("Bot no longer in user list, token is probably invalid. Forcing reconnect to hopefully fix it");
                 _kfTokenService.WipeCookies();
@@ -465,16 +470,36 @@ public class ChatBot
             // Strip weird control characters and just allow basic punctuation + whitespace
             var kindaSanitized = new string(message.MessageRawHtmlDecoded
                 .Where(c => c == ' ' || char.IsPunctuation(c) || char.IsLetter(c) || char.IsDigit(c)).ToArray());
+            var homoglyphFound = false;
+            if (_homoglyphSearch != null)
+            {
+                var searchStrings =
+                    SettingsProvider.GetValueAsync(BuiltIn.Keys.BotDiscordImpersonationSearchStrings).Result
+                    .JsonDeserialize<List<string>>();
+                var lowerStrings = searchStrings?.Select(x => x.ToLower()).ToList();
+                var search = _homoglyphSearch.Search(kindaSanitized.ToLower(), lowerStrings);
+                if (search.Count == 0)
+                {
+                    search = _homoglyphSearch.Search(kindaSanitized, searchStrings);
+                }
+                homoglyphFound = search.Count > 0;
+            }
             if ((message.MessageEditDate == null || message.MessageDate > DateTimeOffset.UtcNow.AddSeconds(-15))
                 && message.Author.Id != settings[BuiltIn.Keys.GambaSeshUserId].ToType<int>() &&
                 message.Author.Username != settings[BuiltIn.Keys.KiwiFarmsUsername].Value &&
-                settings[BuiltIn.Keys.BotRespondToDiscordImpersonation].ToBoolean() &&
-                (kindaSanitized.Contains("discord16.png") ||
-                 (kindaSanitized.Contains("mBossmanJack:", StringComparison.CurrentCultureIgnoreCase) &&
-                  kindaSanitized.Contains("[img]", StringComparison.CurrentCultureIgnoreCase)) ||
-                 kindaSanitized.Contains("by @KenoGPT at", StringComparison.CurrentCultureIgnoreCase)))
+                settings[BuiltIn.Keys.BotRespondToDiscordImpersonation].ToBoolean() && kindaSanitized.Contains("[img]")
+                && homoglyphFound)
             {
-                SendChatMessage($"☝️ {message.Author.Username} is a nigger faggot", true);
+                var deleteOrNah = SettingsProvider.GetValueAsync(BuiltIn.Keys.BotDiscordImpersonationDeleteAttempt)
+                    .Result.ToBoolean();
+                if (deleteOrNah)
+                {
+                    _ = KfClient.DeleteMessageAsync(message.MessageUuid);
+                }
+                else
+                {
+                    SendChatMessage($"☝️ {message.Author.Username} is a nigger faggot", true);
+                }
             }
         }
 
@@ -735,7 +760,7 @@ public class ChatBot
             .Result;
         _logger.Debug($"Received {users.Count} user join events");
         using var db = new ApplicationDbContext();
-        _usersInChat.AddRange(users);
+        _currentUsersInChat.AddRange(users);
         if (users.Any(u => u.Id == 205609))
         {
             _logger.Info("Bot has joined the chat!");
@@ -782,7 +807,7 @@ public class ChatBot
 
     private void OnUsersParted(object sender, List<int> userIds)
     {
-        _usersInChat.RemoveAll(u => userIds.Contains(u.Id));
+        _currentUsersInChat.RemoveAll(u => userIds.Contains(u.Id));
         var settings = SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.GambaSeshUserId, BuiltIn.Keys.GambaSeshDetectEnabled])
             .Result;
         if (userIds.Contains(settings[BuiltIn.Keys.GambaSeshUserId].ToType<int>()) && settings[BuiltIn.Keys.GambaSeshDetectEnabled].ToBoolean())
@@ -838,7 +863,7 @@ public class ChatBot
         _logger.Error($"Sneedchat disconnected due to {disconnectionInfo.Type}");
         _logger.Error($"Close Status => {disconnectionInfo.CloseStatus}; Close Status Description => {disconnectionInfo.CloseStatusDescription}");
         _logger.Error(disconnectionInfo.Exception);
-        _usersInChat.Clear();
+        _currentUsersInChat.Clear();
 
         if (disconnectionInfo.Type == DisconnectionType.Lost)
         {
@@ -871,7 +896,7 @@ public class ChatBot
 
     public UserModel? FindUserByName(string username)
     {
-        return _usersInChat.FirstOrDefault(u => u.Username.Equals(username, StringComparison.CurrentCulture));
+        return _currentUsersInChat.FirstOrDefault(u => u.Username.Equals(username, StringComparison.CurrentCulture));
     }
 
     public IEnumerable<RecentChatMessageModel> GetRecentMessagesByUser(string username)

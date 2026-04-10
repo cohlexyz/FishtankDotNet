@@ -28,9 +28,24 @@ public class KrashBetCommand : ICommand
         GroupCollection arguments,
         CancellationToken ctx)
     {
-        return;/*
-        var cleanupDelay = TimeSpan.FromSeconds(10);
-        
+        var settings =
+            await SettingsProvider.GetMultipleValuesAsync([
+                BuiltIn.Keys.KasinoKrashEnabled, BuiltIn.Keys.KasinoKrashCleanupDelay,
+                BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay
+            ]);
+        var cleanupDelay = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoKrashCleanupDelay].ToType<int>());
+
+        var krashEnabled = settings[BuiltIn.Keys.KasinoKrashEnabled].ToBoolean();
+        if (!krashEnabled)
+        {
+            var gameDisabledCleanupDelay =
+                TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.KasinoGameDisabledMessageCleanupDelay].ToType<int>());
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, krash is currently disabled.",
+                true, autoDeleteAfter: gameDisabledCleanupDelay);
+            return;
+        }
+
         if (message is { IsWhisper: false, MessageUuid: not null })
         {
             await botInstance.KfClient.DeleteMessageAsync(message.MessageUuid);
@@ -39,7 +54,7 @@ public class KrashBetCommand : ICommand
 
         if (gambler == null)
             throw new InvalidOperationException($"Caught a null when retrieving gambler for {user.KfUsername}");
-        
+
         if (botInstance.BotServices.KasinoKrash == null)
         {
             await botInstance.SendChatMessageAsync("Krash is not currently running.", true, autoDeleteAfter: cleanupDelay);
@@ -62,6 +77,7 @@ public class KrashBetCommand : ICommand
             multi = Convert.ToDecimal(multiGroup.Value);
         }
         wager = Convert.ToDecimal(amountGroup.Value);
+        //decimal wagerLimit = 10;
         if (wager > gambler.Balance)
         {
             await botInstance.SendChatMessageAsync(
@@ -69,6 +85,14 @@ public class KrashBetCommand : ICommand
                 true, autoDeleteAfter: TimeSpan.FromSeconds(5));
             return;
         }
+
+        /*if (wager > wagerLimit)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, you can't bet more than {wagerLimit} on krash during testing.",
+                true, autoDeleteAfter: TimeSpan.FromSeconds(5));
+            return;
+        }*/
         if (botInstance.BotServices.KasinoKrash.TheGame == null)
         {
             //start a new game
@@ -79,6 +103,5 @@ public class KrashBetCommand : ICommand
             //add to the existing game
             await botInstance.BotServices.KasinoKrash.AddParticipant(gambler, wager, multi);
         }
-        */
     }
 }

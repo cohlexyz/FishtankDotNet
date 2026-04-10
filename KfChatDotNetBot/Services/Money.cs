@@ -548,6 +548,6 @@ public static class Money
 
         var systemTz = TimeZoneInfo.FindSystemTimeZoneById(tz.Value);
         var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, systemTz);
-        return new DateTimeOffset(now.Date, systemTz.BaseUtcOffset);
+        return new DateTimeOffset(now.Date, systemTz.GetUtcOffset(now.Date));
     }
 }
