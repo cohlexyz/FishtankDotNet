@@ -244,9 +244,8 @@ public class GetRandomImage : ICommand
     public TimeSpan Timeout => TimeSpan.FromMinutes(10);
     public RateLimitOptionsModel? RateLimitOptions => new()
     {
-        Window = TimeSpan.FromSeconds(30),
-        MaxInvocations = 4,
-        Flags = RateLimitFlags.Global | RateLimitFlags.NoResponse
+        Window = TimeSpan.FromSeconds(30000),
+        MaxInvocations = 4000
     };
     public bool WhisperCanInvoke => false;
     public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
