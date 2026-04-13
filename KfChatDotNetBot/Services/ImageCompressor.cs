@@ -53,8 +53,8 @@ public static class ImageCompressor
             using var img = Image.Load(data);
             if (img.Width > 470 && user != "Gaunt King Ithan Rilph") // this retard gets a pass
             {
-                _logger.Debug($"Quote image is {img.Width}px wide, rejecting (max 400px for quotes)");
-                return (null, $"Image is too wide ({img.Width}px) for a quote - maximum is 400px, otherwise it won't be readable.");
+                _logger.Debug($"Quote image is {img.Width}px wide, rejecting (max 470px for quotes)");
+                return (null, $"Image is too wide ({img.Width}px) for a quote - maximum is 470px, otherwise it won't be readable. Try resizing the browser window to make it narrower before taking the screenshot.");
             }
         }
 
