@@ -61,7 +61,7 @@ public class AddImageCommand : ICommand
         await botInstance.WaitForChatMessageAsync(msg, TimeSpan.FromSeconds(5));
 
 
-        var (result, error) = await ImageCompressor.CompressImageAsync(url, ct: ctx, key: key);
+        var (result, error) = await ImageCompressor.CompressImageAsync(url, user.KfUsername, ct: ctx, key: key);
         if (error != null)
         {
             await botInstance.SendChatMessageAsync($"Failed to add image: {error}", true, whisperTo: user.KfId);

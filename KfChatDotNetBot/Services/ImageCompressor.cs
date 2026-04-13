@@ -11,7 +11,7 @@ public static class ImageCompressor
 {
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
-    public static async Task<(string? result, string? error)> CompressImageAsync(string imageUrl, CancellationToken ct, int quality = 50, string key = "")
+    public static async Task<(string? result, string? error)> CompressImageAsync(string imageUrl, string user, CancellationToken ct, int quality = 50, string key = "")
     {
         var settings = await SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.Proxy, BuiltIn.Keys.KiwiFarmsDomain, BuiltIn.Keys.KiwiFarmsCookies]);
         var handler = new HttpClientHandler
@@ -51,7 +51,7 @@ public static class ImageCompressor
         if (key == "quote")
         {
             using var img = Image.Load(data);
-            if (img.Width > 400)
+            if (img.Width > 470 && user != "Gaunt King Ithan Rilph") // this retard gets a pass
             {
                 _logger.Debug($"Quote image is {img.Width}px wide, rejecting (max 400px for quotes)");
                 return (null, $"Image is too wide ({img.Width}px) for a quote - maximum is 400px, otherwise it won't be readable.");
