@@ -35,7 +35,7 @@ public class MinesCommand : ICommand
     public TimeSpan Timeout => TimeSpan.FromSeconds(30);
 
     private const string BetPattern = @"(?<row>\d+),(?<col>\d+)";
-    private const string ToolUrl = "https://i.ddos.lgbt/raw/baV63V.html";
+    private const string ToolUrl = "https://i.ddos.lgbt/raw/KasinoMinesInterface.html";
 
     public RateLimitOptionsModel? RateLimitOptions => new RateLimitOptionsModel
     {

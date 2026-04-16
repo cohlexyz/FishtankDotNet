@@ -599,6 +599,10 @@ public static class BuiltIn
         public static string KasinoKrashEnabled = "Kasino.Krash.Enabled";
         [BuiltInSetting("Delay in milliseconds before cleaning up krash", SettingValueType.Text, "10000", WholeNumberRegex)]
         public static string KasinoKrashCleanupDelay = "Kasino.Krash.CleanupDelay";
+        [BuiltInSetting("Whether Winna is enabled", SettingValueType.Boolean, "false", BooleanRegex)]
+        public static string WinnaEnabled = "Winna.Enabled";
+        [BuiltInSetting("BossmanJack's Winna username", SettingValueType.Text, "ImBossmanJack")]
+        public static string WinnaBmjUsername = "Winna.BmjUsername";
     }
 }
 
