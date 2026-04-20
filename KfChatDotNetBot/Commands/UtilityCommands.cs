@@ -166,6 +166,24 @@ public class GetLastActivity : ICommand
     }
 }
 
+public class CytubeCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex("^cytube$")
+    ];
+
+    public string? HelpText => "Get the Cytube room URL";
+    public UserRight RequiredRight => UserRight.Guest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => true;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
+        CancellationToken ctx)
+    {
+        await botInstance.SendChatMessageAsync($"Cytube room: https://cytu.be/r/sneedtank", true);
+    }
+}
+
 public class PPVCommand : ICommand
 {
     public List<Regex> Patterns => [
