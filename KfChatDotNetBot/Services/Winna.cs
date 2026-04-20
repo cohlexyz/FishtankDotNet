@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text.Json;
 using KfChatDotNetBot.Models;
+using KfChatDotNetBot.Settings;
 using NLog;
 using Websocket.Client;
 
@@ -34,11 +35,14 @@ public class Winna : IDisposable
 
     private async Task CreateWsClient()
     {
+        var cookies =
+            (await SettingsProvider.GetValueAsync(BuiltIn.Keys.WinnaCookies)).JsonDeserialize<List<string>>();
         var factory = new Func<ClientWebSocket>(() =>
         {
             var clientWs = new ClientWebSocket();
             clientWs.Options.SetRequestHeader("Origin", "https://winna.com");
             clientWs.Options.SetRequestHeader("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0");
+            clientWs.Options.SetRequestHeader("Cookie", string.Join("; ", cookies!));
             if (_proxy == null) return clientWs;
             _logger.Debug($"Using proxy address {_proxy}");
             clientWs.Options.Proxy = new WebProxy(_proxy);

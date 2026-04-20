@@ -599,10 +599,18 @@ public static class BuiltIn
         public static string KasinoKrashEnabled = "Kasino.Krash.Enabled";
         [BuiltInSetting("Delay in milliseconds before cleaning up krash", SettingValueType.Text, "10000", WholeNumberRegex)]
         public static string KasinoKrashCleanupDelay = "Kasino.Krash.CleanupDelay";
+        [BuiltInSetting("Whether Whisper transcription is enabled", SettingValueType.Boolean, "false", BooleanRegex)]
+        public static string WhisperEnabled = "Whisper.Enabled";
+        [BuiltInSetting("Path of the Whisper binary", SettingValueType.Text, "whisper")]
+        public static string WhisperBinaryPath = "Whisper.BinaryPath";
+        [BuiltInSetting("Whisper model name (e.g. tiny, base, small, medium, large)", SettingValueType.Text, "base")]
+        public static string WhisperModel = "Whisper.Model";
         [BuiltInSetting("Whether Winna is enabled", SettingValueType.Boolean, "false", BooleanRegex)]
         public static string WinnaEnabled = "Winna.Enabled";
         [BuiltInSetting("BossmanJack's Winna username", SettingValueType.Text, "ImBossmanJack")]
         public static string WinnaBmjUsername = "Winna.BmjUsername";
+        [BuiltInSetting("Array of cookies as a shitty hack to get Winna going", SettingValueType.Array, "[]")]
+        public static string WinnaCookies = "Winna.Cookies";
     }
 }
 
