@@ -7,7 +7,7 @@ namespace KfChatDotNetBot.Commands;
 
 public class TimeCommand : ICommand
 {
-    public List<Regex> Patterns => [new Regex("^time")];
+    public List<Regex> Patterns => [new Regex("^time$")];
     public string? HelpText => "Get current time in FTT";
     public UserRight RequiredRight => UserRight.Guest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
