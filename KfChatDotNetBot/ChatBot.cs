@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Collections.Concurrent;
+using System.Net;
 using System.Text.Json;
 using Homoglyphic;
 using KfChatDotNetBot.Extensions;
@@ -42,6 +43,7 @@ public class ChatBot
     private List<UserModel> _currentUsersInChat = [];
     private HomoglyphSearch? _homoglyphSearch;
     public int IncomingMessageCounter { get; set; } = 0;
+    internal readonly ConcurrentDictionary<int, DateTimeOffset> ActiveTimeouts = new();
 
     public ChatBot()
     {
@@ -466,6 +468,15 @@ public class ChatBot
                 });
                 while (_recentUserMessages.Count > MaxRecentMessages)
                     _recentUserMessages.Dequeue();
+
+                // Auto-delete messages from timed-out users
+                if (ActiveTimeouts.TryGetValue(message.Author.Id, out var timeoutExpiry))
+                {
+                    if (DateTimeOffset.UtcNow >= timeoutExpiry)
+                        ActiveTimeouts.TryRemove(message.Author.Id, out _);
+                    else
+                        _ = KfClient.DeleteMessageAsync(message.MessageUuid);
+                }
             }
             // Strip weird control characters and just allow basic punctuation + whitespace
             var kindaSanitized = new string(message.MessageRawHtmlDecoded
@@ -942,5 +953,26 @@ public class ChatBot
 
         return await SendChatMessageAsync(response, bypassGambaSesh, lengthLimitBehavior,
             autoDeleteAfter: autoDeleteAfter);
+    }
+
+    public void TimeoutUser(int kfId, TimeSpan duration)
+    {
+        ActiveTimeouts[kfId] = DateTimeOffset.UtcNow.Add(duration);
+    }
+
+    public bool RemoveTimeout(int kfId)
+    {
+        return ActiveTimeouts.TryRemove(kfId, out _);
+    }
+
+    public DateTimeOffset? GetTimeoutExpiry(int kfId)
+    {
+        if (!ActiveTimeouts.TryGetValue(kfId, out var expiry)) return null;
+        if (DateTimeOffset.UtcNow >= expiry)
+        {
+            ActiveTimeouts.TryRemove(kfId, out _);
+            return null;
+        }
+        return expiry;
     }
 }

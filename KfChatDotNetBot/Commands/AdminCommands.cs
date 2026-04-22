@@ -704,3 +704,78 @@ public class NewKickChannelCommand : ICommand
         await botInstance.SendChatMessageAsync("Updated list of channels", true);
     }
 }
+
+public class TimeoutUserCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^admin timeout @(?<username>\S+) (?<duration>\d+)(?<unit>[smh])$")
+    ];
+
+    public string? HelpText => "Timeout a user, auto-deleting their messages for the duration (max 1h). Units: s, m, h";
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => false;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        var raw = int.Parse(arguments["duration"].Value);
+        var unit = arguments["unit"].Value;
+        var duration = unit switch
+        {
+            "s" => TimeSpan.FromSeconds(raw),
+            "m" => TimeSpan.FromMinutes(raw),
+            "h" => TimeSpan.FromHours(raw),
+            _ => TimeSpan.FromSeconds(raw)
+        };
+
+        var maxDuration = TimeSpan.FromHours(1);
+        if (duration > maxDuration) duration = maxDuration;
+
+        await using var db = new ApplicationDbContext();
+        var username = arguments["username"].Value;
+        var targetUser = await db.Users.FirstOrDefaultAsync(u => u.KfUsername == username, cancellationToken: ctx);
+        if (targetUser == null)
+        {
+            await botInstance.SendChatMessageAsync($"@{message.Author.Username}, user '{username}' not found", true);
+            return;
+        }
+
+        botInstance.TimeoutUser(targetUser.KfId, duration);
+        await botInstance.SendChatMessageAsync(
+            $"@{message.Author.Username}, timed out {targetUser.KfUsername} for {duration.Humanize()}", true);
+    }
+}
+
+public class UntimeoutUserCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^admin untimeout @(?<username>\S+)$")
+    ];
+
+    public string? HelpText => "Remove a user's timeout immediately";
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => false;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        await using var db = new ApplicationDbContext();
+        var username = arguments["username"].Value;
+        var targetUser = await db.Users.FirstOrDefaultAsync(u => u.KfUsername == username, cancellationToken: ctx);
+        if (targetUser == null)
+        {
+            await botInstance.SendChatMessageAsync($"@{message.Author.Username}, user '{username}' not found", true);
+            return;
+        }
+
+        if (!botInstance.RemoveTimeout(targetUser.KfId))
+        {
+            await botInstance.SendChatMessageAsync($"@{message.Author.Username}, {targetUser.KfUsername} was not timed out", true);
+            return;
+        }
+
+        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, timeout for {targetUser.KfUsername} removed", true);
+    }
+}
