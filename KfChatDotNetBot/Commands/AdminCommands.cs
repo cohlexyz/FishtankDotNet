@@ -708,7 +708,7 @@ public class NewKickChannelCommand : ICommand
 public class TimeoutUserCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^admin timeout @(?<username>\S+) (?<duration>\d+)(?<unit>[smh])$")
+        new Regex(@"^admin timeout (?<duration>\d+)(?<unit>[smh]) @(?<username>\S+)$")
     ];
 
     public string? HelpText => "Timeout a user, auto-deleting their messages for the duration (max 1h). Units: s, m, h";
