@@ -750,7 +750,7 @@ public class TimeoutUserCommand : ICommand
 public class UntimeoutUserCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^admin untimeout @(?<username>\S+)$")
+        new Regex(@"^admin untimeout @(?<username>.+)$")
     ];
 
     public string? HelpText => "Remove a user's timeout immediately";
