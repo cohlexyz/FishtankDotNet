@@ -17,10 +17,10 @@ namespace KfChatDotNetBot.Commands;
 public class AddImageCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^admin image (?<key>\w+) add (?<url>\S+)(?:\s+(?<tags>.+))?$"),
-        new Regex(@"^admin images (?<key>\w+) add (?<url>\S+)(?:\s+(?<tags>.+))?$"),
-        new Regex(@"^admin image (?<key>\w+) add_nigger (?<url>\S+)(?:\s+(?<tags>.+))?$"),
-        new Regex(@"^admin images (?<key>\w+) add_nigger (?<url>\S+)(?:\s+(?<tags>.+))?$")
+        new Regex(@"^admin image (?<key>\w+) add (?<url>\S+)(?:\s+(?<raw>raw))?(?:\s+(?<tags>.+))?$"),
+        new Regex(@"^admin images (?<key>\w+) add (?<url>\S+)(?:\s+(?<raw>raw))?(?:\s+(?<tags>.+))?$"),
+        new Regex(@"^admin image (?<key>\w+) add_nigger (?<url>\S+)(?:\s+(?<raw>raw))?(?:\s+(?<tags>.+))?$"),
+        new Regex(@"^admin images (?<key>\w+) add_nigger (?<url>\S+)(?:\s+(?<raw>raw))?(?:\s+(?<tags>.+))?$")
     ];
     public string? HelpText => "Add an image to the image rotation specified";
     public UserRight RequiredRight => UserRight.TrueAndHonest;
@@ -37,6 +37,7 @@ public class AddImageCommand : ICommand
         var url = arguments["url"].Value;
         var tags = arguments["tags"].Success ? arguments["tags"].Value.Trim() : null;
         var niggerMode = message.Message.Contains("add_nigger");
+        var rawMode = arguments["raw"].Success;
         if (!imageKeys.Contains(key))
         {
             await botInstance.SendChatMessageAsync(
@@ -57,25 +58,33 @@ public class AddImageCommand : ICommand
             return;
         }
 
-        var msg = await botInstance.SendChatMessageAsync($"Processing image, please wait...", true);
-        await botInstance.WaitForChatMessageAsync(msg, TimeSpan.FromSeconds(5));
-
-
-        var (result, error) = await ImageCompressor.CompressImageAsync(url, user.KfUsername, ct: ctx, key: key);
-        if (error != null)
+        string result;
+        if (rawMode)
         {
-            await botInstance.SendChatMessageAsync($"Failed to add image: {error}", true, whisperTo: user.KfId);
-            return;
+            result = url;
         }
-        if (result == null)
+        else
         {
-            await botInstance.SendChatMessageAsync("Failed to add image for an unknown reason", true, whisperTo: user.KfId);
-            return;
+            var msg = await botInstance.SendChatMessageAsync($"Processing image, please wait...", true);
+            await botInstance.WaitForChatMessageAsync(msg, TimeSpan.FromSeconds(5));
+
+            var (compressed, error) = await ImageCompressor.CompressImageAsync(url, user.KfUsername, ct: ctx, key: key);
+            if (error != null)
+            {
+                await botInstance.SendChatMessageAsync($"Failed to add image: {error}", true, whisperTo: user.KfId);
+                return;
+            }
+            if (compressed == null)
+            {
+                await botInstance.SendChatMessageAsync("Failed to add image for an unknown reason", true, whisperTo: user.KfId);
+                return;
+            }
+            await botInstance.KfClient.DeleteMessageAsync(msg.ChatMessageUuid!);
+            result = compressed;
         }
 
         await db.Images.AddAsync(new ImageDbModel { Key = key, Url = result, LastSeen = DateTimeOffset.MinValue, Tags = tags }, ctx);
         await db.SaveChangesAsync(ctx);
-        await botInstance.KfClient.DeleteMessageAsync(msg.ChatMessageUuid!);
         await botInstance.SendChatMessageAsync(
             $"You added the image to the {key} carousel: [img]{result}[/img]", true, autoDeleteAfter: TimeSpan.FromSeconds(10));
     }
