@@ -76,7 +76,7 @@ public class LegitCheckCommand : ICommand
 
         if (targetUser == null)
         {
-            await botInstance.SendChatMessageAsync($", that user doesn't exist.",
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, that user doesn't exist.",
                 true, whisperTo: user.KfId);
             return;
         }
@@ -107,7 +107,7 @@ public class LegitCheckCommand : ICommand
         if (gamblerIds.Count == 0)
         {
             await botInstance.SendChatMessageAsync(
-                $", {targetUser.KfUsername} has never played at the kasino.", true, whisperTo: user.KfId);
+                $"{user.FormatUsername()}, {targetUser.KfUsername} has never played at the kasino.", true, whisperTo: user.KfId);
             return;
         }
 
@@ -119,7 +119,7 @@ public class LegitCheckCommand : ICommand
         if (wagers.Count == 0)
         {
             await botInstance.SendChatMessageAsync(
-                $", {targetUser.KfUsername} has no completed kasino wagers on record.", true, whisperTo: user.KfId);
+                $"{user.FormatUsername()}, {targetUser.KfUsername} has no completed kasino wagers on record.", true, whisperTo: user.KfId);
             return;
         }
 
@@ -159,7 +159,7 @@ public class LegitCheckCommand : ICommand
 
         // Build response
         var response =
-            $", {targetUser.KfUsername} RTP: {overallRtp:F2}% | " +
+            $"{user.FormatUsername()}, {targetUser.KfUsername} RTP: {overallRtp:F2}% | " +
             $"Wagered: {await totalWagered.FormatKasinoCurrencyAsync()} | " +
             $"Returned: {await totalReturned.FormatKasinoCurrencyAsync()} | " +
             $"Wagers: {wagers.Count:N0}";
