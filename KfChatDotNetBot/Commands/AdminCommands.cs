@@ -1,4 +1,5 @@
 ﻿using System.Runtime.Caching;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Humanizer;
 using KfChatDotNetBot.Extensions;
@@ -9,6 +10,57 @@ using KfChatDotNetWsClient.Models.Events;
 using Microsoft.EntityFrameworkCore;
 
 namespace KfChatDotNetBot.Commands;
+
+file sealed record KickChannelLookupResponse(int Id);
+
+file static class KickChannelInputParser
+{
+    public static bool TryNormalize(string rawInput, out string slug, out string streamUrl)
+    {
+        slug = string.Empty;
+        streamUrl = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(rawInput))
+        {
+            return false;
+        }
+
+        var trimmed = rawInput.Trim();
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+        {
+            if (!string.Equals(uri.Host, "kick.com", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(uri.Host, "www.kick.com", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var segments = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length != 1)
+            {
+                return false;
+            }
+
+            slug = segments[0];
+        }
+        else
+        {
+            if (trimmed.Contains('/') || trimmed.Contains('?') || trimmed.Contains('#') || trimmed.Contains(' '))
+            {
+                return false;
+            }
+
+            slug = trimmed;
+        }
+
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            return false;
+        }
+
+        streamUrl = $"https://kick.com/{slug}";
+        return true;
+    }
+}
 
 public class SetRoleCommand : ICommand
 {
@@ -134,7 +186,7 @@ public class RemoveStreamChannelCommand : ICommand
         new Regex(@"^admin stream remove (?<id>\d+)$")
     ];
 
-    public string? HelpText => "Remove a Kick channel from the bot's database";
+    public string? HelpText => "Remove a stream row from the bot's database by database ID";
     public UserRight RequiredRight => UserRight.Admin;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
@@ -659,8 +711,9 @@ public class SetMotd : ICommand
 public class NewKickChannelCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^admin kick add (?<forum_id>\d+) (?<channel_id>\d+) (?<slug>\S+)$"),
-        new Regex(@"^admin kick add (?<forum_id>\d+) (?<channel_id>\d+) (?<slug>\S+) (?<auto_capture>true|false)$")
+        new Regex(@"^admin kick add (?<channel>\S+)$", RegexOptions.IgnoreCase),
+        new Regex(@"^admin kick add (?<channel>\S+) (?<forum_id>\d+)$", RegexOptions.IgnoreCase),
+        new Regex(@"^admin kick add (?<channel>\S+) (?<forum_id>\d+) (?<auto_capture>true|false)$", RegexOptions.IgnoreCase)
     ];
 
     public string? HelpText => "Add a Kick channel to the bot's database";
@@ -673,22 +726,54 @@ public class NewKickChannelCommand : ICommand
         var autoCapture = false;
         if (arguments.TryGetValue("auto_capture", out var argument))
         {
-            autoCapture = argument.Value == "true";
+            autoCapture = string.Equals(argument.Value, "true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (!KickChannelInputParser.TryNormalize(arguments["channel"].Value, out var slug, out var url))
+        {
+            await botInstance.SendChatMessageAsync("Invalid Kick channel. Use https://kick.com/<channel> or <channel>", true);
+            return;
         }
 
         await using var db = new ApplicationDbContext();
-        var url = $"https://kick.com/{arguments["slug"].Value}";
         if (await db.Streams.AnyAsync(s => s.StreamUrl == url, cancellationToken: ctx))
         {
             await botInstance.SendChatMessageAsync("Channel is already in the database", true);
             return;
         }
 
-        var forumUser = await db.Users.FirstOrDefaultAsync(u => u.KfId == Convert.ToInt32(arguments["forum_id"].Value), cancellationToken: ctx);
-
-        var meta = System.Text.Json.JsonSerializer.Serialize(new KickStreamMetaModel
+        UserDbModel? forumUser = null;
+        if (arguments.TryGetValue("forum_id", out var forumIdArgument))
         {
-            ChannelId = Convert.ToInt32(arguments["channel_id"].Value)
+            var forumUserId = Convert.ToInt32(forumIdArgument.Value);
+            forumUser = await db.Users.FirstOrDefaultAsync(u => u.KfId == forumUserId, cancellationToken: ctx);
+            if (forumUser == null)
+            {
+                await botInstance.SendChatMessageAsync($"User '{forumUserId}' does not exist", true);
+                return;
+            }
+        }
+
+        using var httpClient = new HttpClient();
+        var response = await httpClient.GetAsync($"https://kick.com/api/v2/channels/{slug}", ctx);
+        if (!response.IsSuccessStatusCode)
+        {
+            await botInstance.SendChatMessageAsync($"Failed to look up Kick channel '{slug}'", true);
+            return;
+        }
+
+        var json = await response.Content.ReadAsStringAsync(ctx);
+        var kickChannel = JsonSerializer.Deserialize<KickChannelLookupResponse>(json,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        if (kickChannel == null || kickChannel.Id <= 0)
+        {
+            await botInstance.SendChatMessageAsync($"Kick channel lookup for '{slug}' returned invalid data", true);
+            return;
+        }
+
+        var meta = JsonSerializer.Serialize(new KickStreamMetaModel
+        {
+            ChannelId = kickChannel.Id
         });
 
         db.Streams.Add(new StreamDbModel
@@ -700,6 +785,43 @@ public class NewKickChannelCommand : ICommand
             AutoCapture = autoCapture
         });
 
+        await db.SaveChangesAsync(ctx);
+        await botInstance.SendChatMessageAsync("Updated list of channels", true);
+    }
+}
+
+public class RemoveKickChannelCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^admin kick remove (?<channel>\S+)$", RegexOptions.IgnoreCase)
+    ];
+
+    public string? HelpText => "Remove a Kick channel from the bot's database";
+    public UserRight RequiredRight => UserRight.Admin;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => false;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments, CancellationToken ctx)
+    {
+        if (!KickChannelInputParser.TryNormalize(arguments["channel"].Value, out _, out var streamUrl))
+        {
+            await botInstance.SendChatMessageAsync("Invalid Kick channel. Use https://kick.com/<channel> or <channel>", true);
+            return;
+        }
+
+        await using var db = new ApplicationDbContext();
+        var channel = await db.Streams.FirstOrDefaultAsync(
+            s => s.Service == StreamService.Kick && s.StreamUrl == streamUrl,
+            cancellationToken: ctx);
+
+        if (channel == null)
+        {
+            await botInstance.SendChatMessageAsync("Could not find this Kick channel in the database", true);
+            return;
+        }
+
+        db.Streams.Remove(channel);
         await db.SaveChangesAsync(ctx);
         await botInstance.SendChatMessageAsync("Updated list of channels", true);
     }
