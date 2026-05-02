@@ -12,8 +12,8 @@ public class ApplicationDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder);
-        
+        //modelBuilder.Entity<KasinoShopProfileDbModel>()
+        //    .OwnsOne(p => p.StateData, b => b.ToJson());
     }
 
     public DbSet<UserDbModel> Users { get; set; }

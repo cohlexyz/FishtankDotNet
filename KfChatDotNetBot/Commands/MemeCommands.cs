@@ -210,8 +210,8 @@ public class NextCourtHearingCommand : ICommand
             var timespan = hearing.Time - DateTimeOffset.UtcNow;
             if (timespan.TotalSeconds < 0) continue; // Already passed
             result +=
-                //$"{i}: [url=https://eapps.courts.state.va.us/ocis/details;fromOcis=true;fullcaseNumber=109{hearing.CaseNumber.Replace("-", string.Empty)}]{hearing.CaseNumber}[/url] " +
-                $"{i}: {hearing.CaseNumber} " +
+                $"{i}: [url=https://eapps.courts.state.va.us/ocis/details;fromOcis=true;fullcaseNumber=109{hearing.CaseNumber.Replace("-", string.Empty)}]{hearing.CaseNumber}[/url] " +
+                //$"{i}: {hearing.CaseNumber} " +
                 $"{hearing.Description} will be heard in {timespan.Humanize(precision: 10, minUnit: TimeUnit.Second, maxUnit: TimeUnit.Year)}\r\n";
         }
         return result.Trim();

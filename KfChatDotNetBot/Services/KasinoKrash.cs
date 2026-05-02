@@ -23,15 +23,14 @@ public class KasinoKrash : IDisposable
     {
         _kfChatBot = kfChatBot;
         _ct = ct;
-        var connectionString = SettingsProvider.GetValueAsync(BuiltIn.Keys.BotRedisConnectionString).Result;
-        if (string.IsNullOrEmpty(connectionString.Value))
+        if (!Redis.IsAvailable)
         {
-            _logger.Error($"Can't initialize the Kasino Krash service as Redis isn't configured in {BuiltIn.Keys.BotRedisConnectionString}");
+            _logger.Error($"Can't initialize the Kasino Krash service as Redis isn't configured in {BuiltIn.Keys.BotRedisConnectionString} " +
+                          $"or the Redis service failed to connect");
             return;
         }
 
-        var redis = ConnectionMultiplexer.Connect(connectionString.Value);
-        _redisDb = redis.GetDatabase();
+        _redisDb = Redis.Multiplexer.GetDatabase();
         //attempt to pull a game from the db in case the bot crashed while a game was ongoing. if so it will restart the run 
         TheGame = GetKrashState().Result;
         if (TheGame != null) _ = RunGame();
@@ -203,7 +202,6 @@ public class KasinoKrash : IDisposable
                     await _kfChatBot.SendChatMessageAsync(
                         $"{bet.Gambler.User.FormatUsername()}, due to your poor gambling skills, your bet was scaled down to {await bet.Wager.FormatKasinoCurrencyAsync()} to match your remaining balance.",
                         true, autoDeleteAfter: TimeSpan.FromSeconds(10));
-                    continue;
                 }
             }
             else if (bet.Multi <= TheGame.FinalMulti && bet.Multi != -1)

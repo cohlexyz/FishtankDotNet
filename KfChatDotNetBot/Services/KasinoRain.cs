@@ -22,15 +22,14 @@ public class KasinoRain : IDisposable
     {
         _kfChatBot = kfChatBot;
         _ct = ct;
-        var connectionString = SettingsProvider.GetValueAsync(BuiltIn.Keys.BotRedisConnectionString).Result;
-        if (string.IsNullOrEmpty(connectionString.Value))
+        if (!Redis.IsAvailable)
         {
-            _logger.Error($"Can't initialize the Kasino Rain service as Redis isn't configured in {BuiltIn.Keys.BotRedisConnectionString}");
+            _logger.Error($"Can't initialize the Kasino Rain service as Redis isn't configured in {BuiltIn.Keys.BotRedisConnectionString} " +
+                          $"or the Redis service failed to connect");
             return;
         }
 
-        var redis = ConnectionMultiplexer.Connect(connectionString.Value);
-        _redisDb = redis.GetDatabase();
+        _redisDb = Redis.Multiplexer.GetDatabase();
         _rainTimerTask = Task.Run(RainTimerTask, ct);
     }
 

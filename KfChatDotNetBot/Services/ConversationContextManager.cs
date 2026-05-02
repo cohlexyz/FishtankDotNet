@@ -37,15 +37,14 @@ public class ConversationContextManager
 
     public ConversationContextManager()
     {
-        var connectionString = SettingsProvider.GetValueAsync(BuiltIn.Keys.BotRedisConnectionString).Result;
-        if (string.IsNullOrEmpty(connectionString.Value))
+        if (!Redis.IsAvailable)
         {
-            Logger.Error($"Can't initialize the Nora ConversationContextManager service as Redis isn't configured in {BuiltIn.Keys.BotRedisConnectionString}");
+            Logger.Error($"Can't initialize the Nora ConversationContextManager service as Redis isn't configured in {BuiltIn.Keys.BotRedisConnectionString} " +
+                         $"or the Redis client failed to connect");
             throw new InvalidOperationException("Redis isn't configured");
         }
         
-        var redis = ConnectionMultiplexer.Connect(connectionString.Value);
-        _redisDb = redis.GetDatabase();
+        _redisDb = Redis.Multiplexer.GetDatabase();
     }
 
     public static string GetContextKeyAsync(string mode, int userId, int roomId)
