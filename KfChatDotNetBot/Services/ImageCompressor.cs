@@ -95,7 +95,8 @@ public static class ImageCompressor
             // Retry up to 3 more times with progressively reduced quality and size
             int retryQuality = quality;
             string retryResize = "250x>";
-            for (int attempt = 1; outputBytes.Length > 2_700_000 && attempt <= 5; attempt++)
+            const int limit = 2_700_000; // 2 MB limit for Discord
+            for (int attempt = 1; outputBytes.Length > limit && attempt <= 5; attempt++)
             {
                 retryQuality = Math.Max(10, retryQuality - 10);
                 retryResize = attempt switch
@@ -137,7 +138,7 @@ public static class ImageCompressor
                 _logger.Debug($"Retry {attempt} compressed size: {outputBytes.Length / 1024.0:F2} KB");
             }
 
-            if (outputBytes.Length > 2_000_000)
+            if (outputBytes.Length > limit)
             {
                 var error = $"Compressed image is still larger than 2 MB after 3 retries ({outputBytes.Length / 1024.0 / 1024.0:F2} MB). You'll have to compress it yourself.";
                 _logger.Warn(error);
