@@ -355,12 +355,12 @@ public class XeetEmbedCommand : ICommand
             {
                 bodyBuilder.Append("[/spoiler]");
             }
+            bodyBuilder.Append("[br]");
         }
 
         // Handle quote tweet (if this tweet quotes another)
         if (tweet.Quote != null)
         {
-            bodyBuilder.Append("[br]");
             var quoteTweet = tweet.Quote;
             var quoteCreated = DateTimeOffset.FromUnixTimeSeconds(quoteTweet.CreatedTimestamp);
             bodyBuilder.Append($"[i]💬 Quoting:[/i][br]");
