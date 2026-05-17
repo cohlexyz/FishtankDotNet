@@ -1,4 +1,5 @@
 # Common IntelliJ Platform excludes
+*.sqlite
 
 # User specific
 **/.idea/**/workspace.xml
