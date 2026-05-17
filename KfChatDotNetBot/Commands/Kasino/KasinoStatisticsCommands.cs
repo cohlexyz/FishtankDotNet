@@ -35,21 +35,23 @@ public class GetBiggestWins : ICommand
         foreach (var win in biggestMultees)
         {
             i++;
-            multeesMsg += $"[br]{i}. {win.Gambler.User.KfUsername} bet {await win.WagerAmount.FormatKasinoCurrencyAsync()} on {win.Game.Humanize()} and won {await win.WagerEffect.FormatKasinoCurrencyAsync()} ({win.Multiplier:N}x)";
+            var winPlusWager = win.WagerEffect + win.WagerAmount;
+            multeesMsg += $"[br]{i}. {win.Gambler.User.FormatUsername()} bet {await win.WagerAmount.FormatKasinoCurrencyAsync()} on {win.Game.Humanize()} and won {await winPlusWager.FormatKasinoCurrencyAsync()} ({win.Multiplier:N2}x)";
         }
         var bigWinsMsg = $"Big wins adding up to {await biggestWins.Sum(x => x.WagerEffect).FormatKasinoCurrencyAsync()}:";
         i = 0;
         foreach (var win in biggestWins)
         {
             i++;
-            bigWinsMsg += $"[br]{i}. {win.Gambler.User.KfUsername} bet {await win.WagerAmount.FormatKasinoCurrencyAsync()} on {win.Game.Humanize()} and won {await win.WagerEffect.FormatKasinoCurrencyAsync()} ({win.Multiplier:N}x)";
+            var winPlusWager = win.WagerEffect + win.WagerAmount;
+            bigWinsMsg += $"[br]{i}. {win.Gambler.User.FormatUsername()} bet {await win.WagerAmount.FormatKasinoCurrencyAsync()} on {win.Game.Humanize()} and won {await winPlusWager.FormatKasinoCurrencyAsync()} ({win.Multiplier:N2}x)";
         }
 
         var msgs = new List<string>
         {
             $"Top 10 biggest wins for game day {gameDay:yyyy-MM-dd}" +
-            $"[br]Big Multees[br][spoiler]{multeesMsg}[/spoiler]",
-            $"Big Wins[br][spoiler]{bigWinsMsg}[/spoiler]"
+            $"[spoiler=\"Big Multees\"]{multeesMsg}[/spoiler]",
+            $"[spoiler=\"Big Wins\"]{bigWinsMsg}[/spoiler]"
         };
         
         await botInstance.SendChatMessagesAsync(msgs, true, autoDeleteAfter: TimeSpan.FromSeconds(60));

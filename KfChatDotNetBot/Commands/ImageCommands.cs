@@ -7,9 +7,7 @@ using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
 using KfChatDotNetBot.Services;
 using KfChatDotNetBot.Settings;
-using KfChatDotNetWsClient.Models.Events;
 using Microsoft.EntityFrameworkCore;
-using NLog;
 
 namespace KfChatDotNetBot.Commands;
 
@@ -17,12 +15,11 @@ namespace KfChatDotNetBot.Commands;
 public class AddImageCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^admin image (?<key>\w+) add (?<url>\S+)(?:\s+(?<raw>raw))?(?:\s+(?<tags>.+))?$"),
-        new Regex(@"^admin images (?<key>\w+) add (?<url>\S+)(?:\s+(?<raw>raw))?(?:\s+(?<tags>.+))?$"),
-        new Regex(@"^admin image (?<key>\w+) add_nigger (?<url>\S+)(?:\s+(?<raw>raw))?(?:\s+(?<tags>.+))?$"),
-        new Regex(@"^admin images (?<key>\w+) add_nigger (?<url>\S+)(?:\s+(?<raw>raw))?(?:\s+(?<tags>.+))?$")
+        new Regex(@"^admin (image|images) (?<key>\w+) (add|add_nigger) (?<url>\S+) (?<raw>raw) (?<tags>.+)$", RegexOptions.IgnoreCase),
+        new Regex(@"^admin (image|images) (?<key>\w+) (add|add_nigger) (?<url>\S+) (?<tags>.+)$", RegexOptions.IgnoreCase),
+        new Regex(@"^admin (image|images) (?<key>\w+) (add|add_nigger) (?<url>\S+)$", RegexOptions.IgnoreCase)
     ];
-    public string? HelpText => "Add an image to the image rotation specified";
+    public string HelpText => "Add an image to the image rotation specified";
     public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(120);
     public RateLimitOptionsModel? RateLimitOptions => null;
@@ -35,13 +32,14 @@ public class AddImageCommand : ICommand
         if (imageKeys == null) throw new InvalidOperationException($"{BuiltIn.Keys.BotImageAcceptableKeys} was null");
         var key = arguments["key"].Value;
         var url = arguments["url"].Value;
-        var tags = arguments["tags"].Success ? arguments["tags"].Value.Trim() : null;
+        var tags = arguments.TryGetValue("tags", out var tagsArg) ? tagsArg.Value.ToLower().Split(" ").ToList() : [];
         var niggerMode = message.Message.Contains("add_nigger");
-        var rawMode = arguments["raw"].Success;
+        // TODO: Implement real and raw mode
+        //var _rawMode = arguments.ContainsKey("raw");
         if (!imageKeys.Contains(key))
         {
             await botInstance.SendChatMessageAsync(
-                $"Key you specified is not supported. Available keys are: {string.Join(' ', imageKeys)}", true, whisperTo: user.KfId);
+                $"Key you specified is not supported. Available keys are: {imageKeys.Humanize()}", true);
             return;
         }
 
@@ -58,35 +56,105 @@ public class AddImageCommand : ICommand
             return;
         }
 
-        string result;
-        if (rawMode)
+        if (!Uri.TryCreate(url, UriKind.Absolute, out _))
         {
-            result = url;
-        }
-        else
-        {
-            var msg = await botInstance.SendChatMessageAsync($"Processing image, please wait...", true);
-            await botInstance.WaitForChatMessageAsync(msg, TimeSpan.FromSeconds(5));
-
-            var (compressed, error) = await ImageCompressor.CompressImageAsync(url, user.KfUsername, ct: ctx, key: key);
-            if (error != null)
-            {
-                await botInstance.SendChatMessageAsync($"Failed to add image: {error}", true, whisperTo: user.KfId);
-                return;
-            }
-            if (compressed == null)
-            {
-                await botInstance.SendChatMessageAsync("Failed to add image for an unknown reason", true, whisperTo: user.KfId);
-                return;
-            }
-            await botInstance.KfClient.DeleteMessageAsync(msg.ChatMessageUuid!);
-            result = compressed;
+            await botInstance.SendWhisperAsync(user.KfId, $"The URL '{url}' you provided is not valid");
+            return;
         }
 
-        await db.Images.AddAsync(new ImageDbModel { Key = key, Url = result, LastSeen = DateTimeOffset.MinValue, Tags = tags }, ctx);
+        var result = url;
+        // todo add automatic compression/re-upload and raw mode option
+
+        await db.Images.AddAsync(new ImageDbModel
+        {
+            Key = key,
+            Url = result,
+            LastSeen = DateTimeOffset.MinValue,
+            TagList = tags,
+            Metadata = new ImageMetadataModel { AddedByUserId = user.Id, WhenAdded = DateTimeOffset.UtcNow }
+        }, ctx);
+        var count = await db.Images.Where(i => i.Key == key).CountAsync(cancellationToken: ctx);
         await db.SaveChangesAsync(ctx);
         await botInstance.SendChatMessageAsync(
-            $"You added the image to the {key} carousel: [img]{result}[/img]", true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            $"{user.FormatUsername()}, you added the following media to the {key} carousel which now has {count:N0} images[spoiler=\"Image\"][img]{url}[/img]", true);
+    }
+}
+
+public class AddImageTagsCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^admin (image|images) tag (?<id>\d+) (?<tags>.+)$", RegexOptions.IgnoreCase),
+        new Regex(@"^(image|images) tag (?<id>\d+) (?<tags>.+)$", RegexOptions.IgnoreCase),
+    ];
+    public string HelpText => "Add tags to an image";
+    public UserRight RequiredRight => UserRight.Guest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => false;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
+        CancellationToken ctx)
+    {
+        await using var db = new ApplicationDbContext();
+        var id = Convert.ToInt32(arguments["id"].Value);
+        var tags = arguments["tags"].Value.ToLower()
+            .Split(" ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        var image = await db.Images.FirstOrDefaultAsync(i => i.Id == id, cancellationToken: ctx);
+        if (image == null)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, the image ID you specified does not exist", true,
+                autoDeleteAfter: TimeSpan.FromSeconds(15));
+            return;
+        }
+
+        if (tags.Any(tag => tag.Length > 50))
+        {
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, tag length limit is 50 characters",
+                true);
+            return;
+        }
+
+        image.TagList = image.TagList.Concat(tags).Distinct().ToList();
+        if (image.TagList.Count > 50)
+        {
+            await botInstance.SendChatMessageAsync($"{user.FormatUsername()}, {id} has a shitload of tags already!",
+                true);
+            return;
+        }
+        await db.SaveChangesAsync(ctx);
+        await botInstance.SendChatMessageAsync(
+            $"{user.FormatUsername()}, updated tags for image ID {id} with {image.TagList.Humanize()}", true);
+    }
+}
+
+public class UntagImageCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^admin (image|images) untag (?<id>\d+)$", RegexOptions.IgnoreCase)
+    ];
+    public string HelpText => "Remove tags from an image";
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+    public bool WhisperCanInvoke => false;
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
+        CancellationToken ctx)
+    {
+        await using var db = new ApplicationDbContext();
+        var id = Convert.ToInt32(arguments["id"].Value);
+        var image = await db.Images.FirstOrDefaultAsync(i => i.Id == id, cancellationToken: ctx);
+        if (image == null)
+        {
+            await botInstance.SendChatMessageAsync(
+                $"{user.FormatUsername()}, the image ID you specified does not exist", true,
+                autoDeleteAfter: TimeSpan.FromSeconds(15));
+            return;
+        }
+
+        image.TagList = [];
+        await db.SaveChangesAsync(ctx);
+        await botInstance.SendChatMessageAsync(
+            $"{user.FormatUsername()}, removed tags from {id}", true);
     }
 }
 [DontDeleteInvocationMessage]
@@ -94,12 +162,9 @@ public class AddImageCommand : ICommand
 public class RemoveImageCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^admin image (?<key>\w+) remove (?<url>.+)$"),
-        new Regex(@"^admin images (?<key>\w+) remove (?<url>.+)$"),
-        new Regex(@"^admin image (?<key>\w+) delete (?<url>.+)$"),
-        new Regex(@"^admin images (?<key>\w+) delete (?<url>.+)$")
+        new Regex(@"^admin (image|images) (?<key>\w+) (remove|delete) (?<url>.+)$"),
     ];
-    public string? HelpText => "Remove an image from the image rotation specified";
+    public string HelpText => "Remove an image from the image rotation specified";
     public UserRight RequiredRight => UserRight.TrueAndHonest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
@@ -128,22 +193,26 @@ public class RemoveImageCommand : ICommand
 
         db.Images.Remove(image);
         await db.SaveChangesAsync(ctx);
-        // await botInstance.SendChatMessageAsync("Removed image from database", true);
         await botInstance.SendChatMessageAsync(
-            $"You removed the image from the {key} carousel: [img]{url}[/img]", true, autoDeleteAfter: TimeSpan.FromSeconds(10));
+            $"{user.FormatUsername()}, you removed the following media from the {key} carousel[spoiler=\"Image\"][img]{url}[/img]", true);
     }
 }
 
 public class ListImageCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^admin image (?<key>\w+) list$"),
-        new Regex(@"^admin images (?<key>\w+) list$")
+        new Regex(@"^admin (image|images) (?<key>\w+) list$"),
+        new Regex(@"^(image|images) (?<key>\w+) list$"),
     ];
-    public string? HelpText => "Remove an image from the image rotation specified";
-    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public string HelpText => "List images for a given carousel";
+    public UserRight RequiredRight => UserRight.Guest;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
-    public RateLimitOptionsModel? RateLimitOptions => null;
+    public RateLimitOptionsModel RateLimitOptions => new()
+    {
+        Flags = RateLimitFlags.None,
+        MaxInvocations = 2,
+        Window = TimeSpan.FromSeconds(15)
+    };
     public bool WhisperCanInvoke => false;
     public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
@@ -156,19 +225,19 @@ public class ListImageCommand : ICommand
         if (!imageKeys.Contains(key))
         {
             await botInstance.SendChatMessageAsync(
-                $"Key you specified is not supported. Available keys are: {string.Join(' ', imageKeys)}", true, whisperTo: user.KfId);
+                $"Key you specified is not supported. Available keys are: {imageKeys.Humanize()}", true);
             return;
         }
 
         var images = db.Images.Where(i => i.Key == key);
-        if (await images.CountAsync(cancellationToken: ctx) > 20 && await Zipline.IsZiplineEnabled())
+        if (await images.CountAsync(cancellationToken: ctx) > 10 && await Zipline.IsZiplineEnabled())
         {
             var content = string.Empty;
             foreach (var image in images)
             {
                 var ts = DateTimeOffset.UtcNow - image.LastSeen;
                 var time = $"{ts.TotalDays:N0}d{ts.Hours:N0}h{ts.Minutes:N0}m{ts.Seconds:N0}s";
-                content += $"{image.Url} - {time} - {image.Tags}" + Environment.NewLine;
+                content += $"{image.Url} (ID: {image.Id}) - {time} - {image.TagList.Humanize()}" + Environment.NewLine;
             }
 
             var paste = await Zipline.Upload(content, new MediaTypeHeaderValue("text/plain"), "1d", ctx);
@@ -182,7 +251,7 @@ public class ListImageCommand : ICommand
         {
             i++;
             var ts = DateTimeOffset.UtcNow - image.LastSeen;
-            result += $"[br]{i}: {image.Url} (Last seen {ts.TotalDays:N0}d{ts.Hours:N0}h{ts.Minutes:N0}m{ts.Seconds:N0}s ago)";
+            result += $"[br]{i}: {image.Url} (ID: {image.Id}) (Last seen {ts.TotalDays:N0}d{ts.Hours:N0}h{ts.Minutes:N0}m{ts.Seconds:N0}s ago)";
         }
 
         await botInstance.SendChatMessagesAsync(result.FancySplitMessage(partSeparator: "[br]"),
@@ -193,51 +262,51 @@ public class ListImageCommand : ICommand
 public class ManageImageKeyCommand : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^admin imagekey add (?<key>\w+)$"),
-        new Regex(@"^admin imagekey remove (?<key>\w+)$"),
-        new Regex(@"^admin imagekey delete (?<key>\w+)$"),
-        new Regex(@"^admin imageskey add (?<key>\w+)$"),
-        new Regex(@"^admin imageskey remove (?<key>\w+)$"),
-        new Regex(@"^admin imageskey delete (?<key>\w+)$")
+        new Regex(@"^admin (imagekey|imageskey) (?<operation>add|remove|delete) (?<key>\w+)$"),
     ];
-    public string? HelpText => "Add or remove an acceptable image key from the BotImageAcceptableKeys setting";
+    public string HelpText => "Add or remove an acceptable image key from the BotImageAcceptableKeys setting";
     public UserRight RequiredRight => UserRight.Admin;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
-    public bool WhisperCanInvoke => false;
+    public bool WhisperCanInvoke => true;
     public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user, GroupCollection arguments,
         CancellationToken ctx)
     {
         var imageKeys = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.BotImageAcceptableKeys)).JsonDeserialize<List<string>>();
         if (imageKeys == null) throw new InvalidOperationException($"{BuiltIn.Keys.BotImageAcceptableKeys} was null");
         var key = arguments["key"].Value.ToLower();
-        var isAdd = message.Message.Contains(" add ");
+        var operation = arguments["operation"].Value.ToLower();
 
-        if (isAdd)
+        if (operation is "add")
         {
             if (imageKeys.Contains(key))
             {
-                await botInstance.SendChatMessageAsync($"Key \"{key}\" is already in the acceptable keys list", true, whisperTo: user.KfId);
+                await botInstance.ReplyToUser(message, $"Key \"{key}\" is already in the acceptable keys list", true);
                 return;
             }
             imageKeys.Add(key);
             await SettingsProvider.SetValueAsync(BuiltIn.Keys.BotImageAcceptableKeys, JsonSerializer.Serialize(imageKeys));
-            await botInstance.SendChatMessageAsync(
-                $"Added key \"{key}\" to acceptable image keys. Current keys: {string.Join(' ', imageKeys)}", true, whisperTo: user.KfId);
+            await botInstance.ReplyToUser(message,
+                $"Added key \"{key}\" to acceptable image keys. Current keys: {imageKeys.Humanize()}", true);
+            return;
         }
-        else
+
+        if (operation is "remove" or "delete")
         {
             if (!imageKeys.Contains(key))
             {
-                await botInstance.SendChatMessageAsync(
-                    $"Key \"{key}\" is not in the acceptable keys list. Current keys: {string.Join(' ', imageKeys)}", true, whisperTo: user.KfId);
+                await botInstance.ReplyToUser(message,
+                    $"Key \"{key}\" is not in the acceptable keys list. Current keys: {imageKeys.Humanize()}", true);
                 return;
             }
             imageKeys.Remove(key);
             await SettingsProvider.SetValueAsync(BuiltIn.Keys.BotImageAcceptableKeys, JsonSerializer.Serialize(imageKeys));
-            await botInstance.SendChatMessageAsync(
-                $"Removed key \"{key}\" from acceptable image keys. Current keys: {string.Join(' ', imageKeys)}", true, whisperTo: user.KfId);
+            await botInstance.ReplyToUser(message,
+                $"Removed key \"{key}\" from acceptable image keys. Current keys: {imageKeys.Humanize()}", true);
+            return;
         }
+
+        await botInstance.ReplyToUser(message, $"Operation '{operation}' not supported", true);
     }
 }
 
@@ -246,12 +315,15 @@ public class ManageImageKeyCommand : ICommand
 public class GetRandomImage : ICommand
 {
     public List<Regex> Patterns => [
-        new Regex(@"^(?<key>\w+)(?:\s+(?<search>.+))?")
+        new Regex(@"^(?<key>\w+)$"),
+        new Regex(@"^(?<key>\w+) (?<search>.+)"),
+        new Regex("^untagged$", RegexOptions.IgnoreCase),
+        new Regex("^i (?<search>.+)")
     ];
-    public string? HelpText => "Get a random image";
+    public string HelpText => "Get a random image";
     public UserRight RequiredRight => UserRight.Loser;
     public TimeSpan Timeout => TimeSpan.FromMinutes(10);
-    public RateLimitOptionsModel? RateLimitOptions => new()
+    public RateLimitOptionsModel RateLimitOptions => new()
     {
         Window = TimeSpan.FromSeconds(30000),
         MaxInvocations = 4000
@@ -261,9 +333,16 @@ public class GetRandomImage : ICommand
         CancellationToken ctx)
     {
         await using var db = new ApplicationDbContext();
-        var key = arguments["key"].Value.ToLower();
-        var searchTerm = arguments["search"].Success ? arguments["search"].Value.Trim() : null;
-        var images = db.Images.Where(i => i.Key == key);
+        var untagged = message.MessageRawHtmlDecoded.EndsWith("untagged", StringComparison.CurrentCultureIgnoreCase);
+        var keyKnown = arguments.TryGetValue("key", out var keyGroup);
+        var key = "everything";
+        if (keyKnown) key = keyGroup!.Value;
+        var searchTerm = arguments.TryGetValue("search", out var searchArg) ? searchArg.Value.ToLower().Trim() : null;
+        var images = db.Images.AsQueryable();
+        if (keyKnown)
+        {
+            images = images.Where(i => i.Key == key);
+        }
         if (!await images.AnyAsync(ctx))
         {
             RateLimitService.RemoveMostRecentEntry(user, this);
@@ -282,56 +361,73 @@ public class GetRandomImage : ICommand
             BuiltIn.Keys.BotImageChinkSelfDestruct, BuiltIn.Keys.BotImageChinkSelfDestructDelay
         ]);
 
-        ImageDbModel image;
+        var selection = await images.ToListAsync(ctx);
+        // It's buried down here instead of right up the top since it needs to be a list first as SQLite doesn't have
+        // native support for JSON types so it won't be able to construct a query to see if it's empty using IQueryable
+        if (untagged)
+        {
+            selection = selection.Where(s => s.TagList.Count == 0).ToList();
+        }
         if (!string.IsNullOrEmpty(searchTerm))
         {
-            var allImages = await images.ToListAsync(ctx);
             var searchTokens = searchTerm.ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var matches = allImages.Where(i =>
-            {
-                if (i.Tags == null) return false;
-                var tagTokens = i.Tags.ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                return searchTokens.All(st => tagTokens.Contains(st));
-            }).ToList();
-            if (matches.Count == 0)
+            selection = searchTokens.Aggregate(selection, (current, token) =>
+                current.Where(i => i.TagList.Count > 0 && i.TagList.Contains(token)).ToList());
+            if (selection.Count == 0)
             {
                 RateLimitService.RemoveMostRecentEntry(user, this);
-                await botInstance.SendChatMessageAsync($"No image in {key} matched \"{searchTerm}\"", true, whisperTo: user.KfId);
+                await botInstance.SendChatMessageAsync($"No image in {key} matched \"{searchTerm}\"", true);
                 return;
             }
-            image = matches.OrderBy(i => i.LastSeen).First();
         }
-        else
+        var divideBy = settings[BuiltIn.Keys.BotImageRandomSliceDivideBy].ToType<int>();
+        var limit = 1;
+        var count = await images.CountAsync(ctx);
+        if (count > divideBy)
         {
-            var divideBy = settings[BuiltIn.Keys.BotImageRandomSliceDivideBy].ToType<int>();
-            var limit = 1;
-            var count = await images.CountAsync(ctx);
-            if (count > divideBy)
-            {
-                limit = count / divideBy;
-            }
-
-            // EF with SQLite can't sort on dates as it's just TEXT
-            var selection = (await images.ToListAsync(ctx)).OrderBy(i => i.LastSeen).Take(limit).ToList();
-            // MaxValue is never returned by Next so you don't need to -1 for indexing
-            image = selection[new Random().Next(0, selection.Count)];
+            limit = count / divideBy;
         }
+
+        // EF with SQLite can't sort on dates as it's just TEXT
+        selection = selection.OrderBy(i => i.LastSeen).Take(limit).ToList();
+        // MaxValue is never returned by Next so you don't need to -1 for indexing
+        var image = selection[new Random().Next(0, selection.Count)];
         image.LastSeen = DateTimeOffset.UtcNow;
         db.Images.Update(image);
         await db.SaveChangesAsync(ctx);
         TimeSpan? timeToDeletion = null;
-        if (key == "pigcube" && settings[BuiltIn.Keys.BotImagePigCubeSelfDestruct].ToBoolean())
+        if (image.Key == "pigcube" && settings[BuiltIn.Keys.BotImagePigCubeSelfDestruct].ToBoolean())
         {
             timeToDeletion = TimeSpan.FromMilliseconds(image.Url == settings[BuiltIn.Keys.BotImageInvertedCubeUrl].Value
                 ? settings[BuiltIn.Keys.BotImageInvertedPigCubeSelfDestructDelay].ToType<int>()
                 : new Random().Next(settings[BuiltIn.Keys.BotImagePigCubeSelfDestructMin].ToType<int>(),
                     settings[BuiltIn.Keys.BotImagePigCubeSelfDestructMax].ToType<int>()));
         }
-        else if (key is "chink" or "sloppa" && settings[BuiltIn.Keys.BotImageChinkSelfDestruct].ToBoolean())
+        else if (image.Key is "chink" or "sloppa" && settings[BuiltIn.Keys.BotImageChinkSelfDestruct].ToBoolean())
         {
             RateLimitService.AddEntry(user, this, message.MessageRawHtmlDecoded);
             timeToDeletion = TimeSpan.FromMilliseconds(settings[BuiltIn.Keys.BotImageChinkSelfDestructDelay].ToType<int>());
         }
-        await botInstance.SendChatMessageAsync($"[img]{image.Url}[/img]", true, autoDeleteAfter: timeToDeletion);
+
+        var addedBy = "Unknown";
+        var whenAdded = "Unknown";
+        if (image.Metadata != null)
+        {
+            var addedByUser = await db.Users.FirstOrDefaultAsync(u => u.Id == image.Metadata.AddedByUserId, cancellationToken: ctx);
+            addedBy = addedByUser?.KfUsername ?? $"User ID {image.Metadata.AddedByUserId} for this image didn't point to a real user?";
+            whenAdded = image.Metadata.WhenAdded.ToString("yyyy-MM-dd HH:mm:ss zzz");
+        }
+
+        var imageMeta =
+            $"[size=60][spoiler=\"Image Info\"][heading=1]ID: {image.Id}; Tags: {image.TagList.Humanize()}; Carousel: {image.Key}; Added By: {addedBy}; Date Added: {whenAdded}[/heading][/spoiler][/size]";
+
+        var tagNag = string.Empty;
+        if (image.TagList.Count == 0)
+        {
+            tagNag = $"[br]This image has no tags. You can add some using [ditto]!images tag {image.Id} [/ditto]";
+        }
+
+        var result = $"[img]{image.Url}[/img]{tagNag}[br]{imageMeta}";
+        await botInstance.SendChatMessageAsync(result, true, autoDeleteAfter: timeToDeletion);
     }
 }

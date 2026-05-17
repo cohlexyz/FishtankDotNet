@@ -115,7 +115,7 @@ public class Planes : ICommand
                 _riggedWin = true;
             }
         }
-
+        var size = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.KasinoPlanesSize)).ToType<int>();
         var planesBoard = CreatePlanesBoard(gambler, 0);
         var planesBoard2 = CreatePlanesBoard(gambler);
         var planesBoard3 = CreatePlanesBoard(gambler);
@@ -125,7 +125,7 @@ public class Planes : ICommand
         var fullCounter = 0;
         var noseUp = true;
         var planesDisplay = GetPreGameBoard(-3, planesBoard2, plane, CarrierCount, noseUp);
-        var msgId = await botInstance.SendChatMessageAsync(planesDisplay, true);
+        var msgId = await botInstance.SendChatMessageAsync($"[size={size}]" + planesDisplay, true);
         var num = 0;
         while (msgId.ChatMessageUuid == null)
         {
@@ -149,14 +149,14 @@ public class Planes : ICommand
             if (fullCounter >= 3)
             {
                 planesDisplay = GetGameBoard(fullCounter, planesBoards, plane, CarrierCount, noseUp);
-                planesDisplay += $"[br]Multi: {plane.MultiTracker}x";
+                planesDisplay += $"[/size][br]Multi: {plane.MultiTracker}x";
                 for (var i = 0; i < 10; i++)
                 {
                     planesDisplay += BlankSpace;
                 }
                 var winnings = plane.MultiTracker * wager;
                 planesDisplay += $"Winnings: {await winnings.FormatKasinoCurrencyAsync()}";
-                await botInstance.KfClient.EditMessageAsync(msgId.ChatMessageUuid, planesDisplay);
+                await botInstance.KfClient.EditMessageAsync(msgId.ChatMessageUuid, $"[size={size}]" + planesDisplay);
             }
 
             var neutral = false;
@@ -167,7 +167,7 @@ public class Planes : ICommand
                 {
                     counter = (fullCounter - 3) % 24;
                     planesDisplay = GetPreGameBoard(fullCounter, planesBoard2, plane, CarrierCount, noseUp);
-                    await botInstance.KfClient.EditMessageAsync(msgId.ChatMessageUuid, planesDisplay);
+                    await botInstance.KfClient.EditMessageAsync(msgId.ChatMessageUuid, $"[size={size}]" + planesDisplay);
                     await Task.Delay(TimeSpan.FromMilliseconds(frameLength), ctx);
                     fullCounter++;
                 }
@@ -236,7 +236,7 @@ public class Planes : ICommand
                         logger.Error(e);
                         throw;
                     }
-                    planesDisplay += $"[br]Multi: {plane.MultiTracker}x";
+                    planesDisplay += $"[/size][br]Multi: {plane.MultiTracker}x";
                     for (var i = 0; i < 10; i++)
                     {
                         planesDisplay += BlankSpace;
@@ -244,7 +244,7 @@ public class Planes : ICommand
 
                     var winnings = plane.MultiTracker * wager;
                     planesDisplay += $"Winnings: {await winnings.FormatKasinoCurrencyAsync()}";
-                    await botInstance.KfClient.EditMessageAsync(msgId.ChatMessageUuid, planesDisplay);
+                    await botInstance.KfClient.EditMessageAsync(msgId.ChatMessageUuid, $"[size={size}]" + planesDisplay);
                     if (plane.Height > 5)
                     {
                         break;
@@ -272,7 +272,7 @@ public class Planes : ICommand
             var win = plane.MultiTracker * wager;
             newBalance = await Money.NewWagerAsync(gambler.Id, wager, win, WagerGame.Planes, ct: ctx);
             planesDisplay = GetGameBoard(fullCounter, planesBoards, plane, CarrierCount, noseUp);
-            await botInstance.KfClient.EditMessageAsync(msgId.ChatMessageUuid, planesDisplay);
+            await botInstance.KfClient.EditMessageAsync(msgId.ChatMessageUuid, $"[size={size}]" + planesDisplay);
             await botInstance.SendChatMessageAsync(
                 $"{user.FormatUsername()}, you [color={colors[BuiltIn.Keys.KiwiFarmsGreenColor].Value}]successfully landed with {await win.FormatKasinoCurrencyAsync()} from a total {plane.MultiTracker:N2}x multi![/color]. Your balance is now: {await newBalance.FormatKasinoCurrencyAsync()}",
                 true, autoDeleteAfter: cleanupDelay);
@@ -290,7 +290,7 @@ public class Planes : ICommand
         newBalance = await Money.NewWagerAsync(gambler.Id, wager, -wager, WagerGame.Planes, ct: ctx);
         planesDisplay = GetGameBoard(fullCounter, planesBoards, plane, CarrierCount, noseUp);
         await Task.Delay(TimeSpan.FromMilliseconds(frameLength), ctx);
-        await botInstance.KfClient.EditMessageAsync(msgId.ChatMessageUuid, planesDisplay);
+        await botInstance.KfClient.EditMessageAsync(msgId.ChatMessageUuid, $"[size={size}]" + planesDisplay);
         await botInstance.SendChatMessageAsync(
             $"{user.FormatUsername()}, you [color={colors[BuiltIn.Keys.KiwiFarmsRedColor].Value}]crashed![/color] Your balance is now: {await newBalance.FormatKasinoCurrencyAsync()}",
             true, autoDeleteAfter: cleanupDelay);
@@ -364,7 +364,7 @@ public class Planes : ICommand
 
             output += "[br]";
         }
-        return output;
+        return output.GridToTable();
     }
 
     private string GetGameBoard(int fullCounter, List<int[,]> planesBoards, Plane plane, int carrierCount, bool noseUp)
@@ -441,7 +441,7 @@ public class Planes : ICommand
             }
             output += "[br]";
         }
-        return output;
+        return output.GridToTable();
     }
 
     private int[,] CreatePlanesBoard(GamblerDbModel gambler, int forceTiles = -1)
