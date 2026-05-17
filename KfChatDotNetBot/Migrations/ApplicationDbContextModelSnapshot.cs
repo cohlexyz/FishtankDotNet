@@ -231,13 +231,6 @@ namespace KfChatDotNetBot.Migrations
                     b.Property<DateTimeOffset>("LastSeen")
                         .HasColumnType("TEXT");
 
-                    b.PrimitiveCollection<string>("TagList")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Tags")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Url")
                         .IsRequired()
                         .HasColumnType("TEXT");

@@ -5,7 +5,7 @@
 namespace KfChatDotNetBot.Migrations
 {
     /// <inheritdoc />
-    public partial class AddImageTags : Migration
+    public partial class ImageTags : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

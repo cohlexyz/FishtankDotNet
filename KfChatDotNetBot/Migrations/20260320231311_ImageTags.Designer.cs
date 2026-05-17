@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace KfChatDotNetBot.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260510073657_AddImageTags")]
-    partial class AddImageTags
+    [Migration("20260320231311_ImageTags")]
+    partial class ImageTags
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -70,6 +70,25 @@ namespace KfChatDotNetBot.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ChipsggBets");
+                });
+
+            modelBuilder.Entity("KfChatDotNetBot.Models.DbModels.CounterDbModel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Value")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Counters");
                 });
 
             modelBuilder.Entity("KfChatDotNetBot.Models.DbModels.GamblerDbModel", b =>
