@@ -56,10 +56,10 @@ public class ChatBot
         _kfDeadBotDetection = KfDeadBotDetectionTask();
         var settings = SettingsProvider.GetMultipleValuesAsync([
             BuiltIn.Keys.KiwiFarmsWsEndpoint, BuiltIn.Keys.KiwiFarmsDomain,
-            BuiltIn.Keys.Proxy, BuiltIn.Keys.KiwiFarmsWsReconnectTimeout]).Result;
+            BuiltIn.Keys.KiwiFarmsProxy, BuiltIn.Keys.KiwiFarmsWsReconnectTimeout]).Result;
 
         _kfTokenService = new KfTokenService(settings[BuiltIn.Keys.KiwiFarmsDomain].Value!,
-            settings[BuiltIn.Keys.Proxy].Value, _cancellationToken);
+            settings[BuiltIn.Keys.KiwiFarmsProxy].Value, _cancellationToken);
 
         if (_kfTokenService.GetCookies().Count == 0)
         {
@@ -79,7 +79,7 @@ public class ChatBot
             WsUri = new Uri(settings[BuiltIn.Keys.KiwiFarmsWsEndpoint].Value ?? throw new InvalidOperationException($"{BuiltIn.Keys.KiwiFarmsWsEndpoint} cannot be null")),
             Cookies = _kfTokenService.GetCookies(),
             CookieDomain = settings[BuiltIn.Keys.KiwiFarmsDomain].Value ?? throw new InvalidOperationException($"{BuiltIn.Keys.KiwiFarmsDomain} cannot be null"),
-            Proxy = settings[BuiltIn.Keys.Proxy].Value,
+            Proxy = settings[BuiltIn.Keys.KiwiFarmsProxy].Value,
             ReconnectTimeout = settings[BuiltIn.Keys.KiwiFarmsWsReconnectTimeout].ToType<int>()
         });
 
@@ -696,7 +696,7 @@ public class ChatBot
             DeleteAt = DateTimeOffset.UtcNow.Add(deleteAfter)
         });
     }
-    
+
     /// <summary>
     /// Exposes the private task used to delete messages based on a TimeSpan in case you want to use it on-demand
     /// e.g. for cleaning up a gambling message only after the game has finished
