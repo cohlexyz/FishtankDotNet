@@ -622,6 +622,30 @@ public static class BuiltIn
         public static string KasinoPlinkoSize = "Kasino.Plinko.Size";
         [BuiltInSetting("Whether Cecil is enabled", SettingValueType.Boolean, "true", BooleanRegex)]
         public static string KasinoCecilEnabled = "Kasino.Cecil.Enabled";
+        [BuiltInSetting("Whether the rap battle game is enabled", SettingValueType.Boolean, "true", BooleanRegex)]
+        public static string KasinoRapBattleEnabled = "Kasino.RapBattle.Enabled";
+        [BuiltInSetting("How many seconds players have to accept a rap battle, and (once accepted) to submit their verses", SettingValueType.Text, "90", WholeNumberRegex)]
+        public static string KasinoRapBattleTimeout = "Kasino.RapBattle.Timeout";
+        [BuiltInSetting("Percentage of the pot the Kasino keeps as mediator when a rap battle is decided", SettingValueType.Text, "10")]
+        public static string KasinoRapBattleCasinoCutPercent = "Kasino.RapBattle.CasinoCutPercent";
+        [BuiltInSetting("Percentage fee the Kasino keeps when a rap battle is declined or times out and buy-ins are refunded", SettingValueType.Text, "5")]
+        public static string KasinoRapBattleRefundFeePercent = "Kasino.RapBattle.RefundFeePercent";
+        [BuiltInSetting("Minimum bet for a rap battle", SettingValueType.Text, "1", WholeNumberRegex)]
+        public static string KasinoRapBattleMinimumBet = "Kasino.RapBattle.MinimumBet";
+        [BuiltInSetting("Minimum length (in characters) of a rap battle verse, to guard against low-effort one-word entries", SettingValueType.Text, "12", WholeNumberRegex)]
+        public static string KasinoRapBattleMinimumVerseLength = "Kasino.RapBattle.MinimumVerseLength";
+        [BuiltInSetting("Minimum number of bars (sentences separated by full stops) a rap battle verse must contain. There is no maximum", SettingValueType.Text, "3", WholeNumberRegex)]
+        public static string KasinoRapBattleMinimumBars = "Kasino.RapBattle.MinimumBars";
+        [BuiltInSetting("Delay in milliseconds before cleaning up transient rap battle status / error messages", SettingValueType.Text, "15000", WholeNumberRegex)]
+        public static string KasinoRapBattleCleanupDelay = "Kasino.RapBattle.CleanupDelay";
+        [BuiltInSetting("Delay in milliseconds the bot spends 'evaluating' the verses (fake suspense) before revealing a rap battle result", SettingValueType.Text, "3500", WholeNumberRegex)]
+        public static string KasinoRapBattleEvaluatingDelay = "Kasino.RapBattle.EvaluatingDelay";
+        [BuiltInSetting("Path to the editable text file containing the pool of (fictional) rap battle feedback lines. One reason per line, lines starting with # are ignored, {winner}, {loser} and {verse} are substituted", SettingValueType.Text, "rapbattle_feedback.txt")]
+        public static string KasinoRapBattleFeedbackFile = "Kasino.RapBattle.FeedbackFile";
+        [BuiltInSetting("Path to the editable text file containing the pool of rap battle challenge flourishes appended to the challenge message (e.g. 'GET ON STAGE!'). One per line, lines starting with # are ignored, {challenger} and {opponent} are substituted", SettingValueType.Text, "rapbattle_challenges.txt")]
+        public static string KasinoRapBattleChallengeFile = "Kasino.RapBattle.ChallengeFile";
+        [BuiltInSetting("Whether the rap battle cheat code is active. Burned out permanently (set false) the first time both rappers invoke it in the same battle", SettingValueType.Boolean, "true", BooleanRegex)]
+        public static string KasinoRapBattleCheatEnabled = "Kasino.RapBattle.CheatEnabled";
         [BuiltInSetting("Proxy to use when connecting to Kiwi Farms for WS and logging in", SettingValueType.Text)]
         public static string KiwiFarmsProxy = "KiwiFarms.Proxy";
     }

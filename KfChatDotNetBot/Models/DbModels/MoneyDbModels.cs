@@ -341,7 +341,9 @@ public enum WagerGame
     /// </summary>
     Prediction,
     Krash,
-    Cecil
+    Cecil,
+    [Description("Rap Battle")]
+    RapBattle
 }
 
 public enum GamblerState

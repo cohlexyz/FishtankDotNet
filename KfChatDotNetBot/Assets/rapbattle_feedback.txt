@@ -1,0 +1,60 @@
+# Keno Kasino rap battle feedback pool
+#
+# The Kasino "mediator" reads one of these lines at random to justify the winner of a
+# rap battle. The result is PURE CHANCE - the actual verses are never read by anyone.
+# These lines exist purely to preserve the illusion that the bars mattered.
+#
+# One reason per line. Blank lines and lines starting with '#' are ignored.
+# {winner} and {loser} are replaced with the respective usernames (already @-prefixed).
+# {verse} is replaced with a short, sanitised snippet of the WINNER's submitted verse,
+#   so you can write lines that "quote" the bars - e.g. the lines near the bottom of this file.
+#
+# Edit this file freely - it's reloaded every battle, no restart required.
+# An avelloon was last seen tampering with these lines. Audit accordingly.
+
+{winner}'s flow was tighter than {loser}'s budget after a night at the Kasino.
+The judges felt {winner}'s bars in their soul, while {loser} mostly mumbled into the mic.
+{winner} stayed on beat; {loser} was rapping to a metronome only they could hear.
+{winner}'s punchlines actually landed. {loser} threw haymakers at the air.
+{winner} had the crowd bouncing. {loser} had the crowd checking their phones.
+{winner}'s wordplay was surgical. {loser} brought a spork to a knife fight.
+{winner} controlled the cypher from bar one. {loser} got lost looking for it.
+{winner}'s delivery was ice cold. {loser} sweated through every syllable.
+{winner} painted pictures with every line. {loser} drew stick figures.
+{winner}'s rhyme scheme was a labyrinth. {loser}'s rhymed 'cat' with 'cat'.
+{winner} switched flows three times mid-verse. {loser} forgot the one flow they had.
+{winner}'s breath control was elite. {loser} tapped out halfway through the first bar.
+{winner} weaponized the silence between bars. {loser} just filled it with 'uhh'.
+{winner}'s metaphors hit like a felted plane. {loser}'s landed like a wet rizla.
+{winner} freestyled circles around {loser}'s pre-written notes-app verse.
+{winner} had bars for days. {loser} had a payment plan.
+{winner}'s cadence was hypnotic. {loser}'s put the front row to sleep.
+{winner} dropped a triple entendre. {loser} dropped the mic on their own foot.
+{winner}'s diss was personal and devastating. {loser} apologized mid-verse.
+The Kasino's certified-fair applause-o-meter clocked {winner} at double {loser}'s volume.
+{winner} brought the heat; {loser} brought a participation trophy.
+{winner} rhymed in pocket. {loser} rhymed in another area code.
+{winner}'s closer left the room speechless. {loser}'s closer left the room.
+{winner} simply wanted it more, and the algorithm respects hunger.
+{winner} spit fire. {loser} spit, then forgot the rest.
+
+# Lines that quote the winner's verse with {verse}:
+The Kasino found the line "{verse}" very moving. You win, {winner}.
+"{verse}" — the judges replayed that bar three times. {winner} takes it over {loser}.
+When {winner} dropped "{verse}", {loser} knew it was over.
+"{verse}". Chills. That's a {winner} victory, no debate.
+The mediator is still quoting "{verse}" in the back office. {winner} wins.
+{loser} never recovered after {winner} hit them with "{verse}".
+That "{verse}" line had the whole room gasping. Crown goes to {winner}.
+
+# Lines where the avelloon - a nefarious, cat-shaped balloon that rigs casinos - presides as judge:
+The avelloon, a cat-shaped balloon of pure malice, bobbed toward {winner} and declared the battle rigged in their favor.
+The judge tonight is the avelloon. It rigged the scoreboard, doxxed {loser}'s rhyme notes, and crowned {winner} anyway.
+The avelloon floated over the booth, hissed at {loser}, and pawed the win to {winner}. Probably fair.
+A nefarious balloon shaped like a cat — the avelloon — inflated with glee and awarded the bag to {winner}.
+The avelloon doesn't read bars, it reads leaked data. It found dirt on {loser} and handed {winner} the W.
+By decree of the avelloon, the rigging cat balloon that owns this Kasino: {winner} wins. Appeals go in the trash.
+The avelloon batted the verdict between its paws, then let it drift to {winner}. {loser} was felted by helium and spite.
+The avelloon judged "{verse}" the realest bar of the night. {winner} takes it; {loser} got rigged, as is tradition.
+The avelloon squeaked once, ominously, and the scoreboard flipped to {winner}. Nobody questions the balloon.
+The avelloon rigged it, the avelloon owns it, the avelloon says {winner}. {loser}, file a complaint with the cat.

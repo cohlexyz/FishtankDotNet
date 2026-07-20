@@ -58,6 +58,7 @@ public class BotServices
     public Task? StoxMotdUpdater;
     public Task? ChatActivityTracker;
     private SentMessageTrackerModel? _stoxMotdTracker;
+    private Task? _rapBattleTimeoutSweeper;
 
     private string? _bmjTwitchUsername;
     private bool _twitchDisabled;
@@ -146,6 +147,7 @@ public class BotServices
         StoxMotdUpdater = StoxMotdUpdaterTask();
         ChatActivityTracker = ChatActivityTask();
         ChatActivity = new ChatActivity(_chatBot);
+        _rapBattleTimeoutSweeper = RapBattleTimeoutSweeperTask();
 
         _ = Task.Run(() => ClipService!.RestoreActiveBuffersAsync(), _cancellationToken);
     }
@@ -154,6 +156,28 @@ public class BotServices
     {
         _logger.Debug("Building the Fishtank Forwarder thingy");
         _ = Task.Run(async () => FishtankForwarder.Start(_chatBot));
+        _rapBattleTimeoutSweeper = RapBattleTimeoutSweeperTask();
+    }
+
+    // Durable replacement for the rap battle's old in-memory timeout timers: rap battle state lives in
+    // Redis, and this periodically refunds any battle whose deadline has passed - so timeouts still fire
+    // after a restart. No-ops cheaply when Redis isn't configured.
+    private async Task RapBattleTimeoutSweeperTask()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        while (await timer.WaitForNextTickAsync(_cancellationToken))
+        {
+            if (_chatBot.InitialStartCooldown) continue;
+            try
+            {
+                await Commands.Kasino.RapBattleCommand.SweepExpiredBattlesAsync(_chatBot);
+            }
+            catch (Exception e)
+            {
+                _logger.Error("Rap battle timeout sweep failed");
+                _logger.Error(e);
+            }
+        }
     }
 
     private async Task BuildKasinoKrash()

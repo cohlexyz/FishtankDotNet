@@ -101,7 +101,7 @@ public class ChatClient
 
         var client = new WebsocketClient(_config.WsUri, factory)
         {
-            ReconnectTimeout = TimeSpan.FromSeconds(_config.ReconnectTimeout)
+            IsReconnectionEnabled = false
         };
         _wsClient = client;
 
@@ -112,6 +112,12 @@ public class ChatClient
         _logger.Debug("Websocket client has been built, about to start");
         await client.Start();
         _logger.Debug("Websocket client started!");
+    }
+
+    public void DisposeWsClient()
+    {
+        if (_wsClient == null) throw new WebSocketNotInitializedException();
+        _wsClient.Dispose();
     }
 
     public bool IsConnected()
