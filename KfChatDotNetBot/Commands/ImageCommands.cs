@@ -427,7 +427,7 @@ public class GetRandomImage : ICommand
             tagNag = $"[br]This image has no tags. You can add some using [ditto]!images tag {image.Id} [/ditto]";
         }
 
-        var result = $"[img]{image.Url}[/img]{tagNag}[br]{imageMeta}";
+        var result = $"[img]{image.Url}[/img]{tagNag} [br]{imageMeta}";
         await botInstance.SendChatMessageAsync(result, true, autoDeleteAfter: timeToDeletion);
     }
 }
