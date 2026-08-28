@@ -370,10 +370,9 @@ public class GetRandomImage : ICommand
         }
         var divideBy = settings[BuiltIn.Keys.BotImageRandomSliceDivideBy].ToType<int>();
         var limit = 1;
-        var count = await images.CountAsync(ctx);
-        if (count > divideBy)
+        if (selection.Count > divideBy)
         {
-            limit = count / divideBy;
+            limit = selection.Count / divideBy;
         }
 
         // EF with SQLite can't sort on dates as it's just TEXT
