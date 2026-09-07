@@ -41,6 +41,7 @@ public class ChatBot
     private List<ScheduledAutoDeleteModel> _scheduledDeletions = [];
     private Task _scheduledAutoDeleteTask;
     private List<UserModel> _currentUsersInChat = [];
+    private readonly object _currentUsersInChatLock = new();
     private HomoglyphSearch? _homoglyphSearch;
     public int IncomingMessageCounter { get; set; } = 0;
     internal readonly ConcurrentDictionary<int, DateTimeOffset> ActiveTimeouts = new();
@@ -786,7 +787,10 @@ public class ChatBot
             .Result;
         _logger.Debug($"Received {users.Count} user join events");
         using var db = new ApplicationDbContext();
-        _currentUsersInChat.AddRange(users);
+        lock (_currentUsersInChatLock)
+        {
+            _currentUsersInChat.AddRange(users);
+        }
         if (users.Any(u => u.Id == 205609))
         {
             _logger.Info("Bot has joined the chat!");
@@ -833,7 +837,10 @@ public class ChatBot
 
     private void OnUsersParted(object sender, List<int> userIds)
     {
-        _currentUsersInChat.RemoveAll(u => userIds.Contains(u.Id));
+        lock (_currentUsersInChatLock)
+        {
+            _currentUsersInChat.RemoveAll(u => u is null || userIds.Contains(u.Id));
+        }
         var settings = SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.GambaSeshUserId, BuiltIn.Keys.GambaSeshDetectEnabled])
             .Result;
         if (userIds.Contains(settings[BuiltIn.Keys.GambaSeshUserId].ToType<int>()) && settings[BuiltIn.Keys.GambaSeshDetectEnabled].ToBoolean())
@@ -897,7 +904,10 @@ public class ChatBot
         _logger.Error($"Sneedchat disconnected due to {disconnectionInfo.Type}");
         _logger.Error($"Close Status => {disconnectionInfo.CloseStatus}; Close Status Description => {disconnectionInfo.CloseStatusDescription}");
         _logger.Error(disconnectionInfo.Exception);
-        _currentUsersInChat.Clear();
+        lock (_currentUsersInChatLock)
+        {
+            _currentUsersInChat.Clear();
+        }
 
         if (disconnectionInfo.Type == DisconnectionType.Lost)
         {
@@ -930,7 +940,10 @@ public class ChatBot
 
     public UserModel? FindUserByName(string username)
     {
-        return _currentUsersInChat.FirstOrDefault(u => u.Username.Equals(username, StringComparison.CurrentCulture));
+        lock (_currentUsersInChatLock)
+        {
+            return _currentUsersInChat.FirstOrDefault(u => u?.Username.Equals(username, StringComparison.CurrentCulture) == true);
+        }
     }
 
     public IEnumerable<RecentChatMessageModel> GetRecentMessagesByUser(string username)
