@@ -186,8 +186,8 @@ public class KfTokenService
 
     public void WipeCookies()
     {
-        _logger.Info("Wiping out cookies");
-        _cookies = new CookieContainer();
+        _logger.Info("Wiping out cookies (not actually tho)");
+        //_cookies = new CookieContainer();
     }
 
     public class KiwiFarmsLogonFailedException : Exception;
