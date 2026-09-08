@@ -581,6 +581,9 @@ public static class BuiltIn
         public static string StoxMotdCustomText = "Stox.Motd.CustomText";
         [BuiltInSetting("UUID of the current stox MOTD message for editing across restarts", SettingValueType.Text, cacheDurationSeconds: 0)]
         public static string StoxMotdMessageUuid = "Stox.Motd.MessageUuid";
+        [BuiltInSetting("UTC start time used to calculate the current season day in the MOTD (ISO 8601)",
+            SettingValueType.Text, "2026-03-07T00:00:00Z", cacheDurationSeconds: 0)]
+        public static string StoxSeasonStart = "Stox.SeasonStart";
         [BuiltInSetting("Bossman's current VIP level on .us for reducing GraphQL hits", SettingValueType.Text, "PLATINUM_1")]
         public static string ShuffleDotUsBmjVipLevel = "ShuffleDotUs.BmjVipLevel";
         [BuiltInSetting("Bossman's super secret user ID on .us", SettingValueType.Text, "e2faee09-8ebb-4a22-8793-59aefc8191e5")]

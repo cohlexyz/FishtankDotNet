@@ -735,6 +735,7 @@ public class BotServices
             BuiltIn.Keys.StoxMotdEnabled,
             BuiltIn.Keys.StoxMotdCustomText,
             BuiltIn.Keys.StoxMotdMessageUuid,
+            BuiltIn.Keys.StoxSeasonStart,
             BuiltIn.Keys.BotRedisConnectionString
         ]);
 
@@ -759,7 +760,15 @@ public class BotServices
         }
 
         // Calculate fishtank day and FTT time
-        var fishtankStart = new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc);
+        if (!DateTime.TryParse(settings[BuiltIn.Keys.StoxSeasonStart].Value,
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+            out var fishtankStart))
+        {
+            _logger.Error("Invalid Stox season start time; unable to update MOTD");
+            return;
+        }
+
         var nowUtc = DateTime.UtcNow;
         var day = nowUtc > fishtankStart ? (int)Math.Ceiling((nowUtc - fishtankStart).TotalDays) : 0;
 
