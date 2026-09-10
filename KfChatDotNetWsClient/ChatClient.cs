@@ -32,6 +32,10 @@ public class ChatClient
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private ChatClientConfigModel _config;
     public DateTime LastPacketReceived = DateTime.UtcNow;
+    private readonly object _seenMessagesLock = new();
+    private readonly Dictionary<string, LinkedListNode<string>> _seenMessageKeys = [];
+    private readonly LinkedList<string> _seenMessageOrder = [];
+    private const int MaxSeenMessageKeys = 100;
 
     public ChatClient(ChatClientConfigModel config)
     {
@@ -320,12 +324,39 @@ public class ChatClient
         OnDeleteMessages?.Invoke(this, data.MessageIdsToDelete);
     }
 
+    private bool IsDuplicateMessageKey(string key)
+    {
+        lock (_seenMessagesLock)
+        {
+            if (_seenMessageKeys.ContainsKey(key))
+            {
+                return true;
+            }
+
+            var node = _seenMessageOrder.AddFirst(key);
+            _seenMessageKeys[key] = node;
+            if (_seenMessageOrder.Count > MaxSeenMessageKeys)
+            {
+                var last = _seenMessageOrder.Last!;
+                _seenMessageOrder.RemoveLast();
+                _seenMessageKeys.Remove(last.Value);
+            }
+            return false;
+        }
+    }
+
     private void WsChatMessagesReceived(ResponseMessage message)
     {
         var data = JsonSerializer.Deserialize<MessagesJsonModel>(message.Text!);
         var messages = new List<MessageModel>();
         foreach (var chatMessage in data!.Messages)
         {
+            if (IsDuplicateMessageKey($"{chatMessage.MessageUuid}|{chatMessage.MessageEditDate}"))
+            {
+                _logger.Debug($"Discarding duplicate message {chatMessage.MessageUuid}");
+                continue;
+            }
+
             var model = new MessageModel
             {
                 Author = new UserModel
@@ -356,6 +387,11 @@ public class ChatClient
             messages.Add(model);
         }
         _logger.Debug($"Received {messages.Count} chat messages");
+        if (messages.Count == 0)
+        {
+            _logger.Debug("All received chat messages were duplicates, not invoking OnMessages");
+            return;
+        }
         if (messages.Count == 1)
         {
             _logger.Debug($"{JsonSerializer.Serialize(messages[0])}");
