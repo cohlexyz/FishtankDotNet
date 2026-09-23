@@ -245,7 +245,7 @@ public class ReconnectKickCommand : ICommand
     ];
 
     public string? HelpText => "Disconnect from Kick so the watchdog can reconnect it";
-    public UserRight RequiredRight => UserRight.Admin;
+    public UserRight RequiredRight => UserRight.HeadJanny;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
     public bool WhisperCanInvoke => false;
@@ -748,7 +748,7 @@ public class NewKickChannelCommand : ICommand
     ];
 
     public string? HelpText => "Add a Kick channel to the bot's database";
-    public UserRight RequiredRight => UserRight.Admin;
+    public UserRight RequiredRight => UserRight.HeadJanny;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
     public bool WhisperCanInvoke => false;
@@ -828,7 +828,7 @@ public class RemoveKickChannelCommand : ICommand
     ];
 
     public string? HelpText => "Remove a Kick channel from the bot's database";
-    public UserRight RequiredRight => UserRight.Admin;
+    public UserRight RequiredRight => UserRight.HeadJanny;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
     public bool WhisperCanInvoke => false;

@@ -14,6 +14,8 @@ public class UserDbModel
 public enum UserRight
 {
     Admin = 1000,
+    [Description("Head Janny")]
+    HeadJanny = 200,
     [Description("True and Honest")]
     TrueAndHonest = 100,
     [Description("Clipper")]
