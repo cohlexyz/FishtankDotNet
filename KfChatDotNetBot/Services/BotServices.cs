@@ -431,14 +431,14 @@ public class BotServices
             BuiltIn.Keys.PusherEndpoint, BuiltIn.Keys.Proxy, BuiltIn.Keys.PusherReconnectTimeout,
             BuiltIn.Keys.KickEnabled
         ]);
-        const string obsoletePusherEndpoint =
-            "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=7.6.0&flash=false";
+        const string invalidPusherEndpoint =
+            "wss://ws-mt1.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=7.6.0&flash=false";
         var pusherEndpoint = settings[BuiltIn.Keys.PusherEndpoint].Value!;
-        if (pusherEndpoint == obsoletePusherEndpoint)
+        if (pusherEndpoint == invalidPusherEndpoint)
         {
             pusherEndpoint = KickWsClient.KickWsClient.DefaultPusherUri;
             await SettingsProvider.SetValueAsync(BuiltIn.Keys.PusherEndpoint, pusherEndpoint);
-            _logger.Info("Updated the obsolete Kick Pusher endpoint to the mt1 cluster");
+            _logger.Info("Updated the invalid Kick Pusher endpoint to the us2 cluster");
         }
 
         KickClient = new KickWsClient.KickWsClient(pusherEndpoint,
