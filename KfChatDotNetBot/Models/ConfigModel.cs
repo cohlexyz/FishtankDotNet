@@ -4,7 +4,7 @@
 public class ConfigModel
 {
     public Uri PusherEndpoint { get; set; } =
-        new("wss://ws-us2.pusher.com/app/eb1d5f283081a78b932c?protocol=7&client=js&version=7.6.0&flash=false");
+        new(KickWsClient.KickWsClient.DefaultPusherUri);
 
     public Uri KfWsEndpoint { get; set; } = new("wss://kiwifarms.st:9443/chat.ws");
 

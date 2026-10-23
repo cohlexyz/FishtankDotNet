@@ -11,6 +11,9 @@ namespace KickWsClient;
 
 public class KickWsClient : IDisposable
 {
+    public const string DefaultPusherUri =
+        "wss://ws-mt1.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=7.6.0&flash=false";
+
     public event EventHandlers.OnPusherConnectionEstablishedEventHandler? OnPusherConnectionEstablished;
     public event EventHandlers.OnPusherSubscriptionSucceededEventHandler? OnPusherSubscriptionSucceeded;
     public event EventHandlers.OnPusherPongEventHandler? OnPusherPong;
@@ -42,8 +45,7 @@ public class KickWsClient : IDisposable
     private readonly CancellationTokenSource _pingCts = new();
 
     public KickWsClient(
-        string kickPusherUri =
-            "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=7.6.0&flash=false",
+        string kickPusherUri = DefaultPusherUri,
         string? proxy = null, int reconnectTimeout = 30, bool reconnectionEnabled = true)
     {
         _kickPusherUri = new Uri(kickPusherUri);
@@ -221,6 +223,9 @@ public class KickWsClient : IDisposable
                 return;
             case "pusher:pong":
                 OnPusherPong?.Invoke(this, pusherMsg);
+                return;
+            case "pusher:error":
+                _logger.Error($"Pusher returned an error: {pusherMsg.Data}");
                 return;
             case @"App\Events\FollowersUpdated":
             {

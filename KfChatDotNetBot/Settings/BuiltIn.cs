@@ -132,8 +132,7 @@ public static class BuiltIn
 
     public static class Keys
     {
-        [BuiltInSetting("Pusher endpoint for Kick", SettingValueType.Text,
-            "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=7.6.0&flash=false")]
+        [BuiltInSetting("Pusher endpoint for Kick", SettingValueType.Text, KickWsClient.KickWsClient.DefaultPusherUri)]
         public static string PusherEndpoint = "Pusher.Endpoint";
         [BuiltInSetting(description: "Kiwi Farms chat WebSocket endpoint", defaultValue: "wss://kiwifarms.st:9443/chat.ws",
             valueType: SettingValueType.Text)]
