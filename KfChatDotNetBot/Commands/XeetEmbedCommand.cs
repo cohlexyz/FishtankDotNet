@@ -59,7 +59,12 @@ public class XeetEmbedCommand : ICommand
         var loadingMessage = await botInstance.SendChatMessageAsync($"{LoadingGif} Fetching tweet...", true);
 
         var success = await botInstance.WaitForChatMessageAsync(loadingMessage, TimeSpan.FromSeconds(10), ctx);
-        if (!success) throw new InvalidOperationException();
+        if (!success)
+        {
+            // The loading message is cosmetic. Don't abort the embed just because it wasn't echoed in time
+            // (chat lag, GambaSesh suppression, lost message). Cleanup below is null-guarded on ChatMessageUuid.
+            Logger.Warn($"Loading message was not echoed (status: {loadingMessage.Status}), continuing without it");
+        }
 
         try
         {
