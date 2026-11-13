@@ -132,11 +132,22 @@ public class KfTokenService
         if (html.GetAttributeValue("data-logged-in", "false") == "true") return;
         if (!html.Attributes.Contains("data-csrf")) throw new Exception("data-csrf missing from html element");
         var csrf = html.GetAttributeValue("data-csrf", string.Empty);
+        var siteKeyNode = document.DocumentNode.SelectSingleNode("//div[@data-xf-init=\"tartarus-captcha\"]");
+        var siteKey = siteKeyNode?.GetAttributeValue("data-sitekey", string.Empty);
+        if (string.IsNullOrEmpty(siteKey))
+        {
+            siteKey = TartarusCaptcha.DefaultSiteKey;
+        }
+
+        var captcha = new TartarusCaptcha(_kfDomain, _cookies, _proxy, _ctx);
+        var captchaToken = await captcha.RunCeremonyAsync(siteKey);
+
         var formData = new FormUrlEncodedContent(new List<KeyValuePair<string, string>>
         {
             new("_xfToken", csrf),
             new("login", username),
             new("password", password),
+            new("ttrs-captcha-token", captchaToken),
             new("_xfRedirect", $"https://{_kfDomain}/"),
             new("remember", "1")
         });
@@ -186,8 +197,8 @@ public class KfTokenService
 
     public void WipeCookies()
     {
-        _logger.Info("Wiping out cookies");
-        _cookies = new CookieContainer();
+        _logger.Info("Wiping out cookies (not actually tho)");
+        //_cookies = new CookieContainer();
     }
 
     public class KiwiFarmsLogonFailedException : Exception;

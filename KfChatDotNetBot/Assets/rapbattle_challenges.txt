@@ -1,0 +1,32 @@
+# Keno Kasino rap battle challenge flourishes
+#
+# When someone is challenged, the bot picks ONE of these lines at random and appends it to the
+# challenge announcement, right after "...for <bet> a head." For example, picking "GET ON STAGE!"
+# produces: "...you've been challenged to a RAP BATTLE by @X for 500 KKK a head. GET ON STAGE! Reply ..."
+#
+# One flourish per line. Blank lines and lines starting with '#' are ignored.
+# {challenger} and {opponent} are replaced with the respective usernames (already @-prefixed).
+#
+# Edit this file freely - it's reloaded on every challenge, no restart required.
+# The avelloon has, allegedly, been seen slipping a few of its own taunts in here.
+
+GET ON STAGE!
+Bars or be felted.
+Step up or step off.
+The avelloon is watching. Don't choke.
+Time to find out who's really got bars.
+Lace up, this one's for the culture.
+No pen, no paper, no mercy.
+The mic is hot and the crowd is mean.
+Defend your honor or forfeit your juice.
+{opponent}, the whole Kasino can hear the silence already.
+Crack your knuckles, {opponent}.
+Last one to spit is a Ratdad.
+The booth is open. The judges are nefarious.
+Don't bring bars to a felting.
+Warm up that throat, {opponent}.
+Either drop heat or drop out.
+Cmon Cmon Cmon, prove you're not all talk.
+The avelloon already wrote your eulogy. Prove it wrong.
+Money's up. Egos higher. Let's go.
+This is your moment, {opponent}. Don't fumble it.

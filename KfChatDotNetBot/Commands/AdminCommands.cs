@@ -155,6 +155,37 @@ public class SetMotdCommand : ICommand
     }
 }
 
+public class SetSeasonStartCommand : ICommand
+{
+    public List<Regex> Patterns => [
+        new Regex(@"^admin set seasonstart (?<date>\d{4}\.\d{2}\.\d{2}) (?<time>\d{2}:\d{2})$")
+    ];
+
+    public bool WhisperCanInvoke => true;
+    public string? HelpText => "Set the UTC season start time for the stox MOTD: !admin set seasonstart yyyy.MM.dd HH:mm";
+    public UserRight RequiredRight => UserRight.TrueAndHonest;
+    public TimeSpan Timeout => TimeSpan.FromSeconds(10);
+    public RateLimitOptionsModel? RateLimitOptions => null;
+
+    public async Task RunCommand(ChatBot botInstance, BotCommandMessageModel message, UserDbModel user,
+        GroupCollection arguments, CancellationToken ctx)
+    {
+        var input = $"{arguments["date"].Value} {arguments["time"].Value}";
+        if (!DateTime.TryParseExact(input, "yyyy.MM.dd HH:mm", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var start))
+        {
+            await botInstance.SendChatMessageAsync("Invalid date. Use yyyy.MM.dd HH:mm (UTC).", true);
+            return;
+        }
+
+        var startUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc);
+        await SettingsProvider.SetValueAsync(BuiltIn.Keys.StoxSeasonStart,
+            startUtc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture));
+        await botInstance.BotServices.UpdateStoxMotdAsync();
+        await botInstance.SendChatMessageAsync($"Season start set to {startUtc:yyyy-MM-dd HH:mm} UTC.", true);
+    }
+}
+
 
 public class CacheClearAdminCommand : ICommand
 {
@@ -214,7 +245,7 @@ public class ReconnectKickCommand : ICommand
     ];
 
     public string? HelpText => "Disconnect from Kick so the watchdog can reconnect it";
-    public UserRight RequiredRight => UserRight.Admin;
+    public UserRight RequiredRight => UserRight.HeadJanny;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
     public bool WhisperCanInvoke => false;
@@ -717,7 +748,7 @@ public class NewKickChannelCommand : ICommand
     ];
 
     public string? HelpText => "Add a Kick channel to the bot's database";
-    public UserRight RequiredRight => UserRight.Admin;
+    public UserRight RequiredRight => UserRight.HeadJanny;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
     public bool WhisperCanInvoke => false;
@@ -797,7 +828,7 @@ public class RemoveKickChannelCommand : ICommand
     ];
 
     public string? HelpText => "Remove a Kick channel from the bot's database";
-    public UserRight RequiredRight => UserRight.Admin;
+    public UserRight RequiredRight => UserRight.HeadJanny;
     public TimeSpan Timeout => TimeSpan.FromSeconds(10);
     public RateLimitOptionsModel? RateLimitOptions => null;
     public bool WhisperCanInvoke => false;

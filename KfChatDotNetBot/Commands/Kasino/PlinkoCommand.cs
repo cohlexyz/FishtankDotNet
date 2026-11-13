@@ -184,8 +184,9 @@ public class PlinkoCommand : ICommand
             ballsNotInPlay.Add(new PlinkoBall());
         }
         //game starts here
+        var size = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.KasinoPlinkoSize)).ToType<int>();
         int breakCounter = 0;
-        var plinkoMessageID = await botInstance.SendChatMessageAsync(PlinkoBoardDisplay(ballsInPlay), true, autoDeleteAfter: cleanupDelay);
+        var plinkoMessageID = await botInstance.SendChatMessageAsync($"[size={size}]" + PlinkoBoardDisplay(ballsInPlay), true, autoDeleteAfter: cleanupDelay);
         while (plinkoMessageID.ChatMessageUuid == null && breakCounter < 1000)
         {
             await Task.Delay(100, ctx);
@@ -209,7 +210,7 @@ public class PlinkoCommand : ICommand
                 ballsInPlay.Add(ballsNotInPlay[0]);
                 ballsNotInPlay.RemoveAt(0);
             }
-            PlinkoMessage = PlinkoBoardDisplay(ballsInPlay) + "[br]" + lastPayoutMessage;
+            PlinkoMessage = $"[size={size}]" + PlinkoBoardDisplay(ballsInPlay) + "[/size][br]" + lastPayoutMessage;
             await botInstance.KfClient.EditMessageAsync(plinkoMessageID.ChatMessageUuid!, PlinkoMessage);
             if (ballsInPlay[0].POSITION.row == DIFFICULTY - 1) //once your ball has reached the bottom calculate the payout
             {
@@ -233,7 +234,7 @@ public class PlinkoCommand : ICommand
             }
 
             await Task.Delay(300, ctx);
-            PlinkoMessage = PlinkoBoardDisplay(ballsInPlay) + "[br]" + lastPayoutMessage;
+            PlinkoMessage = $"[size={size}]" + PlinkoBoardDisplay(ballsInPlay) + "[/size][br]" + lastPayoutMessage;
             await botInstance.KfClient.EditMessageAsync(plinkoMessageID.ChatMessageUuid!, PlinkoMessage);
             await Task.Delay(300, ctx);
 
@@ -295,7 +296,7 @@ public class PlinkoCommand : ICommand
             board += "[br]";
         }
 
-        return board;
+        return board.GridToTable();
     }
     public class PlinkoBall
     {

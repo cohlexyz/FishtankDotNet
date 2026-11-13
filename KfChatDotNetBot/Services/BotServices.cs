@@ -58,6 +58,7 @@ public class BotServices
     public Task? StoxMotdUpdater;
     public Task? ChatActivityTracker;
     private SentMessageTrackerModel? _stoxMotdTracker;
+    private Task? _rapBattleTimeoutSweeper;
 
     private string? _bmjTwitchUsername;
     private bool _twitchDisabled;
@@ -146,6 +147,7 @@ public class BotServices
         StoxMotdUpdater = StoxMotdUpdaterTask();
         ChatActivityTracker = ChatActivityTask();
         ChatActivity = new ChatActivity(_chatBot);
+        _rapBattleTimeoutSweeper = RapBattleTimeoutSweeperTask();
 
         _ = Task.Run(() => ClipService!.RestoreActiveBuffersAsync(), _cancellationToken);
     }
@@ -154,6 +156,28 @@ public class BotServices
     {
         _logger.Debug("Building the Fishtank Forwarder thingy");
         _ = Task.Run(async () => FishtankForwarder.Start(_chatBot));
+        _rapBattleTimeoutSweeper = RapBattleTimeoutSweeperTask();
+    }
+
+    // Durable replacement for the rap battle's old in-memory timeout timers: rap battle state lives in
+    // Redis, and this periodically refunds any battle whose deadline has passed - so timeouts still fire
+    // after a restart. No-ops cheaply when Redis isn't configured.
+    private async Task RapBattleTimeoutSweeperTask()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        while (await timer.WaitForNextTickAsync(_cancellationToken))
+        {
+            if (_chatBot.InitialStartCooldown) continue;
+            try
+            {
+                await Commands.Kasino.RapBattleCommand.SweepExpiredBattlesAsync(_chatBot);
+            }
+            catch (Exception e)
+            {
+                _logger.Error("Rap battle timeout sweep failed");
+                _logger.Error(e);
+            }
+        }
     }
 
     private async Task BuildKasinoKrash()
@@ -407,7 +431,16 @@ public class BotServices
             BuiltIn.Keys.PusherEndpoint, BuiltIn.Keys.Proxy, BuiltIn.Keys.PusherReconnectTimeout,
             BuiltIn.Keys.KickEnabled
         ]);
-        KickClient = new KickWsClient.KickWsClient(settings[BuiltIn.Keys.PusherEndpoint].Value!,
+        const string obsoletePusherAppKey = "32cbd69e4b950bf97679";
+        var pusherEndpoint = settings[BuiltIn.Keys.PusherEndpoint].Value!;
+        if (pusherEndpoint.Contains(obsoletePusherAppKey))
+        {
+            pusherEndpoint = KickWsClient.KickWsClient.DefaultPusherUri;
+            await SettingsProvider.SetValueAsync(BuiltIn.Keys.PusherEndpoint, pusherEndpoint);
+            _logger.Info("Updated the obsolete Kick Pusher app key");
+        }
+
+        KickClient = new KickWsClient.KickWsClient(pusherEndpoint,
             settings[BuiltIn.Keys.Proxy].Value, settings[BuiltIn.Keys.PusherReconnectTimeout].ToType<int>());
 
         KickClient.OnStreamerIsLive += OnStreamerIsLive;
@@ -711,6 +744,7 @@ public class BotServices
             BuiltIn.Keys.StoxMotdEnabled,
             BuiltIn.Keys.StoxMotdCustomText,
             BuiltIn.Keys.StoxMotdMessageUuid,
+            BuiltIn.Keys.StoxSeasonStart,
             BuiltIn.Keys.BotRedisConnectionString
         ]);
 
@@ -735,7 +769,15 @@ public class BotServices
         }
 
         // Calculate fishtank day and FTT time
-        var fishtankStart = new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc);
+        if (!DateTime.TryParse(settings[BuiltIn.Keys.StoxSeasonStart].Value,
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+            out var fishtankStart))
+        {
+            _logger.Error("Invalid Stox season start time; unable to update MOTD");
+            return;
+        }
+
         var nowUtc = DateTime.UtcNow;
         var day = nowUtc > fishtankStart ? (int)Math.Ceiling((nowUtc - fishtankStart).TotalDays) : 0;
 

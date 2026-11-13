@@ -45,7 +45,7 @@ public static class SettingsProvider
             throw new KeyNotFoundException($"{key} does not exist");
         }
 
-        cache.Set(key, setting, new CacheItemPolicy {AbsoluteExpiration = DateTimeOffset.UtcNow.AddSeconds(setting.CacheDuration)});
+        cache.Set(key, setting, new CacheItemPolicy { AbsoluteExpiration = DateTimeOffset.UtcNow.AddSeconds(setting.CacheDuration) });
 
         if (setting.Value == "null")
         {
@@ -55,12 +55,12 @@ public static class SettingsProvider
 
         if (setting.IsSecret)
         {
-            logger.Info($"Cache Miss! Returning secret of length '{setting.Value?.Length}' for {key}");
+            logger.Debug($"Cache Miss! Returning secret of length '{setting.Value?.Length}' for {key}");
 
         }
         else
         {
-            logger.Info($"Cache Miss! Returning '{setting.Value}' for {key}");
+            logger.Debug($"Cache Miss! Returning '{setting.Value}' for {key}");
 
         }
         return new Setting(setting.Value, setting, false);
@@ -118,7 +118,7 @@ public static class SettingsProvider
         await using var db = new ApplicationDbContext();
         logger.Debug($"Building data for {key}");
         var value = JsonSerializer.Serialize(data);
-        
+
         logger.Debug($"Setting {key} to {value}");
 
         var setting = await db.Settings.FirstOrDefaultAsync(s => s.Key == key);

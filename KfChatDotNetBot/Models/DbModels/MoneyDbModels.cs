@@ -340,7 +340,10 @@ public enum WagerGame
     /// User predictions with multiple outcomes where winners share the pot
     /// </summary>
     Prediction,
-    Krash
+    Krash,
+    Cecil,
+    [Description("Rap Battle")]
+    RapBattle
 }
 
 public enum GamblerState

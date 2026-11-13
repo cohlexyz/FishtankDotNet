@@ -14,7 +14,6 @@ using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
 using KfChatDotNetBot.Services;
 using KfChatDotNetBot.Settings;
-using KfChatDotNetWsClient.Models.Events;
 
 namespace KfChatDotNetBot.Commands.Kasino;
 
@@ -92,8 +91,11 @@ public class SlotsCommand : ICommand
             [(1, 0), (2, 1), (3, 2), (2, 3), (1, 4)]
         ];
 
-        public KiwiSlotBoard(decimal bet)
+        private CancellationToken _ct;
+
+        public KiwiSlotBoard(decimal bet, CancellationToken ct = default)
         {
+            _ct = ct;
             _userBet = bet;
             AnimatedImage = new Image<Rgba32>(600, 800);
         }
@@ -240,7 +242,7 @@ public class SlotsCommand : ICommand
             lastFrame.Metadata.GetWebpMetadata().FrameDelay = (ushort)hundredthsOfASecond;
         }
 
-        public MemoryStream? ExportAndCleanup()
+        public async Task<MemoryStream?> ExportAndCleanup()
         {
             if (AnimatedImage.Frames.Count <= 1) return null;
 
@@ -248,7 +250,7 @@ public class SlotsCommand : ICommand
             // Remove the blank placeholder frame
             AnimatedImage.Frames.RemoveFrame(0);
 
-            AnimatedImage.Save(ms, new WebpEncoder { Quality = 80 });
+            await AnimatedImage.SaveAsync(ms, new WebpEncoder { Quality = 80 }, _ct);
             ms.Position = 0;
 
             // Free the animation memory now that it's encoded
@@ -362,9 +364,8 @@ public class SlotsCommand : ICommand
             {
                 for (var j = 0; j < 5; j++)
                 {
-                    var r = _rand.NextDouble() * 100.6;
-                    if (f != 0 && j > 2) r *= 1.1;
-                    if (rigged == 'L') r = _rand.NextDouble() * 97.01;
+                    var r = _rand.NextDouble() * 100;
+                    if (f != 0 && j > 1) r *= 1.1;
 
                     if (rigged == 'W') // guarantee max win
                     {
@@ -495,18 +496,18 @@ public class SlotsCommand : ICommand
             if (rigged == 'L') RigSlotBoard();
             char PickSlotSymbol(double r, int i, int j)
             {
-                if (r < 22) return 'A';
-                else if (r < 44) return 'B';
-                else if (r < 52) return 'C';
-                else if (r < 66) return 'D';
-                else if (r < 78) return 'E';
-                else if (r < 84) return 'F';
-                else if (r < 89) return 'G';
-                else if (r < 92) return 'H';
-                else if (r < 95) return 'I';
+                if (r < 15) return 'A';
+                else if (r < 30) return 'B';
+                else if (r < 40) return 'C';
+                else if (r < 50) return 'D';
+                else if (r < 65) return 'E';
+                else if (r < 72.5) return 'F';
+                else if (r < 80) return 'G';
+                else if (r < 86) return 'H';
+                else if (r < 92) return 'I';
                 else if (r < 97) return 'J';
-                else if (r < 98.5) return WILD;
-                else if (r < (j <= 2 ? 99 : 99.5)) { if (!ex.Contains(j)) { return EXPANDER; } else return WILD; }
+                else if (r < 97.5) return WILD;
+                else if (r < (j <= 2 ? 98.25 : 98.5)) { if (!ex.Contains(j)) { return EXPANDER; } else return WILD; }
                 else
                 {
                     if (fc < 5)

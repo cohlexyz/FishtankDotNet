@@ -1,3 +1,5 @@
+*.sqlite
+*.db
 # Common IntelliJ Platform excludes
 
 # User specific

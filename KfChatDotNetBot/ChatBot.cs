@@ -41,6 +41,7 @@ public class ChatBot
     private List<ScheduledAutoDeleteModel> _scheduledDeletions = [];
     private Task _scheduledAutoDeleteTask;
     private List<UserModel> _currentUsersInChat = [];
+    private readonly object _currentUsersInChatLock = new();
     private HomoglyphSearch? _homoglyphSearch;
     public int IncomingMessageCounter { get; set; } = 0;
     internal readonly ConcurrentDictionary<int, DateTimeOffset> ActiveTimeouts = new();
@@ -56,10 +57,11 @@ public class ChatBot
         _kfDeadBotDetection = KfDeadBotDetectionTask();
         var settings = SettingsProvider.GetMultipleValuesAsync([
             BuiltIn.Keys.KiwiFarmsWsEndpoint, BuiltIn.Keys.KiwiFarmsDomain,
-            BuiltIn.Keys.Proxy, BuiltIn.Keys.KiwiFarmsWsReconnectTimeout]).Result;
+            BuiltIn.Keys.KiwiFarmsProxy]).Result;
 
         _kfTokenService = new KfTokenService(settings[BuiltIn.Keys.KiwiFarmsDomain].Value!,
-            settings[BuiltIn.Keys.Proxy].Value, _cancellationToken);
+            settings[BuiltIn.Keys.KiwiFarmsProxy].Value, _cancellationToken);
+
 
         if (_kfTokenService.GetCookies().Count == 0)
         {
@@ -79,8 +81,7 @@ public class ChatBot
             WsUri = new Uri(settings[BuiltIn.Keys.KiwiFarmsWsEndpoint].Value ?? throw new InvalidOperationException($"{BuiltIn.Keys.KiwiFarmsWsEndpoint} cannot be null")),
             Cookies = _kfTokenService.GetCookies(),
             CookieDomain = settings[BuiltIn.Keys.KiwiFarmsDomain].Value ?? throw new InvalidOperationException($"{BuiltIn.Keys.KiwiFarmsDomain} cannot be null"),
-            Proxy = settings[BuiltIn.Keys.Proxy].Value,
-            ReconnectTimeout = settings[BuiltIn.Keys.KiwiFarmsWsReconnectTimeout].ToType<int>()
+            Proxy = settings[BuiltIn.Keys.KiwiFarmsProxy].Value
         });
 
         _logger.Debug("Creating bot command instance");
@@ -140,8 +141,8 @@ public class ChatBot
             _logger.Error("Caught an exception while trying to refresh the XF token");
             _logger.Error(e);
         }
-        _logger.Info("Retrieved fresh token. Reconnecting.");
-        KfClient.ReconnectAsync().Wait(_cancellationToken);
+        _logger.Info("Retrieved fresh token. Recreating WS client.");
+        RecreateKfClientAsync().Wait(_cancellationToken);
         _logger.Info("Client should be reconnecting now");
     }
 
@@ -161,13 +162,14 @@ public class ChatBot
                 _logger.Info("Not pinging the connection as we're currently disconnected");
             }
             var inactivityTime = DateTime.UtcNow - KfClient.LastPacketReceived;
+            var lastReconnect = DateTime.UtcNow - _lastReconnectAttempt;
+
             _logger.Debug($"Last KF event was {inactivityTime:g} ago");
             var inactivityTimeout = (await SettingsProvider.GetValueAsync(BuiltIn.Keys.KiwiFarmsInactivityTimeout)).ToType<int>();
-            if (inactivityTime.TotalSeconds > inactivityTimeout)
+            if (inactivityTime.TotalSeconds > inactivityTimeout && lastReconnect.TotalMinutes > 1)
             {
-                _kfTokenService.WipeCookies();
-                RefreshXfToken().Wait(_cancellationToken);
-                KfClient.ReconnectAsync().Wait(_cancellationToken);
+                _logger.Error("Forcing reconnect as bot is completely dead");
+                await RecreateKfClientAsync();
             }
         }
     }
@@ -189,22 +191,9 @@ public class ChatBot
                 _logger.Error($"IsConnected() -> {KfClient.IsConnected()}");
                 _logger.Error($"inactivityTime -> {inactivityTime:g}");
                 _logger.Error($"deadTime -> {deadTime:g}");
-                _kfTokenService.WipeCookies();
-                RefreshXfToken().Wait(_cancellationToken);
-                KfClient.ReconnectAsync().Wait(_cancellationToken);
-                if (shouldExit)
-                {
-                    _logger.Error("Exiting as BotExitOnDeath is enabled");
-                    System.Environment.Exit(-1);
-                }
-            }
-
-            if (!_currentUsersInChat.Any(u => u.Id == 205609) && _currentUsersInChat.Count != 0)
-            {
-                _logger.Error("Bot no longer in user list, token is probably invalid. Forcing reconnect to hopefully fix it");
-                _kfTokenService.WipeCookies();
-                RefreshXfToken().Wait(_cancellationToken);
-                KfClient.ReconnectAsync().Wait(_cancellationToken);
+                if (shouldExit) Environment.Exit(1);
+                _logger.Error("Since we didn't exit, let's try forcing a reconnect");
+                await RecreateKfClientAsync();
             }
         }
     }
@@ -698,6 +687,33 @@ public class ChatBot
     }
 
     /// <summary>
+    /// Exposes the private task used to delete messages based on a TimeSpan in case you want to use it on-demand
+    /// e.g. for cleaning up a gambling message only after the game has finished
+    /// </summary>
+    /// <param name="messageUuid">The message you want to delete where you only have a message UUID
+    /// NOTE: The bot doesn't check against its sent message tracker, so you can use this with messages
+    /// the bot was not responsible for sending or were lost due to a restart.</param>
+    /// <param name="deleteAfter">When you want it deleted</param>
+    public void ScheduleMessageAutoDelete(string messageUuid, TimeSpan deleteAfter)
+    {
+        _scheduledDeletions.Add(new ScheduledAutoDeleteModel
+        {
+            Message = new SentMessageTrackerModel
+            {
+                ChatMessageUuid = messageUuid,
+                Delay = TimeSpan.Zero,
+                LastEdited = DateTimeOffset.UtcNow,
+                Message = "placeholder because I'm nigger rigging this shit big time",
+                Reference = Guid.NewGuid().ToString(),
+                SentAt = DateTimeOffset.UtcNow,
+                Status = SentMessageTrackerStatus.ResponseReceived,
+                Type = SentMessageType.ChatMessage
+            },
+            DeleteAt = DateTimeOffset.UtcNow.Add(deleteAfter)
+        });
+    }
+
+    /// <summary>
     /// Non-async method which wraps the async method for sending a chat message
     /// </summary>
     /// <param name="message">The message you wish to send</param>
@@ -771,7 +787,10 @@ public class ChatBot
             .Result;
         _logger.Debug($"Received {users.Count} user join events");
         using var db = new ApplicationDbContext();
-        _currentUsersInChat.AddRange(users);
+        lock (_currentUsersInChatLock)
+        {
+            _currentUsersInChat.AddRange(users);
+        }
         if (users.Any(u => u.Id == 205609))
         {
             _logger.Info("Bot has joined the chat!");
@@ -818,7 +837,10 @@ public class ChatBot
 
     private void OnUsersParted(object sender, List<int> userIds)
     {
-        _currentUsersInChat.RemoveAll(u => userIds.Contains(u.Id));
+        lock (_currentUsersInChatLock)
+        {
+            _currentUsersInChat.RemoveAll(u => u is null || userIds.Contains(u.Id));
+        }
         var settings = SettingsProvider.GetMultipleValuesAsync([BuiltIn.Keys.GambaSeshUserId, BuiltIn.Keys.GambaSeshDetectEnabled])
             .Result;
         if (userIds.Contains(settings[BuiltIn.Keys.GambaSeshUserId].ToType<int>()) && settings[BuiltIn.Keys.GambaSeshDetectEnabled].ToBoolean())
@@ -869,12 +891,23 @@ public class ChatBot
         await db.SaveChangesAsync(_cancellationToken);
     }
 
+    private async Task RecreateKfClientAsync()
+    {
+        _lastReconnectAttempt = DateTime.UtcNow;
+        _logger.Info("Disposing and recreating the WS client");
+        KfClient.DisposeWsClient();
+        await KfClient.StartWsClient();
+    }
+
     private void OnKfWsDisconnected(object sender, DisconnectionInfo disconnectionInfo)
     {
         _logger.Error($"Sneedchat disconnected due to {disconnectionInfo.Type}");
         _logger.Error($"Close Status => {disconnectionInfo.CloseStatus}; Close Status Description => {disconnectionInfo.CloseStatusDescription}");
         _logger.Error(disconnectionInfo.Exception);
-        _currentUsersInChat.Clear();
+        lock (_currentUsersInChatLock)
+        {
+            _currentUsersInChat.Clear();
+        }
 
         if (disconnectionInfo.Type == DisconnectionType.Lost)
         {
@@ -889,9 +922,9 @@ public class ChatBot
             _logger.Info("Chat 203'd, getting a new token");
             _kfTokenService.WipeCookies();
             RefreshXfToken().Wait(_cancellationToken);
-            _logger.Info("Reconnecting");
-            KfClient.ReconnectAsync().Wait(_cancellationToken);
         }
+        _logger.Info("Recreating WS client after disconnect");
+        RecreateKfClientAsync().Wait(_cancellationToken);
     }
 
     private void OnKfWsReconnected(object sender, ReconnectionInfo reconnectionInfo)
@@ -907,7 +940,10 @@ public class ChatBot
 
     public UserModel? FindUserByName(string username)
     {
-        return _currentUsersInChat.FirstOrDefault(u => u.Username.Equals(username, StringComparison.CurrentCulture));
+        lock (_currentUsersInChatLock)
+        {
+            return _currentUsersInChat.FirstOrDefault(u => u?.Username.Equals(username, StringComparison.CurrentCulture) == true);
+        }
     }
 
     public IEnumerable<RecentChatMessageModel> GetRecentMessagesByUser(string username)

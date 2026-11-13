@@ -11,6 +11,9 @@ namespace KickWsClient;
 
 public class KickWsClient : IDisposable
 {
+    public const string DefaultPusherUri =
+        "wss://ws-us2.pusher.com/app/34bf7a0ff419a2a775b9?protocol=7&client=js&version=7.6.0&flash=false";
+
     public event EventHandlers.OnPusherConnectionEstablishedEventHandler? OnPusherConnectionEstablished;
     public event EventHandlers.OnPusherSubscriptionSucceededEventHandler? OnPusherSubscriptionSucceeded;
     public event EventHandlers.OnPusherPongEventHandler? OnPusherPong;
@@ -42,8 +45,7 @@ public class KickWsClient : IDisposable
     private readonly CancellationTokenSource _pingCts = new();
 
     public KickWsClient(
-        string kickPusherUri =
-            "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=7.6.0&flash=false",
+        string kickPusherUri = DefaultPusherUri,
         string? proxy = null, int reconnectTimeout = 30, bool reconnectionEnabled = true)
     {
         _kickPusherUri = new Uri(kickPusherUri);
@@ -89,7 +91,7 @@ public class KickWsClient : IDisposable
         _logger.Debug("Websocket client started!");
         return client;
     }
-    
+
     public bool IsConnected()
     {
         return _wsClient is { IsRunning: true };
@@ -102,7 +104,7 @@ public class KickWsClient : IDisposable
         _logger.Error(disconnectionInfo.Exception);
         OnWsDisconnection?.Invoke(this, disconnectionInfo);
     }
-    
+
     private void WsReconnection(ReconnectionInfo reconnectionInfo)
     {
         _logger.Error($"Websocket connection dropped and reconnected. Reconnection type is {reconnectionInfo.Type}");
@@ -121,11 +123,11 @@ public class KickWsClient : IDisposable
     /// <param name="data">Event data</param>
     public void SendPusherPacket(string eventName, object data)
     {
-        var pkt = new PusherModels.BasePusherRequestModel { Event = eventName, Data = data};
+        var pkt = new PusherModels.BasePusherRequestModel { Event = eventName, Data = data };
         var json = JsonSerializer.Serialize(pkt);
         _logger.Debug("Sending message to Pusher");
         _logger.Debug(json);
-        _wsClient?.Send(json); 
+        _wsClient?.Send(json);
     }
 
     /// <summary>
@@ -135,7 +137,7 @@ public class KickWsClient : IDisposable
     {
         SendPusherPacket("pusher:ping", new object());
     }
-    
+
     private async Task PingTimer()
     {
         using var timer = new PeriodicTimer(_pingInterval);
@@ -161,7 +163,7 @@ public class KickWsClient : IDisposable
         var subPacket = new PusherModels.PusherSubscribeRequestModel { Auth = auth, Channel = channel };
         SendPusherPacket("pusher:subscribe", subPacket);
     }
-    
+
     /// <summary>
     /// Send pusher unsubscribe packet to unsub from a channel or chatroom. Expect no response
     /// </summary>
@@ -201,93 +203,96 @@ public class KickWsClient : IDisposable
             _logger.Error("--- /end of message ---");
             return;
         }
-        
+
         _logger.Debug($"Pusher event receievd: {pusherMsg.Event}");
 
         switch (pusherMsg.Event)
         {
             case "pusher:connection_established":
-            {
-                var data =
-                    JsonSerializer.Deserialize<PusherModels.PusherConnectionEstablishedEventModel>(pusherMsg.Data, options);
-                OnPusherConnectionEstablished?.Invoke(this, data);
-                if (_pingTask != null) return;
-                _pingTask = Task.Run(PingTimer);
-                _logger.Debug("Started ping timer");
-                return;
-            }
+                {
+                    var data =
+                        JsonSerializer.Deserialize<PusherModels.PusherConnectionEstablishedEventModel>(pusherMsg.Data, options);
+                    OnPusherConnectionEstablished?.Invoke(this, data);
+                    if (_pingTask != null) return;
+                    _pingTask = Task.Run(PingTimer);
+                    _logger.Debug("Started ping timer");
+                    return;
+                }
             case "pusher_internal:subscription_succeeded":
                 OnPusherSubscriptionSucceeded?.Invoke(this, pusherMsg);
                 return;
             case "pusher:pong":
                 OnPusherPong?.Invoke(this, pusherMsg);
                 return;
+            case "pusher:error":
+                _logger.Error($"Pusher returned an error: {pusherMsg.Data}");
+                return;
             case @"App\Events\FollowersUpdated":
-            {
-                var data = JsonSerializer.Deserialize<KickModels.FollowersUpdatedEventModel>(pusherMsg.Data, options);
-                OnFollowersUpdated?.Invoke(this, data);
-                return;
-            }
+                {
+                    var data = JsonSerializer.Deserialize<KickModels.FollowersUpdatedEventModel>(pusherMsg.Data, options);
+                    OnFollowersUpdated?.Invoke(this, data);
+                    return;
+                }
             case @"App\Events\ChatMessageEvent":
-            {
-                var data = JsonSerializer.Deserialize<KickModels.ChatMessageEventModel>(pusherMsg.Data, options);
-                OnChatMessage?.Invoke(this, data);
-                return;
-            }
+                {
+                    var data = JsonSerializer.Deserialize<KickModels.ChatMessageEventModel>(pusherMsg.Data, options);
+                    OnChatMessage?.Invoke(this, data);
+                    return;
+                }
             case @"App\Events\ChannelSubscriptionEvent":
-            {
-                var data = JsonSerializer.Deserialize<KickModels.ChannelSubscriptionEventModel>(pusherMsg.Data, options);
-                OnChannelSubscription?.Invoke(this, data);
-                return;
-            }
+                {
+                    var data = JsonSerializer.Deserialize<KickModels.ChannelSubscriptionEventModel>(pusherMsg.Data, options);
+                    OnChannelSubscription?.Invoke(this, data);
+                    return;
+                }
             case @"App\Events\SubscriptionEvent":
-            {
-                var data = JsonSerializer.Deserialize<KickModels.SubscriptionEventModel>(pusherMsg.Data, options);
-                OnSubscription?.Invoke(this, data);
-                return;
-            }
+                {
+                    var data = JsonSerializer.Deserialize<KickModels.SubscriptionEventModel>(pusherMsg.Data, options);
+                    OnSubscription?.Invoke(this, data);
+                    return;
+                }
             case @"App\Events\MessageDeletedEvent":
-            {
-                var data = JsonSerializer.Deserialize<KickModels.MessageDeletedEventModel>(pusherMsg.Data, options);
-                OnMessageDeleted?.Invoke(this, data);
-                return;
-            }
+                {
+                    var data = JsonSerializer.Deserialize<KickModels.MessageDeletedEventModel>(pusherMsg.Data, options);
+                    OnMessageDeleted?.Invoke(this, data);
+                    return;
+                }
             case @"App\Events\UserBannedEvent":
-            {
-                var data = JsonSerializer.Deserialize<KickModels.UserBannedEventModel>(pusherMsg.Data, options);
-                OnUserBanned?.Invoke(this, data);
-                return;
-            }
+                {
+                    var data = JsonSerializer.Deserialize<KickModels.UserBannedEventModel>(pusherMsg.Data, options);
+                    OnUserBanned?.Invoke(this, data);
+                    return;
+                }
             case @"App\Events\UserUnbannedEvent":
-            {
-                var data = JsonSerializer.Deserialize<KickModels.UserUnbannedEventModel>(pusherMsg.Data, options);
-                OnUserUnbanned?.Invoke(this, data);
-                return;
-            }
+                {
+                    var data = JsonSerializer.Deserialize<KickModels.UserUnbannedEventModel>(pusherMsg.Data, options);
+                    OnUserUnbanned?.Invoke(this, data);
+                    return;
+                }
             case @"App\Events\LiveStream\UpdatedLiveStreamEvent":
-            {
-                var data = JsonSerializer.Deserialize<KickModels.UpdatedLiveStreamEventModel>(pusherMsg.Data, options);
-                OnUpdatedLiveStream?.Invoke(this, data);
-                return;
-            }
+                {
+                    var data = JsonSerializer.Deserialize<KickModels.UpdatedLiveStreamEventModel>(pusherMsg.Data, options);
+                    OnUpdatedLiveStream?.Invoke(this, data);
+                    return;
+                }
             case @"App\Events\StopStreamBroadcast":
-            {
-                var data = JsonSerializer.Deserialize<KickModels.StopStreamBroadcastEventModel>(pusherMsg.Data, options);
-                OnStopStreamBroadcast?.Invoke(this, data);
-                return;
-            }
+                {
+                    var data = JsonSerializer.Deserialize<KickModels.StopStreamBroadcastEventModel>(pusherMsg.Data, options);
+                    OnStopStreamBroadcast?.Invoke(this, data);
+                    return;
+                }
             case @"App\Events\StreamerIsLive":
-            {
-                var data = JsonSerializer.Deserialize<KickModels.StreamerIsLiveEventModel>(pusherMsg.Data, options);
-                OnStreamerIsLive?.Invoke(this, data);
-                return;
-            }
+                {
+                    var data = JsonSerializer.Deserialize<KickModels.StreamerIsLiveEventModel>(pusherMsg.Data, options);
+                    OnStreamerIsLive?.Invoke(this, data);
+                    return;
+                }
             case @"App\Events\PollUpdateEvent":
-            {
-                var data = JsonSerializer.Deserialize<KickModels.PollUpdateEventModel>(pusherMsg.Data, options);
-                OnPollUpdate?.Invoke(this, data);
-                return;
-            }
+                {
+                    var data = JsonSerializer.Deserialize<KickModels.PollUpdateEventModel>(pusherMsg.Data, options);
+                    OnPollUpdate?.Invoke(this, data);
+                    return;
+                }
             default:
                 _logger.Info("Event unhandled. JSON payload follows");
                 _logger.Info(message.Text);

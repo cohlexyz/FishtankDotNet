@@ -59,7 +59,12 @@ public class XeetEmbedCommand : ICommand
         var loadingMessage = await botInstance.SendChatMessageAsync($"{LoadingGif} Fetching tweet...", true);
 
         var success = await botInstance.WaitForChatMessageAsync(loadingMessage, TimeSpan.FromSeconds(10), ctx);
-        if (!success) throw new InvalidOperationException();
+        if (!success)
+        {
+            // The loading message is cosmetic. Don't abort the embed just because it wasn't echoed in time
+            // (chat lag, GambaSesh suppression, lost message). Cleanup below is null-guarded on ChatMessageUuid.
+            Logger.Warn($"Loading message was not echoed (status: {loadingMessage.Status}), continuing without it");
+        }
 
         try
         {
@@ -252,7 +257,7 @@ public class XeetEmbedCommand : ICommand
 
             var ffmpegPath = await SettingsProvider.GetValueAsync(BuiltIn.Keys.FFmpegBinaryPath);
 
-            var ffmpegArgs = $"-i \"{tempVideoPath}\" -vf \"fps=10,scale='min(640,iw)':'min(480,ih)':force_original_aspect_ratio=decrease\" -c:v libwebp -lossless 0 -quality 75 -loop 0 -an \"{tempWebpPath}\"";
+            var ffmpegArgs = $"-i \"{tempVideoPath}\" -vf \"fps=20,scale='min(640,iw)':'min(480,ih)':force_original_aspect_ratio=decrease\" -c:v libwebp -threads 4 -lossless 0 -quality 75 -loop 0 -an \"{tempWebpPath}\"";
 
             var processInfo = new ProcessStartInfo
             {
@@ -355,12 +360,12 @@ public class XeetEmbedCommand : ICommand
             {
                 bodyBuilder.Append("[/spoiler]");
             }
+            bodyBuilder.Append("[br]");
         }
 
         // Handle quote tweet (if this tweet quotes another)
         if (tweet.Quote != null)
         {
-            bodyBuilder.Append("[br]");
             var quoteTweet = tweet.Quote;
             var quoteCreated = DateTimeOffset.FromUnixTimeSeconds(quoteTweet.CreatedTimestamp);
             bodyBuilder.Append($"[i]💬 Quoting:[/i][br]");

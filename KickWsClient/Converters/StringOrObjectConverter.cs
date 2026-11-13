@@ -17,10 +17,14 @@ public class StringOrObjectConverter<T> : JsonConverter<T>
         {
             return (T)(object)reader.GetString()!;
         }
-        else
+
+        if (reader.TokenType == JsonTokenType.Null)
         {
-            return JsonSerializer.Deserialize<T>(ref reader, options)!;
+            return (T)(object)string.Empty;
         }
+
+        using var document = JsonDocument.ParseValue(ref reader);
+        return (T)(object)document.RootElement.GetRawText();
     }
 
     public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
