@@ -102,10 +102,10 @@ public class XeetEmbedCommand : ICommand
             {
                 await botInstance.SendChatMessageAsync(msg, true);
             }
-            // send archive link message
-            var url = $"https://nitter.net/{tweet.Author.ScreenName}/status/{xeetId}";
-            await botInstance.SendChatMessageAsync(
-                $"[url=https://archive.is/submit/?url={url}]Archive Xeet on archive.is[/url]", true);
+            // send archive link message. shit doesn't work
+            // var url = $"https://nitter.net/{tweet.Author.ScreenName}/status/{xeetId}";
+            //await botInstance.SendChatMessageAsync(
+            //    $"[url=https://archive.is/submit/?url={url}]Archive Xeet on archive.is[/url]", true);
         }
         catch
         {
@@ -377,7 +377,7 @@ public class XeetEmbedCommand : ICommand
 
         // Build footer (stats + links) - this will always be on the last message
         footerBuilder.Append($"💬 {tweet.Replies:N0} 🔁 {tweet.Retweets:N0} ❤️ {tweet.Likes:N0} 👁️ {tweet.Views:N0}[br]");
-        footerBuilder.Append($"[url={tweet.Url}]X.com[/url] | [url=https://xcancel.com/{tweet.Author.ScreenName}/status/{xeetId}]Xcancel[/url]");
+        footerBuilder.Append($"[url={tweet.Url}]X.com[/url] | [url=https://fishtank.observer/x//{tweet.Author.ScreenName}/status/{xeetId}]Nitter[/url]");
 
         // Split message if needed, with header always first and footer always last
         var messages = (header + bodyBuilder + footerBuilder).FancySplitMessage();
