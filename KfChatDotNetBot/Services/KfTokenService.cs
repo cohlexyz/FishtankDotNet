@@ -45,7 +45,9 @@ public class KfTokenService
         return handler;
     }
 
-    private async Task GetNewClearanceToken()
+    /// <param name="expireExisting">Throw away any clearance already in the jar first. False when chaining onto a
+    /// challenge we just solved, since the next step may expect the earlier clearance to still be there</param>
+    private async Task GetNewClearanceToken(bool expireExisting = true)
     {
         _logger.Debug("Getting a new clearance token");
         var i = 0;
@@ -56,7 +58,7 @@ public class KfTokenService
             try
             {
                 // A stale clearance hanging around in the jar can get sent alongside (or instead of) the new one
-                ExpireCookies("ttrs_clearance", "sssg_clearance");
+                if (expireExisting) ExpireCookies("ttrs_clearance", "sssg_clearance");
                 var challenge = await _kiwiFlare.GetChallenge(_cookies);
                 if (challenge == null)
                 {
@@ -100,20 +102,62 @@ public class KfTokenService
         var response = await client.GetAsync($"https://{_kfDomain}/login", _ctx);
         response.EnsureSuccessStatusCode();
         var content = await response.Content.ReadAsStringAsync(_ctx);
-        if (response.StatusCode == HttpStatusCode.NonAuthoritativeInformation)
+        // TTRS can chain challenges (the page carries data-ttrs-steps), so a 203 straight after solving one may just be
+        // the next one rather than our clearance being refused
+        const int maxChallenges = 3;
+        var solved = 0;
+        while (response.StatusCode == HttpStatusCode.NonAuthoritativeInformation)
         {
-            _logger.Info("Caught a 203 response when trying to load the logon page which means we have to solve a KiwiFlare challenge");
-            await GetNewClearanceToken();
-            _logger.Info("Solved the challenge, now going to grab the login page again");
-            response = await client.GetAsync($"https://{_kfDomain}/login", _ctx);
-            content = await response.Content.ReadAsStringAsync(_ctx);
-            if (response.StatusCode == HttpStatusCode.NonAuthoritativeInformation)
+            DescribeChallengePage(response, content, solved);
+            if (solved >= maxChallenges)
             {
                 var sent = string.Join(", ", _cookies.GetCookies(new Uri($"https://{_kfDomain}/login")).Select(c => c.Name));
-                _logger.Error($"Still getting a 203 after solving the challenge, the clearance isn't being accepted. Cookies sent: {sent}");
+                _logger.Error($"Still getting a 203 after solving {solved} challenge(s), giving up. Cookies sent: {sent}");
+                break;
             }
+
+            _logger.Info("Caught a 203 response when trying to load the logon page which means we have to solve a KiwiFlare challenge");
+            await GetNewClearanceToken(expireExisting: solved == 0);
+            solved++;
+            _logger.Info($"Solved challenge {solved}, now going to grab the login page again");
+            response = await client.GetAsync($"https://{_kfDomain}/login", _ctx);
+            content = await response.Content.ReadAsStringAsync(_ctx);
         }
         return content;
+    }
+
+    /// <summary>
+    /// Log what a 203 page actually is: a fresh challenge (and which step), or some kind of refusal
+    /// </summary>
+    private void DescribeChallengePage(HttpResponseMessage response, string content, int alreadySolved)
+    {
+        try
+        {
+            var document = new HtmlDocument();
+            document.LoadHtml(content);
+            var html = document.DocumentNode.SelectSingleNode("//html");
+            var attrs = html == null
+                ? "no html element"
+                : string.Join(" ", html.Attributes.Where(a => a.Name.StartsWith("data-") || a.Name == "id").Select(a => $"{a.Name}=\"{a.Value}\""));
+            foreach (var node in document.DocumentNode.SelectNodes("//script|//style") ?? Enumerable.Empty<HtmlNode>())
+            {
+                node.Remove();
+            }
+
+            var text = HtmlEntity.DeEntitize(string.Join(' ', document.DocumentNode.InnerText.Split((char[]) [' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries)));
+            if (text.Length > 600) text = text[..600];
+            var headers = string.Join("; ", response.Headers.Where(h => h.Key.Contains("ttrs", StringComparison.OrdinalIgnoreCase) ||
+                                                                      h.Key.StartsWith("x-", StringComparison.OrdinalIgnoreCase))
+                .Select(h => $"{h.Key}: {string.Join(",", h.Value)}"));
+            _logger.Info($"203 page after {alreadySolved} solved challenge(s): {attrs}");
+            _logger.Info($"203 page headers: {(headers.Length == 0 ? "none of interest" : headers)}");
+            _logger.Info($"203 page text: {text}");
+        }
+        catch (Exception e)
+        {
+            _logger.Error("Failed to describe the 203 page");
+            _logger.Error(e);
+        }
     }
 
     private void ExpireCookies(params string[] names)
