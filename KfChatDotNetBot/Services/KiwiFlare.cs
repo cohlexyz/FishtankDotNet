@@ -170,20 +170,44 @@ public class KiwiFlare(string kfDomain, string? proxy = null, CancellationToken?
         });
 
         var response = await client.PostAsync($"https://{kfDomain}/.ttrs/challenge", formData, _ctx);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>(_ctx);
-        var success = json.GetProperty("success").GetBoolean();
-        if (!success)
+        var body = await response.Content.ReadAsStringAsync(_ctx);
+        _logger.Debug($"ttrs answer response: {(int)response.StatusCode} {body}");
+
+        // The clearance cookie is what actually matters. The JSON body's shape has changed before (no more
+        // "success" property) so don't depend on it, only use it to explain a failure
+        var token = container.GetCookies(new Uri($"https://{kfDomain}/"))["ttrs_clearance"]?.Value;
+        if (string.IsNullOrEmpty(token) && response.Headers.TryGetValues("Set-Cookie", out var setCookies))
         {
-            var reason = json.GetProperty("reason").GetString();
-            _logger.Error($"ttrs didn't accept our solution with reason: {reason}");
-            throw new Exception($"ttrs didn't accept our solution with reason: {reason}");
+            _logger.Debug($"Set-Cookie header -> {JsonSerializer.Serialize(setCookies)}");
+            var header = setCookies.FirstOrDefault(h => h.Contains("ttrs_clearance="));
+            token = header?.Split("ttrs_clearance=")[1].Split(';')[0];
         }
 
-        _logger.Debug($"Set-Cookie header -> {JsonSerializer.Serialize(response.Headers.GetValues("Set-Cookie"))}");
-        var header = response.Headers.GetValues("Set-Cookie").First();
-        var token = $"{header.Split("ttrs_clearance=")[1].Split("; ")[0]}";
-        _logger.Debug($"Parsed token from the header: {token}");
-        return token;
+        if (!string.IsNullOrEmpty(token))
+        {
+            _logger.Debug($"Parsed ttrs_clearance token: {token}");
+            return token;
+        }
+
+        string? reason = null;
+        try
+        {
+            var json = JsonSerializer.Deserialize<JsonElement>(body);
+            if (json.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var key in (string[])["reason", "error", "message"])
+                {
+                    if (json.TryGetProperty(key, out var value)) { reason = value.ToString(); break; }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Not JSON, the raw body goes in the exception below
+        }
+
+        _logger.Error($"ttrs didn't give us a clearance cookie. Status {(int)response.StatusCode}, reason: {reason ?? "none given"}, body: {body}");
+        throw new Exception($"ttrs didn't accept our solution (HTTP {(int)response.StatusCode}): {reason ?? body}");
     }
 }
 
