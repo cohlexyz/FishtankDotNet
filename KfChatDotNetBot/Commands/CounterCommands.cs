@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
 using KfChatDotNetBot.Services;
-using KfChatDotNetWsClient.Models.Events;
 using Microsoft.EntityFrameworkCore;
 
 namespace KfChatDotNetBot.Commands;

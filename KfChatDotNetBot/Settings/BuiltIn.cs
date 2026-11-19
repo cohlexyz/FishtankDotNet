@@ -134,12 +134,22 @@ public static class BuiltIn
     {
         [BuiltInSetting("Pusher endpoint for Kick", SettingValueType.Text, KickWsClient.KickWsClient.DefaultPusherUri)]
         public static string PusherEndpoint = "Pusher.Endpoint";
-        [BuiltInSetting(description: "Kiwi Farms chat WebSocket endpoint", defaultValue: "wss://kiwifarms.st:9443/chat.ws",
+        [Obsolete]
+        [BuiltInSetting(description: "LEGACY (Sneedchat), no longer used. Kiwi Farms chat WebSocket endpoint", defaultValue: "wss://kiwifarms.st:9443/chat.ws",
             valueType: SettingValueType.Text)]
         public static string KiwiFarmsWsEndpoint = "KiwiFarms.WsEndpoint";
-        [BuiltInSetting("Kiwi Farms Room ID for the Keno Kasino", SettingValueType.Text, "15",
+        [Obsolete]
+        [BuiltInSetting("LEGACY (Sneedchat), no longer used. Kiwi Farms Room ID for the Keno Kasino", SettingValueType.Text, "15",
             WholeNumberRegex)]
         public static string KiwiFarmsRoomId = "KiwiFarms.RoomId";
+        [BuiltInSetting("Ephyra chat endpoint, the public root of the chat host before /v1. " +
+                        "The WebSocket is derived from this (e.g. wss://kiwifarms.st/chat/v1/connect)", SettingValueType.Text,
+            "https://kiwifarms.st/chat")]
+        public static string KiwiFarmsChatEndpoint = "KiwiFarms.ChatEndpoint";
+        [BuiltInSetting("Ephyra room UUID for the Keno Kasino. The bot won't join anything until this is set. " +
+                        "When it's null the bot logs the rooms the chat host lists on startup", SettingValueType.Text,
+            regex: "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")]
+        public static string KiwiFarmsRoomUuid = "KiwiFarms.RoomUuid";
         [BuiltInSetting("Proxy to use for all outgoing requests. null to disable", SettingValueType.Text)]
         public static string Proxy = "Proxy";
         [BuiltInSetting("Kiwi Farms chat reconnect timeout", SettingValueType.Text, "30", WholeNumberRegex)]
@@ -220,8 +230,8 @@ public static class BuiltIn
         [BuiltInSetting("Length of time the client can go without receiving ANY packets from Sneedchat before " +
                         "forcing a reconnect.", SettingValueType.Text, "300", WholeNumberRegex)]
         public static string KiwiFarmsInactivityTimeout = "KiwiFarms.InactivityTimeout";
-        [BuiltInSetting("Interval in seconds to ping Sneedchat using the non-existent /ping command. " +
-                        "Note this affects how often the bot will check inactivity of the connection", SettingValueType.Text,
+        [BuiltInSetting("Interval in seconds between checks for inactivity of the chat connection. " +
+                        "(The Ephyra client does the actual pinging itself now)", SettingValueType.Text,
             "10", WholeNumberRegex)]
         public static string KiwiFarmsPingInterval = "KiwiFarms.PingInterval";
         [BuiltInSetting("FuckUpMode. 0 = Min, 1 = Normal, 2 = Max", SettingValueType.Text,
@@ -234,7 +244,7 @@ public static class BuiltIn
         [BuiltInSetting("Limit of messages which could not be sent while bot was disconnect to replay on connect",
             SettingValueType.Text, "10", WholeNumberRegex)]
         public static string BotDisconnectReplayLimit = "Bot.DisconnectReplayLimit";
-        [BuiltInSetting("Limit of times to fail joining the room before wiping cookies", SettingValueType.Text,
+        [BuiltInSetting("Limit of times to fail getting a chat session before wiping cookies", SettingValueType.Text,
             "2", WholeNumberRegex)]
         public static string KiwiFarmsJoinFailLimit = "KiwiFarms.JoinFailLimit";
         [BuiltInSetting("ISO8601 date of Bossman's sobriety", SettingValueType.Text,
@@ -378,6 +388,11 @@ public static class BuiltIn
         public static string KiwiPeerTubeEnforceWhitelist = "KiwiPeerTube.EnforceWhitelist";
         [BuiltInSetting("Interval in seconds for checking if the bot is completely dead", SettingValueType.Text, "15", WholeNumberRegex)]
         public static string BotDeadBotDetectionInterval = "Bot.DeadBotDetectionInterval";
+        [BuiltInSetting("How long in seconds the bot has to be out of action (disconnected, not in the room or not " +
+                        "processing events) before it's declared dead. Ordinary reconnects can take a couple of " +
+                        "minutes, so going much below 180 will get a healthy bot killed.",
+            SettingValueType.Text, "900", WholeNumberRegex)]
+        public static string BotDeadBotThreshold = "Bot.DeadBotThreshold";
         [BuiltInSetting("Whether the bot should exit if it's dead and unrecoverable", SettingValueType.Boolean, "false", BooleanRegex)]
         public static string BotExitOnDeath = "Bot.ExitOnDeath";
         [BuiltInSetting("Whether to respond to Bossman impersonation", SettingValueType.Boolean, "true", BooleanRegex)]
@@ -587,7 +602,8 @@ public static class BuiltIn
         public static string ShuffleDotUsBmjVipLevel = "ShuffleDotUs.BmjVipLevel";
         [BuiltInSetting("Bossman's super secret user ID on .us", SettingValueType.Text, "e2faee09-8ebb-4a22-8793-59aefc8191e5")]
         public static string ShuffleDotUsBmjUserId = "ShuffleDotUs.BmjUserId";
-        [BuiltInSetting("UUID for the current MOTD message UUID", SettingValueType.Text)]
+        [Obsolete]
+        [BuiltInSetting("LEGACY (Sneedchat), no longer used as Ephyra has no MOTD. UUID for the current MOTD message UUID", SettingValueType.Text)]
         public static string KiwiFarmsMotdUuid = "KiwiFarms.MotdUuid";
         [BuiltInSetting("Message/min threshold to silence bot outputs", SettingValueType.Text, "5", WholeNumberRegex)]
         public static string OutputSilenceThreshold = "Bot.SilenceThreshold";

@@ -8,7 +8,6 @@ using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
 using KfChatDotNetBot.Services;
 using KfChatDotNetBot.Settings;
-using KfChatDotNetWsClient.Models.Events;
 using NLog;
 using StackExchange.Redis;
 

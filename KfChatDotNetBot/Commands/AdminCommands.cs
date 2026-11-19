@@ -6,7 +6,6 @@ using KfChatDotNetBot.Extensions;
 using KfChatDotNetBot.Models;
 using KfChatDotNetBot.Models.DbModels;
 using KfChatDotNetBot.Settings;
-using KfChatDotNetWsClient.Models.Events;
 using Microsoft.EntityFrameworkCore;
 
 namespace KfChatDotNetBot.Commands;
@@ -96,7 +95,7 @@ public class SetRoleCommand : ICommand
 
         targetUser.UserRight = role;
         await db.SaveChangesAsync(ctx);
-        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, {targetUser.KfUsername}'s role set to {role.Humanize()}", true);
+        await botInstance.SendChatMessageAsync($"{message.Author.FormatUsername()}, {targetUser.KfUsername}'s role set to {role.Humanize()}", true);
     }
 }
 
@@ -584,7 +583,7 @@ public class SetAlmanacTextCommand : ICommand
         CancellationToken ctx)
     {
         await SettingsProvider.SetValueAsync(BuiltIn.Keys.BotAlmanacText, arguments["text"].Value);
-        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, updated text for the almanac shill", true);
+        await botInstance.SendChatMessageAsync($"{message.Author.FormatUsername()}, updated text for the almanac shill", true);
     }
 }
 
@@ -616,7 +615,7 @@ public class SetAlmanacIntervalCommand : ICommand
         }
         await botInstance.BotServices.AlmanacShill.StopShillTaskAsync();
         botInstance.BotServices.AlmanacShill.StartShillTask();
-        await botInstance.SendChatMessageAsync($"@{message.Author.Username}, updated interval and restarted the shill task", true);
+        await botInstance.SendChatMessageAsync($"{message.Author.FormatUsername()}, updated interval and restarted the shill task", true);
     }
 }
 public class StopAlmanacCommand : ICommand
@@ -733,8 +732,10 @@ public class SetMotd : ICommand
         // if we pin a message as MOTD, we want to disable the automatic MOTD updater so it doesn't override the pinned message
         await SettingsProvider.SetValueAsync(BuiltIn.Keys.StoxMotdEnabled, "false");
         var uuid = arguments["uuid"].Value;
-        await botInstance.SendChatMessageAsync($"/motd {uuid}", true);
-        await botInstance.ReplyToUser(message, $"{user.FormatUsername()}, set MOTD to {uuid}", true);
+        // Ephyra has no MOTD (and no slash commands, this would just get posted as a message for all to see)
+        // TODO: Remove this command, or rework it if an equivalent ever turns up
+        _ = uuid;
+        await botInstance.ReplyToUser(message, $"{user.FormatUsername()}, the new chat doesn't have MOTDs", true);
     }
 }
 

@@ -3,7 +3,6 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using KfChatDotNetWsClient;
 using KfChatDotNetBot;
 
 namespace KfChatDotNetBot.Models;
