@@ -30,9 +30,13 @@ public class KiwiFlare(string kfDomain, string? proxy = null, CancellationToken?
         return handler;
     }
 
-    public async Task<KiwiFlareChallengeModel?> GetChallenge()
+    /// <param name="cookies">Cookie jar to use. Pass the jar the rest of the bot uses so anything TTRS sets during
+    /// the challenge (not just the final clearance) carries over, the same way it would in a browser</param>
+    public async Task<KiwiFlareChallengeModel?> GetChallenge(CookieContainer? cookies = null)
     {
-        using var client = new HttpClient(GetHttpClientHandler());
+        var challengeHandler = GetHttpClientHandler();
+        if (cookies != null) challengeHandler.CookieContainer = cookies;
+        using var client = new HttpClient(challengeHandler);
         client.Timeout = TimeSpan.FromSeconds(10);
         var response = await client.GetAsync($"https://{kfDomain}/", _ctx);
         var document = new HtmlDocument();
@@ -156,10 +160,11 @@ public class KiwiFlare(string kfDomain, string? proxy = null, CancellationToken?
         throw new Exception($"Auth property was missing from sssg response: {json.GetRawText()}");
     }
 
-    public async Task<string> SubmitAnswerTtrs(KiwiFlareChallengeSolutionModel solution)
+    /// <param name="cookies">Cookie jar to use, see GetChallenge. A throwaway one is used if null</param>
+    public async Task<string> SubmitAnswerTtrs(KiwiFlareChallengeSolutionModel solution, CookieContainer? cookies = null)
     {
         var handler = GetHttpClientHandler();
-        var container = new CookieContainer();
+        var container = cookies ?? new CookieContainer();
         handler.CookieContainer = container;
         handler.AllowAutoRedirect = false;
         using var client = new HttpClient(handler);

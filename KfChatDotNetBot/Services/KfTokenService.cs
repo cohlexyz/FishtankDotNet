@@ -55,7 +55,9 @@ public class KfTokenService
             i++;
             try
             {
-                var challenge = await _kiwiFlare.GetChallenge();
+                // A stale clearance hanging around in the jar can get sent alongside (or instead of) the new one
+                ExpireCookies("ttrs_clearance", "sssg_clearance");
+                var challenge = await _kiwiFlare.GetChallenge(_cookies);
                 if (challenge == null)
                 {
                     _logger.Error("Challenge data was null. Might be KiwiFlare is only partially enabled? Not going to do anything.");
@@ -65,9 +67,14 @@ public class KfTokenService
                 string token;
                 if (challenge.IsTtrs)
                 {
-                    token = await _kiwiFlare.SubmitAnswerTtrs(solution);
-                    _cookies.Add(new Cookie("ttrs_clearance", token, "/", _kfDomain));
-
+                    // Runs in our own jar so every cookie TTRS sets along the way (bandwidth stage included) sticks
+                    // around with the attributes the server gave it, rather than just the clearance value
+                    token = await _kiwiFlare.SubmitAnswerTtrs(solution, _cookies);
+                    if (_cookies.GetCookies(new Uri($"https://{_kfDomain}/"))["ttrs_clearance"]?.Value != token)
+                    {
+                        _cookies.Add(new Cookie("ttrs_clearance", token, "/", _kfDomain));
+                    }
+                    _logger.Debug($"Cookies after solving: {string.Join(", ", _cookies.GetAllCookies().Where(c => !c.Expired).Select(c => $"{c.Name} ({c.Domain}{c.Path})"))}");
                 }
                 else
                 {
@@ -100,8 +107,21 @@ public class KfTokenService
             _logger.Info("Solved the challenge, now going to grab the login page again");
             response = await client.GetAsync($"https://{_kfDomain}/login", _ctx);
             content = await response.Content.ReadAsStringAsync(_ctx);
+            if (response.StatusCode == HttpStatusCode.NonAuthoritativeInformation)
+            {
+                var sent = string.Join(", ", _cookies.GetCookies(new Uri($"https://{_kfDomain}/login")).Select(c => c.Name));
+                _logger.Error($"Still getting a 203 after solving the challenge, the clearance isn't being accepted. Cookies sent: {sent}");
+            }
         }
         return content;
+    }
+
+    private void ExpireCookies(params string[] names)
+    {
+        foreach (Cookie cookie in _cookies.GetAllCookies())
+        {
+            if (names.Contains(cookie.Name)) cookie.Expired = true;
+        }
     }
 
     public async Task<bool> IsLoggedIn()
